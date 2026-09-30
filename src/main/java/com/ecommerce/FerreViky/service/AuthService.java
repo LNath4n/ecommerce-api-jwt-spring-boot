@@ -43,7 +43,7 @@ public class AuthService {
      */
     public AuthResponse login(LoginClienteDto dto) {
         authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(dto.email(), dto.password()));
-        Cliente user = clienteRepository.findByEmail(dto.email()).orElseThrow();
+        Cliente user = clienteRepository.findByEmail(dto.email()).orElseThrow(ClienteExceptions.CredencialesInvalidasException::new);
         String token = jwtService.getToken(user);
         return new AuthResponse(token);
     }

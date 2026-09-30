@@ -84,13 +84,13 @@ class ProductoServiceTest {
                 crearProductoFake()
         ));
 
-        when(productoRepository.findAll(pageable)).thenReturn(paginaFalsa);
+        when(productoRepository.findAllWithGrupo(pageable)).thenReturn(paginaFalsa);
 
         Page<ProductoPublicoResponse> resultado = productoService.obtenerTodos(pageable);
 
         assertNotNull(resultado);
         assertEquals(2, resultado.getTotalElements());
-        verify(productoRepository).findAll(pageable);
+        verify(productoRepository).findAllWithGrupo(pageable);
     }
 
     @Test
@@ -127,30 +127,31 @@ class ProductoServiceTest {
     @Test
     @DisplayName("obtenerTodosLosGrupos() → retorna página con los grupos encontrados")
     public void deberiaRetornarPaginaDeGrupos() {
-        Page<GrupoDeProductos> paginaFalsa = new PageImpl<>(List.of(
-                crearGrupoFake(),
-                crearGrupoFake()
-        ));
+        List<GrupoDeProductos> grupos = List.of(crearGrupoFake(), crearGrupoFake());
+        Page<GrupoDeProductos> paginaFalsa = new PageImpl<>(grupos);
 
-        when(grupoDeProductosRepository.findAll(pageable)).thenReturn(paginaFalsa);
+        when(grupoDeProductosRepository.findAllPaged(pageable)).thenReturn(paginaFalsa);
+        when(grupoDeProductosRepository.findWithEstilos(grupos)).thenReturn(grupos);
 
         Page<GruposDeProductosDTO.GrupoPublicoResponse> resultado = productoService.obtenerTodosLosGrupos(pageable);
 
         assertNotNull(resultado);
         assertEquals(2, resultado.getTotalElements());
-        verify(grupoDeProductosRepository).findAll(pageable);
+        verify(grupoDeProductosRepository).findAllPaged(pageable);
+        verify(grupoDeProductosRepository).findWithEstilos(grupos);
     }
 
     @Test
     @DisplayName("obtenerTodosLosGrupos() → retorna página vacía cuando no hay grupos registrados")
     public void deberiaRetornarPaginaVaciaDeGrupos() {
-        when(grupoDeProductosRepository.findAll(pageable)).thenReturn(Page.empty());
+        when(grupoDeProductosRepository.findAllPaged(pageable)).thenReturn(Page.empty());
+        when(grupoDeProductosRepository.findWithEstilos(List.of())).thenReturn(List.of());
 
         Page<GruposDeProductosDTO.GrupoPublicoResponse> resultado = productoService.obtenerTodosLosGrupos(pageable);
 
         assertNotNull(resultado);
         assertEquals(0, resultado.getTotalElements());
-        verify(grupoDeProductosRepository).findAll(pageable);
+        verify(grupoDeProductosRepository).findAllPaged(pageable);
     }
 
     @Test

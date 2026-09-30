@@ -12,6 +12,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -42,7 +43,7 @@ public class CarritoController {
     })
     @PostMapping
     public ResponseEntity<String> agregarCarrito(
-            @RequestBody AgregarCarrito dto,
+            @Valid @RequestBody AgregarCarrito dto,
             @AuthenticationPrincipal Cliente cliente) {
         carritoService.agregarOActualizar(dto, cliente);
         return ResponseEntity.ok("Producto agregado al carrito");

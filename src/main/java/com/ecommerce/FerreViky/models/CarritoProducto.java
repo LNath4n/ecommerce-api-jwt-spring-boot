@@ -8,10 +8,14 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Setter
-@Getter
-@AllArgsConstructor
-@NoArgsConstructor
+@Table(
+        name = "carrito_producto",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_carrito_producto",
+                columnNames = {"carrito_id", "producto_id"}
+        )
+)
+@Setter @Getter @AllArgsConstructor @NoArgsConstructor
 public class CarritoProducto {
 
     @Id
