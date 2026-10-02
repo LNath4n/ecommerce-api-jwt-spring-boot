@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.mapper.carrito;
 
-
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoProductoDTO;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.CarritoProducto;
 
@@ -10,8 +10,8 @@ import java.util.List;
 
 public class CarritoMappers {
 
-    public static CarritoDTO.CarritoProductoDTO toCarritoProductoDTO(CarritoProducto cp) {
-        return new CarritoDTO.CarritoProductoDTO(
+    public static CarritoProductoDTO toCarritoProductoDTO(CarritoProducto cp) {
+        return new CarritoProductoDTO(
                 cp.getProducto().getId(),
                 cp.getProducto().getDescripcion(),
                 cp.getProducto().getClave(),
@@ -20,8 +20,8 @@ public class CarritoMappers {
         );
     }
 
-    public static CarritoDTO.CarritoResponseDTO toCarritoResponseDTO(Carrito carrito) {
-        List<CarritoDTO.CarritoProductoDTO> productos = carrito.getProductos().stream()
+    public static CarritoResponseDTO toCarritoResponseDTO(Carrito carrito) {
+        List<CarritoProductoDTO> productos = carrito.getProductos().stream()
                 .map(CarritoMappers::toCarritoProductoDTO)
                 .toList();
 
@@ -29,7 +29,7 @@ public class CarritoMappers {
                 .map(p -> p.precioPublicoIva().multiply(BigDecimal.valueOf(p.cantidad())))
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
-        return new CarritoDTO.CarritoResponseDTO(
+        return new CarritoResponseDTO(
                 carrito.getId(),
                 productos,
                 carrito.getFechaCreacion(),

@@ -1,8 +1,7 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.GruposDeProductos.GruposDeProductosDTO;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO;
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoAdminResponse;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
 import com.ecommerce.FerreViky.models.GrupoDeProductos;
 import com.ecommerce.FerreViky.models.Producto;
@@ -15,7 +14,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;

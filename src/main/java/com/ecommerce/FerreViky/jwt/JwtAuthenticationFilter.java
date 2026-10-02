@@ -1,4 +1,4 @@
-package com.ecommerce.FerreViky.Jwt;
+package com.ecommerce.FerreViky.jwt;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;

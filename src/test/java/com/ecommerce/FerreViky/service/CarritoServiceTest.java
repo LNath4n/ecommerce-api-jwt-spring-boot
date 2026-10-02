@@ -6,6 +6,7 @@ import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
 import com.ecommerce.FerreViky.mapper.carrito.CarritoMappers;
 import com.ecommerce.FerreViky.models.Carrito;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
 import com.ecommerce.FerreViky.models.CarritoProducto;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.models.Producto;
@@ -326,5 +327,203 @@ class CarritoServiceTest {
         // When / Then
         assertThrows(CarritoExceptions.CarritoNoEncontrado.class,
                 () -> carritoService.obtenerCarritoPorId(idInexistente));
+    }
+
+    // actualizarCantidad()
+
+    @Test
+    @DisplayName("actualizarCantidad() → lanza CarritoDeClienteNoEncontrado cuando el cliente no tiene carrito")
+    void actualizarCantidad_deberiaLanzarExcepcion_cuandoClienteNoTieneCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        ActualizarCantidad dto = new ActualizarCantidad(1L, 3);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.empty());
+
+        // When / Then
+        assertThrows(CarritoExceptions.CarritoDeClienteNoEncontrado.class,
+                () -> carritoService.actualizarCantidad(dto, cliente));
+
+        verify(carritoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("actualizarCantidad() → lanza ProductoNoEnCarritoException cuando el producto no está en el carrito")
+    void actualizarCantidad_deberiaLanzarExcepcion_cuandoProductoNoEstaEnCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Carrito carrito = generarCarritoVacioFake(cliente); // carrito sin productos
+        ActualizarCantidad dto = new ActualizarCantidad(999L, 3);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+
+        // When / Then
+        assertThrows(CarritoExceptions.ProductoNoEnCarritoException.class,
+                () -> carritoService.actualizarCantidad(dto, cliente));
+
+        verify(carritoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("actualizarCantidad() → REEMPLAZA la cantidad (no suma) cuando el producto está en el carrito")
+    void actualizarCantidad_deberiaReemplazarCantidad_cuandoProductoEstaEnCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto producto = generarProductoFake(20);
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto item = generarItemFake(carrito, producto, 5);
+        carrito.setProductos(new ArrayList<>(List.of(item)));
+
+        ActualizarCantidad dto = new ActualizarCantidad(producto.getId(), 2);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.save(carrito)).thenReturn(carrito);
+
+        // When
+        carritoService.actualizarCantidad(dto, cliente);
+
+        // Then: 2, no 7
+        assertEquals(2, item.getCantidad());
+        verify(carritoRepository).save(carrito);
+    }
+
+    @Test
+    @DisplayName("actualizarCantidad() → permite una cantidad igual al stock (caso borde)")
+    void actualizarCantidad_deberiaPermitirCantidad_cuandoEsIgualAlStock() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto producto = generarProductoFake(10); // stock = 10
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto item = generarItemFake(carrito, producto, 1);
+        carrito.setProductos(new ArrayList<>(List.of(item)));
+
+        ActualizarCantidad dto = new ActualizarCantidad(producto.getId(), 10);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.save(carrito)).thenReturn(carrito);
+
+        // When
+        carritoService.actualizarCantidad(dto, cliente);
+
+        // Then
+        assertEquals(10, item.getCantidad());
+    }
+
+    @Test
+    @DisplayName("actualizarCantidad() → lanza CantidadExcedidaException y no modifica el item cuando supera el stock")
+    void actualizarCantidad_deberiaLanzarExcepcion_cuandoCantidadSuperaStock() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto producto = generarProductoFake(10); // stock = 10
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto item = generarItemFake(carrito, producto, 4);
+        carrito.setProductos(new ArrayList<>(List.of(item)));
+
+        ActualizarCantidad dto = new ActualizarCantidad(producto.getId(), 11);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+
+        // When / Then
+        assertThrows(CarritoExceptions.CantidadExcedidaException.class,
+                () -> carritoService.actualizarCantidad(dto, cliente));
+
+        assertEquals(4, item.getCantidad()); // sin cambios
+        verify(carritoRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("actualizarCantidad() → elimina la línea del carrito cuando la cantidad es 0")
+    void actualizarCantidad_deberiaEliminarLinea_cuandoCantidadEsCero() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto producto = generarProductoFake(10);
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto item = generarItemFake(carrito, producto, 3);
+        carrito.setProductos(new ArrayList<>(List.of(item)));
+
+        ActualizarCantidad dto = new ActualizarCantidad(producto.getId(), 0);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.save(carrito)).thenReturn(carrito);
+
+        // When
+        carritoService.actualizarCantidad(dto, cliente);
+
+        // Then
+        assertTrue(carrito.getProductos().isEmpty());
+        verify(carritoRepository).save(carrito);
+    }
+
+// eliminarProducto()
+
+    @Test
+    @DisplayName("eliminarProducto() → lanza CarritoDeClienteNoEncontrado cuando el cliente no tiene carrito")
+    void eliminarProducto_deberiaLanzarExcepcion_cuandoClienteNoTieneCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.empty());
+
+        // When / Then
+        assertThrows(CarritoExceptions.CarritoDeClienteNoEncontrado.class,
+                () -> carritoService.eliminarProducto(1L, cliente));
+    }
+
+    @Test
+    @DisplayName("eliminarProducto() → lanza ProductoNoEnCarritoException cuando el producto no está en el carrito")
+    void eliminarProducto_deberiaLanzarExcepcion_cuandoProductoNoEstaEnCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Carrito carrito = generarCarritoVacioFake(cliente);
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+
+        // When / Then
+        assertThrows(CarritoExceptions.ProductoNoEnCarritoException.class,
+                () -> carritoService.eliminarProducto(999L, cliente));
+    }
+
+    @Test
+    @DisplayName("eliminarProducto() → elimina la línea completa sin importar la cantidad que tuviera")
+    void eliminarProducto_deberiaEliminarLinea_cuandoProductoEstaEnCarrito() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto producto = generarProductoFake(50);
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto item = generarItemFake(carrito, producto, 25);
+        carrito.setProductos(new ArrayList<>(List.of(item)));
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+
+        // When
+        carritoService.eliminarProducto(producto.getId(), cliente);
+
+        // Then
+        assertTrue(carrito.getProductos().isEmpty());
+    }
+
+    @Test
+    @DisplayName("eliminarProducto() → elimina solo el producto indicado y conserva los demás")
+    void eliminarProducto_deberiaConservarOtrosProductos_cuandoElimina() {
+        // Given
+        Cliente cliente = generarClienteFake();
+        Producto productoA = generarProductoFake(10);
+        Producto productoB = generarProductoFake(10);
+        productoA.setId(1L);
+        productoB.setId(2L); // ids fijos para evitar colisiones aleatorias
+
+        Carrito carrito = generarCarritoVacioFake(cliente);
+        CarritoProducto itemA = generarItemFake(carrito, productoA, 2);
+        CarritoProducto itemB = generarItemFake(carrito, productoB, 4);
+        carrito.setProductos(new ArrayList<>(List.of(itemA, itemB)));
+
+        when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
+
+        // When
+        carritoService.eliminarProducto(1L, cliente);
+
+        // Then
+        assertEquals(1, carrito.getProductos().size());
+        assertSame(itemB, carrito.getProductos().get(0));
     }
 }

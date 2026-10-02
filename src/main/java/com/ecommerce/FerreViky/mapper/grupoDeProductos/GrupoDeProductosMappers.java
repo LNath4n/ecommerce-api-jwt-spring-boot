@@ -1,7 +1,7 @@
-package com.ecommerce.FerreViky.mapper.GrupoDeProductos;
+package com.ecommerce.FerreViky.mapper.grupoDeProductos;
 
-import com.ecommerce.FerreViky.dto.GruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
-import com.ecommerce.FerreViky.dto.GruposDeProductos.GruposDeProductosDTO.GrupoAdminResponse;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoAdminResponse;
 import com.ecommerce.FerreViky.models.GrupoDeProductos;
 import com.ecommerce.FerreViky.models.Producto;
 

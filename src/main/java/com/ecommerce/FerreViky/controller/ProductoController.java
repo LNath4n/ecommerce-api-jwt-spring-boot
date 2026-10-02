@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.GruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
 import com.ecommerce.FerreViky.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;

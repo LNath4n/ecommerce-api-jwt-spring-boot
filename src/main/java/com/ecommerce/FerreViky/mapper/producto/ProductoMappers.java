@@ -1,4 +1,4 @@
-package com.ecommerce.FerreViky.mapper.Producto;
+package com.ecommerce.FerreViky.mapper.producto;
 
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoAdminResponse;

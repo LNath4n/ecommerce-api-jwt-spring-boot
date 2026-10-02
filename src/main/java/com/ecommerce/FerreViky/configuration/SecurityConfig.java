@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.configuration;
 
-import com.ecommerce.FerreViky.Jwt.JwtAuthenticationFilter;
+import com.ecommerce.FerreViky.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.http.HttpMethod;
@@ -57,6 +57,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/productos/**").permitAll()
+                        .requestMatchers("/health/**").permitAll()
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sessionManager ->

@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.Jwt.JwtService;
+import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
@@ -20,7 +20,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.util.Optional;

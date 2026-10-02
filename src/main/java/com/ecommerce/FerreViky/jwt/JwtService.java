@@ -1,4 +1,4 @@
-package com.ecommerce.FerreViky.Jwt;
+package com.ecommerce.FerreViky.jwt;
 
 import com.ecommerce.FerreViky.models.Cliente;
 import io.jsonwebtoken.Claims;

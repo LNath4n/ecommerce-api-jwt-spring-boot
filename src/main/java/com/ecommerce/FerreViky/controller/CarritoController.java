@@ -1,7 +1,8 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO;
 import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.AgregarCarrito;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.service.CarritoService;
@@ -55,13 +56,53 @@ public class CarritoController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Carrito obtenido exitosamente",
-                    content = @Content(schema = @Schema(implementation = CarritoDTO.CarritoResponseDTO.class))),
+                    content = @Content(schema = @Schema(implementation = CarritoResponseDTO.class))),
             @ApiResponse(responseCode = "401", description = "Token JWT ausente o inválido", content = @Content),
             @ApiResponse(responseCode = "404", description = "El cliente no tiene un carrito registrado", content = @Content)
     })
     @GetMapping
-    public ResponseEntity<CarritoDTO.CarritoResponseDTO> obtenerCarrito(
+    public ResponseEntity<CarritoResponseDTO> obtenerCarrito(
             @AuthenticationPrincipal Cliente cliente) {
         return ResponseEntity.ok(carritoService.obtenerCarritoPorCliente(cliente));
+    }
+
+    @Operation(
+            summary = "Actualizar la cantidad de un producto del carrito",
+            description = "Establece la cantidad exacta de un producto que ya está en el carrito " +
+                    "del cliente autenticado (reemplaza, no suma). " +
+                    "Si la cantidad es 0, el producto se elimina del carrito."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Carrito actualizado correctamente",
+                    content = @Content(schema = @Schema(type = "string", example = "Carrito actualizado con las cantidades solicitadas"))),
+            @ApiResponse(responseCode = "400", description = "Cantidad inválida (< 0) o excede el stock disponible", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Token JWT ausente o inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "El cliente no tiene carrito o el producto no está en él", content = @Content)
+    })
+    @PutMapping
+    public ResponseEntity<String> actualizarCarrito(
+            @Valid @RequestBody ActualizarCantidad dto,
+            @AuthenticationPrincipal Cliente cliente) {
+        carritoService.actualizarCantidad(dto, cliente);
+        return ResponseEntity.ok("Carrito actualizado con las cantidades solicitadas");
+    }
+
+    @Operation(
+            summary = "Eliminar un producto del carrito",
+            description = "Quita por completo un producto del carrito del cliente autenticado, " +
+                    "sin importar la cantidad que tuviera."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Producto eliminado correctamente",
+                    content = @Content(schema = @Schema(type = "string", example = "Producto eliminado"))),
+            @ApiResponse(responseCode = "401", description = "Token JWT ausente o inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "El cliente no tiene carrito o el producto no está en él", content = @Content)
+    })
+    @DeleteMapping("/{idProducto}")
+    public ResponseEntity<String> borrarItem(
+            @PathVariable Long idProducto,
+            @AuthenticationPrincipal Cliente cliente) {
+        carritoService.eliminarProducto(idProducto, cliente);
+        return ResponseEntity.ok("Producto con id " + idProducto + "eliminado");
     }
 }

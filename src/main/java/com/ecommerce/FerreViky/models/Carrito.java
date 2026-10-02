@@ -24,7 +24,7 @@ public class Carrito {
     @JoinColumn(name = "cliente_id")
     Cliente cliente;
 
-    @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<CarritoProducto> productos;
 
     private LocalDateTime fechaCreacion;

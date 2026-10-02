@@ -1,26 +1,21 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.GruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
-import com.ecommerce.FerreViky.mapper.GrupoDeProductos.GrupoDeProductosMappers;
-import com.ecommerce.FerreViky.mapper.Producto.ProductoMappers;
+import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
+import com.ecommerce.FerreViky.mapper.grupoDeProductos.GrupoDeProductosMappers;
+import com.ecommerce.FerreViky.mapper.producto.ProductoMappers;
 import com.ecommerce.FerreViky.models.GrupoDeProductos;
 import com.ecommerce.FerreViky.models.Producto;
 import com.ecommerce.FerreViky.repository.GrupoDeProductosRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 
-import java.security.PublicKey;
 import java.util.List;
-import java.util.Optional;
+
 @AllArgsConstructor
 @Service
 public class ProductoService {
@@ -44,11 +39,11 @@ public class ProductoService {
      *
      * @param id ID del producto a buscar
      * @return producto encontrado en formato público
-     * @throws ProductosExceptions.ProductoNoEncontradoException si no existe el producto
+     * @throws ProductoNoEncontradoException si no existe el producto
      */
     public ProductoPublicoResponse obtenerProductoPorId(Long id) {
         Producto producto = productoRepository.findById(id)
-                .orElseThrow(() -> new ProductosExceptions.ProductoNoEncontradoException(id));
+                .orElseThrow(() -> new ProductoNoEncontradoException(id));
 
         return ProductoMappers.toPublicoResponse(producto);
     }
@@ -75,11 +70,11 @@ public class ProductoService {
      *
      * @param id ID del grupo a buscar
      * @return grupo encontrado en formato público
-     * @throws ProductosExceptions.ProductoNoEncontradoException si no existe el grupo
+     * @throws ProductoNoEncontradoException si no existe el grupo
      */
     public GrupoPublicoResponse obtenerGrupoPorId(Long id) {
         GrupoDeProductos grupoDeProductos = grupoDeProductosRepository.findById(id)
-                .orElseThrow(() -> new ProductosExceptions.ProductoNoEncontradoException(id));
+                .orElseThrow(() -> new ProductoNoEncontradoException(id));
 
         return GrupoDeProductosMappers.toPublicoResponse(grupoDeProductos);
     }

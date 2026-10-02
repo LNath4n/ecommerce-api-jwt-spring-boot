@@ -1,17 +1,20 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO;
 import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CarritoDeClienteNoEncontrado;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CarritoNoEncontrado;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadExcedidaException;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadNoValida;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ProductoNoEnCarritoException;
+import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
 import com.ecommerce.FerreViky.mapper.carrito.CarritoMappers;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.CarritoProducto;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.models.Producto;
 import com.ecommerce.FerreViky.repository.CarritoRepository;
-import com.ecommerce.FerreViky.repository.ClienteRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -34,19 +37,19 @@ public class CarritoService {
      * @param idProducto ID del producto a validar
      * @param cantidad   cantidad solicitada
      * @return producto encontrado y validado
-     * @throws ProductosExceptions.ProductoNoEncontradoException si el producto no existe
-     * @throws CarritoExceptions.CantidadNoValida               si la cantidad es menor o igual a 0
-     * @throws CarritoExceptions.CantidadExcedidaException      si la cantidad supera el stock disponible
+     * @throws ProductoNoEncontradoException si el producto no existe
+     * @throws CantidadNoValida             si la cantidad es menor o igual a 0
+     * @throws CantidadExcedidaException    si la cantidad supera el stock disponible
      */
     private Producto validarProductoYStock(Long idProducto, int cantidad) {
         Producto p = productoRepository.findById(idProducto)
-                .orElseThrow(() -> new ProductosExceptions.ProductoNoEncontradoException(idProducto));
+                .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
         if (cantidad <= 0)
-            throw new CarritoExceptions.CantidadNoValida(cantidad);
+            throw new CantidadNoValida(cantidad);
 
         if (cantidad > p.getStock())
-            throw new CarritoExceptions.CantidadExcedidaException(p.getStock(), cantidad, p.getDescripcion());
+            throw new CantidadExcedidaException(p.getStock(), cantidad, p.getDescripcion());
 
         return p;
     }
@@ -75,7 +78,7 @@ public class CarritoService {
      * Lógica de actualización:
      * <ul>
      *   <li>Si el producto ya está en el carrito, suma {@code dto.cantidad()} a la cantidad actual.</li>
-     *   <li>Si la nueva cantidad total supera el stock, lanza {@link CarritoExceptions.CantidadExcedidaException}.</li>
+     *   <li>Si la nueva cantidad total supera el stock, lanza {@link CantidadExcedidaException}.</li>
      *   <li>Si el producto no está en el carrito, se agrega como nuevo ítem.</li>
      * </ul>
      * El cliente se recibe directamente desde el {@code @AuthenticationPrincipal} del controlador,
@@ -83,9 +86,9 @@ public class CarritoService {
      *
      * @param dto     datos de la operación: {@code idProducto} y {@code cantidad} a agregar
      * @param cliente cliente autenticado dueño del carrito
-     * @throws ProductosExceptions.ProductoNoEncontradoException si el producto no existe
-     * @throws CarritoExceptions.CantidadNoValida               si la cantidad solicitada es ≤ 0
-     * @throws CarritoExceptions.CantidadExcedidaException      si la cantidad total supera el stock disponible
+     * @throws ProductoNoEncontradoException si el producto no existe
+     * @throws CantidadNoValida             si la cantidad solicitada es ≤ 0
+     * @throws CantidadExcedidaException    si la cantidad total supera el stock disponible
      */
     @Transactional
     public void agregarOActualizar(AgregarCarrito dto, Cliente cliente) {
@@ -99,8 +102,14 @@ public class CarritoService {
         if (itemExistente.isPresent()) {
             CarritoProducto item = itemExistente.get();
             int nuevaCantidad = item.getCantidad() + dto.cantidad();
+
             if (nuevaCantidad > p.getStock())
-                throw new CarritoExceptions.CantidadExcedidaException(p.getStock(), nuevaCantidad, p.getDescripcion());
+                throw new CantidadExcedidaException(
+                        p.getStock(),
+                        nuevaCantidad,
+                        p.getDescripcion()
+                );
+
             item.setCantidad(nuevaCantidad);
         } else {
             CarritoProducto nuevoItem = new CarritoProducto();
@@ -114,18 +123,85 @@ public class CarritoService {
     }
 
     /**
+     * Establece la cantidad exacta de un producto que ya está en el carrito del cliente.
+     * <p>
+     * A diferencia de {@link #agregarOActualizar}, que suma, este método <b>reemplaza</b>
+     * la cantidad actual por la indicada en el DTO. Si la cantidad es {@code 0},
+     * la línea se elimina del carrito (requiere {@code orphanRemoval = true}
+     * en la relación {@code Carrito → CarritoProducto}).
+     *
+     * @param dto     datos con el id del producto y la nueva cantidad (≥ 0)
+     * @param cliente cliente autenticado dueño del carrito
+     * @throws CarritoDeClienteNoEncontrado si el cliente no tiene carrito
+     * @throws ProductoNoEnCarritoException si el producto no está en el carrito
+     * @throws CantidadExcedidaException    si la cantidad solicitada supera el stock disponible
+     */
+    @Transactional
+    public void actualizarCantidad(ActualizarCantidad dto, Cliente cliente) {
+        Carrito car = carritoRepository.findByClienteConProductos(cliente)
+                .orElseThrow(() -> new CarritoDeClienteNoEncontrado(cliente.getId()));
+
+        CarritoProducto item = car.getProductos().stream()
+                .filter(cp -> cp.getProducto().getId().equals(dto.idProducto()))
+                .findFirst()
+                .orElseThrow(() -> new ProductoNoEnCarritoException(dto.idProducto()));
+
+        if (dto.cantidad() == 0) {
+            car.getProductos().remove(item);
+        } else {
+            Producto p = item.getProducto();
+
+            if (dto.cantidad() > p.getStock())
+                throw new CantidadExcedidaException(
+                        p.getStock(),
+                        dto.cantidad(),
+                        p.getDescripcion()
+                );
+
+            item.setCantidad(dto.cantidad());
+        }
+
+        carritoRepository.save(car);
+    }
+
+    /**
+     * Elimina por completo un producto del carrito del cliente, sin importar su cantidad.
+     * <p>
+     * Requiere {@code orphanRemoval = true} en la relación {@code Carrito → CarritoProducto}
+     * para que la fila se borre de la base de datos.
+     *
+     * @param idProducto id del producto a quitar del carrito
+     * @param cliente    cliente autenticado dueño del carrito
+     * @throws CarritoDeClienteNoEncontrado si el cliente no tiene carrito
+     * @throws ProductoNoEnCarritoException si el producto no está en el carrito
+     */
+    @Transactional
+    public void eliminarProducto(Long idProducto, Cliente cliente) {
+        Carrito car = carritoRepository.findByClienteConProductos(cliente)
+                .orElseThrow(() -> new CarritoDeClienteNoEncontrado(cliente.getId()));
+
+        CarritoProducto item = car.getProductos().stream()
+                .filter(cp -> cp.getProducto().getId().equals(idProducto))
+                .findFirst()
+                .orElseThrow(() -> new ProductoNoEnCarritoException(idProducto));
+
+        car.getProductos().remove(item);
+    }
+
+    /**
      * Retorna el carrito completo del cliente autenticado, mapeado a DTO de respuesta.
      * <p>
      * Usa {@code findByClienteConProductos} para cargar los productos en un solo query (JOIN FETCH),
      * evitando lazy loading fuera de la sesión JPA.
      *
      * @param cliente cliente autenticado del que se quiere obtener el carrito
-     * @return {@link CarritoDTO.CarritoResponseDTO} con el carrito y sus productos
-     * @throws CarritoExceptions.CarritoNoEncontrado si el cliente no tiene un carrito registrado
+     * @return {@link CarritoResponseDTO} con el carrito y sus productos
+     * @throws CarritoNoEncontrado si el cliente no tiene un carrito registrado
      */
-    public CarritoDTO.CarritoResponseDTO obtenerCarritoPorCliente(Cliente cliente) {
+    public CarritoResponseDTO obtenerCarritoPorCliente(Cliente cliente) {
         Carrito carrito = carritoRepository.findByClienteConProductos(cliente)
-                .orElseThrow(() -> new CarritoExceptions.CarritoNoEncontrado(cliente.getId()));
+                .orElseThrow(() -> new CarritoNoEncontrado(cliente.getId()));
+
         return CarritoMappers.toCarritoResponseDTO(carrito);
     }
 
@@ -137,12 +213,13 @@ public class CarritoService {
      * de la entidad {@link Cliente} completa.
      *
      * @param id ID del cliente cuyo carrito se quiere consultar
-     * @return {@link CarritoDTO.CarritoResponseDTO} con el carrito y sus productos
-     * @throws CarritoExceptions.CarritoNoEncontrado si no existe carrito para ese ID de cliente
+     * @return {@link CarritoResponseDTO} con el carrito y sus productos
+     * @throws CarritoNoEncontrado si no existe carrito para ese ID de cliente
      */
-    public CarritoDTO.CarritoResponseDTO obtenerCarritoPorId(Long id) {
+    public CarritoResponseDTO obtenerCarritoPorId(Long id) {
         Carrito carrito = carritoRepository.findByClienteId(id)
-                .orElseThrow(() -> new CarritoExceptions.CarritoNoEncontrado(id));
+                .orElseThrow(() -> new CarritoNoEncontrado(id));
+
         return CarritoMappers.toCarritoResponseDTO(carrito);
     }
 }

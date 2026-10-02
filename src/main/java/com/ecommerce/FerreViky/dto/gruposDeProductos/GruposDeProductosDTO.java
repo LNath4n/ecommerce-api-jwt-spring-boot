@@ -1,4 +1,4 @@
-package com.ecommerce.FerreViky.dto.GruposDeProductos;
+package com.ecommerce.FerreViky.dto.gruposDeProductos;
 
 
 import io.swagger.v3.oas.annotations.media.Schema;

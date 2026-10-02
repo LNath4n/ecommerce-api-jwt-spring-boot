@@ -1,10 +1,11 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.Jwt.JwtService;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
+import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ErrorAlCrearCarritoException;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.CredencialesInvalidasException;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
+import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.Cliente;
@@ -42,8 +43,13 @@ public class AuthService {
      * @throws org.springframework.security.core.AuthenticationException si las credenciales son inválidas
      */
     public AuthResponse login(LoginClienteDto dto) {
-        authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(dto.email(), dto.password()));
-        Cliente user = clienteRepository.findByEmail(dto.email()).orElseThrow(ClienteExceptions.CredencialesInvalidasException::new);
+        authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(dto.email(), dto.password())
+        );
+
+        Cliente user = clienteRepository.findByEmail(dto.email())
+                .orElseThrow(CredencialesInvalidasException::new);
+
         String token = jwtService.getToken(user);
         return new AuthResponse(token);
     }
@@ -63,13 +69,13 @@ public class AuthService {
      *
      * @param dto DTO con email y contraseña del nuevo cliente
      * @return {@link AuthResponse} con el JWT del cliente recién registrado
-     * @throws ClienteExceptions.EmailYaExisteException          si el email ya está registrado
-     * @throws CarritoExceptions.ErrorAlCrearCarritoException     si ocurre un error al persistir el carrito
+     * @throws EmailYaExisteException       si el email ya está registrado
+     * @throws ErrorAlCrearCarritoException si ocurre un error al persistir el carrito
      */
     @Transactional
     public AuthResponse guardarCliente(LoginClienteDto dto) {
         if (clienteRepository.existsByEmail(dto.email())) {
-            throw new ClienteExceptions.EmailYaExisteException(dto.email());
+            throw new EmailYaExisteException(dto.email());
         }
 
         Cliente cliente = clienteMappers.DtoLoginACliente(dto);
@@ -79,10 +85,11 @@ public class AuthService {
         Carrito carrito = new Carrito();
         carrito.setCliente(cliente);
         carrito.setFechaCreacion(LocalDateTime.now());
+
         try {
             carritoRepository.save(carrito);
         } catch (Exception e) {
-            throw new CarritoExceptions.ErrorAlCrearCarritoException(cliente.getId(), e);
+            throw new ErrorAlCrearCarritoException(cliente.getId(), e);
         }
 
         return new AuthResponse(jwtService.getToken(cliente));

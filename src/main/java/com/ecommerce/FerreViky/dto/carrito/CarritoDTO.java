@@ -18,6 +18,11 @@ public class CarritoDTO {
             @NotNull @Min(1) Integer cantidad
     ) {}
 
+    public record ActualizarCantidad(
+            @NotNull Long idProducto,
+            @Min(0) int cantidad
+    ) {}
+
     public record CarritoProductoDTO(
             Long productoId,
             String descripcion,
