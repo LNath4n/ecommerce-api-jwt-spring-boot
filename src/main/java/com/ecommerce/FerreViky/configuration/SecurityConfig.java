@@ -58,6 +58,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers("/productos/**").permitAll()
                         .requestMatchers("/health/**").permitAll()
+                        .requestMatchers("/admin/**").hasAuthority("ADMIN") //Podria ponerlo en el EndPoint pero sera mejor aqui
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(sessionManager ->
@@ -67,6 +68,8 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
     }
+
+    //Van las reglas de abajo hacia arriba
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {

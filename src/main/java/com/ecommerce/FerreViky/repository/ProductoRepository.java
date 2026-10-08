@@ -18,4 +18,12 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
 
     @Query("SELECT p FROM Producto p LEFT JOIN FETCH p.grupoDeProductos")
     Page<Producto> findAllWithGrupo(Pageable pageable);
+
+    @Query("""
+        select distinct p.marca
+        from Producto p
+        where p.marca is not null and p.marca <> ''
+        order by p.marca
+        """)
+    List<String> findMarcasDistintas();
 }

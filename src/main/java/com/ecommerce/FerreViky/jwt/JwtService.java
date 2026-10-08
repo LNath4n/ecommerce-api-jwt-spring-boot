@@ -48,7 +48,9 @@ public class JwtService {
      * @return token JWT firmado
      */
     public String getToken(Cliente cliente) {
-        return getToken(new HashMap<>(), cliente);
+        Map<String, Object> extraClaims = new HashMap<>();
+        extraClaims.put("role", cliente.getRol().name()); // "ADMIN" o "USER"
+        return getToken(extraClaims, cliente);
     }
 
     /**
@@ -68,12 +70,12 @@ public class JwtService {
      */
     public String getToken(Map<String, Object> extraClaims, Cliente cliente) {
         return Jwts.builder()
-                .setClaims(extraClaims)
-                .setSubject(cliente.getUsername())
-                .setIssuedAt(new Date(System.currentTimeMillis()))
-                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24))
-                .signWith(getKey(), SignatureAlgorithm.HS256)
-                .compact();
+                .setClaims(extraClaims) //Datos extra
+                .setSubject(cliente.getUsername()) //sub = email
+                .setIssuedAt(new Date(System.currentTimeMillis())) // iat = cuando se creo
+                .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24)) //exp = cuando vence
+                .signWith(getKey(), SignatureAlgorithm.HS256) // firma
+                .compact(); //toString
     }
 
     /**

@@ -33,4 +33,6 @@ public class GruposDeProductosDTO {
             @Schema(description = "IDs de los productos pertenecientes al grupo", example = "[1, 2, 3]")
             List<Long> productoIds
     ) {}
+
+    public record GrupoOpcionResponse(Long id, String nombre) {}
 }

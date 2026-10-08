@@ -2,6 +2,7 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO;
 import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoRequest;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
 import com.ecommerce.FerreViky.models.GrupoDeProductos;
 import com.ecommerce.FerreViky.models.Producto;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -25,7 +27,10 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -44,6 +49,8 @@ class ProductoServiceTest {
     private Pageable pageable;
 
     private final Faker faker = new Faker();
+
+    // Helpers
 
     private Producto crearProductoFake() {
         Producto p = new Producto();
@@ -67,12 +74,31 @@ class ProductoServiceTest {
         return g;
     }
 
+    private ProductoRequest crearRequestFake(Long grupoId) {
+        return new ProductoRequest(
+                faker.code().ean8(),                         // codigo
+                faker.bothify("??-###"),                     // clave
+                faker.commerce().productName(),              // descripcion
+                "MM00",                                      // margenMercado
+                "2",                                         // caja
+                "12",                                        // master
+                "Pieza",                                     // unidad
+                faker.code().ean13(),                        // ean
+                BigDecimal.valueOf(300),                     // precioMayoreoIva
+                BigDecimal.valueOf(250),                     // precioDistribuidorIva
+                BigDecimal.valueOf(400),                     // precioPublicoIva
+                faker.company().name(),                      // marca
+                grupoId,                                     // grupoDeProductosId
+                (int) faker.number().numberBetween(1L, 100L) // stock
+        );
+    }
+
     @BeforeEach
     void setUp() {
         pageable = PageRequest.of(0, 10);
     }
 
-    // Productos
+    //  Productos 
 
     @Test
     @DisplayName("obtenerTodos() → retorna página con los productos encontrados")
@@ -120,7 +146,7 @@ class ProductoServiceTest {
         verify(productoRepository).findById(idInexistente);
     }
 
-    // Grupos de Productos
+    //  Grupos de Productos 
 
     @Test
     @DisplayName("obtenerTodosLosGrupos() → retorna página con los grupos encontrados")
@@ -180,5 +206,159 @@ class ProductoServiceTest {
         );
 
         verify(grupoDeProductosRepository).findById(idInexistente);
+    }
+
+    //  crearProducto 
+
+    @Test
+    @DisplayName("crearProducto() → guarda el producto sin grupo cuando grupoDeProductosId es null")
+    public void deberiaCrearProductoSinGrupo() {
+        ProductoRequest request = crearRequestFake(null);
+
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> {
+            Producto p = inv.getArgument(0);
+            p.setId(1L); // simula el id generado por la BD
+            return p;
+        });
+
+        ProductoPublicoResponse resultado = productoService.crearProducto(request);
+
+        assertEquals(1L, resultado.id());
+        assertEquals(request.codigo(), resultado.codigo());
+        assertEquals(request.stock(), resultado.stock());
+        verifyNoInteractions(grupoDeProductosRepository);
+    }
+
+    @Test
+    @DisplayName("crearProducto() → asigna el grupo cuando el id existe")
+    public void deberiaCrearProductoConGrupo() {
+        GrupoDeProductos grupo = crearGrupoFake();
+        ProductoRequest request = crearRequestFake(grupo.getId());
+
+        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        productoService.crearProducto(request);
+
+        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
+        verify(productoRepository).save(captor.capture());
+        assertSame(grupo, captor.getValue().getGrupoDeProductos());
+        assertEquals(request.clave(), captor.getValue().getClave());
+    }
+
+    @Test
+    @DisplayName("crearProducto() → lanza GrupoNoEncontradoException y no guarda si el grupo no existe")
+    public void deberiaLanzarExcepcionAlCrearConGrupoInexistente() {
+        Long grupoInexistente = 999L;
+        ProductoRequest request = crearRequestFake(grupoInexistente);
+
+        when(grupoDeProductosRepository.findById(grupoInexistente)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ProductosExceptions.GrupoNoEncontradoException.class,
+                () -> productoService.crearProducto(request)
+        );
+
+        verify(productoRepository, never()).save(any());
+    }
+
+    //  editarProducto 
+
+    @Test
+    @DisplayName("editarProducto() → actualiza los campos, hace flush y retorna el producto")
+    public void deberiaEditarProducto() {
+        Producto existente = crearProductoFake();
+        ProductoRequest request = crearRequestFake(null);
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+
+        ProductoPublicoResponse resultado = productoService.editarProducto(request, existente.getId());
+
+        assertEquals(existente.getId(), resultado.id()); // el id no cambia
+        assertEquals(request.codigo(), existente.getCodigo());
+        assertEquals(request.clave(), existente.getClave());
+        assertEquals(request.marca(), existente.getMarca());
+        assertNull(existente.getGrupoDeProductos());
+        verify(productoRepository).flush();
+        verify(productoRepository, never()).save(any()); // managed: no hace falta save
+    }
+
+    @Test
+    @DisplayName("editarProducto() → asigna el nuevo grupo cuando el id existe")
+    public void deberiaEditarProductoConGrupo() {
+        Producto existente = crearProductoFake();
+        GrupoDeProductos grupo = crearGrupoFake();
+        ProductoRequest request = crearRequestFake(grupo.getId());
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
+
+        productoService.editarProducto(request, existente.getId());
+
+        assertSame(grupo, existente.getGrupoDeProductos());
+        verify(productoRepository).flush();
+    }
+
+    @Test
+    @DisplayName("editarProducto() → lanza ProductoNoEncontradoException cuando el producto no existe")
+    public void deberiaLanzarExcepcionAlEditarProductoInexistente() {
+        Long idInexistente = 999L;
+
+        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ProductosExceptions.ProductoNoEncontradoException.class,
+                () -> productoService.editarProducto(crearRequestFake(null), idInexistente)
+        );
+
+        verify(productoRepository, never()).flush();
+    }
+
+    @Test
+    @DisplayName("editarProducto() → lanza GrupoNoEncontradoException y no modifica el producto")
+    public void deberiaLanzarExcepcionAlEditarConGrupoInexistente() {
+        Long grupoInexistente = 999L;
+        Producto existente = crearProductoFake();
+        String descripcionOriginal = existente.getDescripcion();
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        when(grupoDeProductosRepository.findById(grupoInexistente)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ProductosExceptions.GrupoNoEncontradoException.class,
+                () -> productoService.editarProducto(crearRequestFake(grupoInexistente), existente.getId())
+        );
+
+        assertEquals(descripcionOriginal, existente.getDescripcion());
+        verify(productoRepository, never()).flush();
+    }
+
+    //  borrarProducto 
+
+    @Test
+    @DisplayName("borrarProducto() → elimina el producto cuando el id existe")
+    public void deberiaBorrarProducto() {
+        Producto existente = crearProductoFake();
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+
+        productoService.borrarProducto(existente.getId());
+
+        verify(productoRepository).delete(existente);
+    }
+
+    @Test
+    @DisplayName("borrarProducto() → lanza ProductoNoEncontradoException y no borra si no existe")
+    public void deberiaLanzarExcepcionAlBorrarProductoInexistente() {
+        Long idInexistente = 999L;
+
+        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ProductosExceptions.ProductoNoEncontradoException.class,
+                () -> productoService.borrarProducto(idInexistente)
+        );
+
+        verify(productoRepository, never()).delete((Producto) any());
     }
 }

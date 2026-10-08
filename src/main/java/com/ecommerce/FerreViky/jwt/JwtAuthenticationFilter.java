@@ -3,6 +3,7 @@ package com.ecommerce.FerreViky.jwt;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
+import io.jsonwebtoken.JwtException;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
@@ -10,6 +11,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -34,7 +36,7 @@ import java.io.IOException;
  */
 @Component
 @RequiredArgsConstructor
-public class JwtAuthenticationFilter extends OncePerRequestFilter {
+public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta una vez por cada request antes del controller
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
@@ -51,6 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        //Lo que recibimos, lo que regresaremos y la fila de filtros
+
         final String token = getTokenFromRequest(request);
         final String username;
 
@@ -59,16 +63,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        username = jwtService.getUsernameFromToken(token);
+        try {
+            username = jwtService.getUsernameFromToken(token);
+        } catch (JwtException e) { //Aqui atrapamos la excepcion de getAllClaims
+            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
 
         // Solo autentica si hay username y aún no hay autenticación activa en el contexto
         // (evita re-autenticar en cada filtro si ya fue procesado antes en la misma petición)
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-            UserDetails userDetails = userDetailsService.loadUserByUsername(username);
+            UserDetails userDetails;
+            try { //Try en caso de que alguien tenga un token pero ya no exista su usaurio en BD
+                userDetails = userDetailsService.loadUserByUsername(username); //Se verifica el Rol con la BD
+            } catch (UsernameNotFoundException e) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
 
             if (jwtService.isTokenValid(token, userDetails)) {
                 UsernamePasswordAuthenticationToken authToken =
-                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities()); //De aqui sacamos el Rol
                 authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authToken);
             }
