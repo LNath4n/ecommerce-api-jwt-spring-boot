@@ -22,6 +22,8 @@ public class ProductoDTO {
             String marca,
             @Schema(description = "Precio que vera el cliente",example = "135.00")
             BigDecimal precioPublicoIva,
+            @Schema(description = "Url de la imagen que vera el frontend")
+            String imagenUrl,
             @Schema(description = "Cantidad del stock disponible",example = "5")
             Integer stock
     ) {}
@@ -69,6 +71,8 @@ public class ProductoDTO {
 
             @Schema(description = "ID del grupo de productos al que pertenece", example = "3")
             Long grupoDeProductosId,
+            @Schema(description = "Url de la imagen que vera el frontend")
+            String imagenUrl,
 
             @Schema(description = "Stock disponible", example = "50")
             Integer stock

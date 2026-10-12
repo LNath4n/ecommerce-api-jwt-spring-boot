@@ -37,6 +37,8 @@ class CarritoServiceTest {
 
     @Mock private ProductoRepository productoRepository;
     @Mock private CarritoRepository carritoRepository;
+    @Mock
+    private StorageService storageService;
 
     @InjectMocks
     private CarritoService carritoService;
@@ -268,7 +270,8 @@ class CarritoServiceTest {
         when(carritoRepository.findByClienteConProductos(cliente)).thenReturn(Optional.of(carrito));
 
         try (MockedStatic<CarritoMappers> mockedStatic = mockStatic(CarritoMappers.class)) {
-            mockedStatic.when(() -> CarritoMappers.toCarritoResponseDTO(carrito)).thenReturn(dtoEsperado);
+            mockedStatic.when(() -> CarritoMappers.toCarritoResponseDTO(eq(carrito), any()))
+                    .thenReturn(dtoEsperado);
 
             // When
             CarritoDTO.CarritoResponseDTO resultado = carritoService.obtenerCarritoPorCliente(cliente);
@@ -305,7 +308,8 @@ class CarritoServiceTest {
         when(carritoRepository.findByClienteId(cliente.getId())).thenReturn(Optional.of(carrito));
 
         try (MockedStatic<CarritoMappers> mockedStatic = mockStatic(CarritoMappers.class)) {
-            mockedStatic.when(() -> CarritoMappers.toCarritoResponseDTO(carrito)).thenReturn(dtoEsperado);
+            mockedStatic.when(() -> CarritoMappers.toCarritoResponseDTO(eq(carrito), any()))
+                    .thenReturn(dtoEsperado);
 
             // When
             CarritoDTO.CarritoResponseDTO resultado = carritoService.obtenerCarritoPorId(cliente.getId());

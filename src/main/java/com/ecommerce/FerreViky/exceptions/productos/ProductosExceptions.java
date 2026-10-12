@@ -13,4 +13,10 @@ public class ProductosExceptions {
             super("No se encontró grupo de productos con id : " + id);
         }
     }
+
+    public static class ImagenInvalidaException extends RuntimeException {
+        public ImagenInvalidaException(String mensaje) {
+            super(mensaje);
+        }
+    }
 }

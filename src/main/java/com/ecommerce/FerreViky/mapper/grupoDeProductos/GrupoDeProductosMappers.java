@@ -1,12 +1,15 @@
 package com.ecommerce.FerreViky.mapper.grupoDeProductos;
 
-import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
 import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoAdminResponse;
+import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
 import com.ecommerce.FerreViky.models.GrupoDeProductos;
 import com.ecommerce.FerreViky.models.Producto;
 
+import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
+import java.util.function.Function;
 
 /**
  * Mappers para convertir entidades {@link GrupoDeProductos} a sus distintos DTOs de respuesta.
@@ -15,22 +18,31 @@ import java.util.List;
  */
 public class GrupoDeProductosMappers {
 
+    private static final int MAX_IMAGENES = 5;
+
     /**
-     * Convierte un grupo a su vista pública, exponiendo únicamente los IDs de sus estilos.
+     * Convierte un grupo a su vista pública: IDs de sus productos y URLs de imágenes
+     * (máximo 5, sin nulos) para el carrusel.
      *
-     * @param grupo entidad a convertir; sus estilos pueden ser {@code null}
-     * @return DTO con id, nombre y lista de IDs de productos asociados
+     * @param grupo       entidad a convertir; sus estilos pueden ser {@code null}
+     * @param urlResolver función que obtiene la URL pública de la imagen de un producto
+     *                    (puede devolver {@code null} si no tiene imagen)
+     * @return DTO con id, nombre, IDs de productos e URLs de imágenes
      */
-    public static GrupoPublicoResponse toPublicoResponse(GrupoDeProductos grupo) {
-        List<Long> ids = grupo.getEstilos() != null
-                ? grupo.getEstilos().stream().map(Producto::getId).toList()
+    public static GrupoPublicoResponse toPublicoResponse(GrupoDeProductos grupo,
+                                                         Function<Producto, String> urlResolver) {
+        Collection<Producto> estilos = grupo.getEstilos() != null
+                ? grupo.getEstilos()
                 : Collections.emptyList();
 
-        return new GrupoPublicoResponse(
-                grupo.getId(),
-                grupo.getNombre(),
-                ids
-        );
+        List<Long> ids = estilos.stream().map(Producto::getId).toList();
+        List<String> urls = estilos.stream()
+                .map(urlResolver)
+                .filter(Objects::nonNull)
+                .limit(MAX_IMAGENES)
+                .toList();
+
+        return new GrupoPublicoResponse(grupo.getId(), grupo.getNombre(), ids, urls);
     }
 
     /**

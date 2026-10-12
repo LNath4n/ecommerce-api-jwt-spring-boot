@@ -14,8 +14,11 @@ public class GruposDeProductosDTO {
             String nombre,
 
             @Schema(description = "IDs de los productos pertenecientes al grupo", example = "[1, 2, 3]")
-            List<Long> productoIds
-    ) {}
+            List<Long> productoIds,
+            @Schema(description = "URLs de imágenes de los productos del grupo (máx. 5, sin nulos), para el carrusel")
+            List<String> imagenUrls
+    ) {
+    }
 
     public record GrupoAdminResponse(
             @Schema(description = "ID del grupo", example = "1")
@@ -32,7 +35,9 @@ public class GruposDeProductosDTO {
 
             @Schema(description = "IDs de los productos pertenecientes al grupo", example = "[1, 2, 3]")
             List<Long> productoIds
-    ) {}
+    ) {
+    }
 
-    public record GrupoOpcionResponse(Long id, String nombre) {}
+    public record GrupoOpcionResponse(Long id, String nombre) {
+    }
 }

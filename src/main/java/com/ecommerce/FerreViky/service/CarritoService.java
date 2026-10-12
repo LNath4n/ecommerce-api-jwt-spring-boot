@@ -30,7 +30,7 @@ public class CarritoService {
 
     private final ProductoRepository productoRepository;
     private final CarritoRepository carritoRepository;
-
+    private final StorageService storageService;
     /**
      * Valida que el producto exista y que haya stock suficiente para la cantidad solicitada.
      *
@@ -202,7 +202,7 @@ public class CarritoService {
         Carrito carrito = carritoRepository.findByClienteConProductos(cliente)
                 .orElseThrow(() -> new CarritoNoEncontrado(cliente.getId()));
 
-        return CarritoMappers.toCarritoResponseDTO(carrito);
+        return toResponse(carrito);
     }
 
     /**
@@ -220,6 +220,17 @@ public class CarritoService {
         Carrito carrito = carritoRepository.findByClienteId(id)
                 .orElseThrow(() -> new CarritoNoEncontrado(id));
 
-        return CarritoMappers.toCarritoResponseDTO(carrito);
+        return toResponse(carrito);
+    }
+
+    /**
+     * Convierte un carrito a DTO resolviendo la URL de imagen de cada producto.
+     *
+     * @param carrito carrito a convertir
+     * @return DTO del carrito con {@code imagenUrl} en cada línea
+     */
+    private CarritoResponseDTO toResponse(Carrito carrito) {
+        return CarritoMappers.toCarritoResponseDTO(
+                carrito, p -> storageService.getPublicUrl(p.getImagenKey()));
     }
 }

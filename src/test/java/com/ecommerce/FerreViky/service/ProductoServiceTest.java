@@ -9,6 +9,13 @@ import com.ecommerce.FerreViky.models.Producto;
 import com.ecommerce.FerreViky.repository.GrupoDeProductosRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import net.datafaker.Faker;
+import org.springframework.web.multipart.MultipartFile;
+import java.io.IOException;
+import org.mockito.InOrder;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.inOrder;
+import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -45,6 +52,8 @@ class ProductoServiceTest {
 
     @InjectMocks
     private ProductoService productoService;
+    @Mock
+    private StorageService storageService;
 
     private Pageable pageable;
 
@@ -194,14 +203,14 @@ class ProductoServiceTest {
     }
 
     @Test
-    @DisplayName("obtenerGrupoPorId() → lanza ProductoNoEncontradoException cuando el grupo no existe")
+    @DisplayName("obtenerGrupoPorId() → lanza GrupoNoEncontradoException cuando el grupo no existe")
     public void deberiaLanzarExcepcionCuandoGrupoNoExiste() {
         Long idInexistente = 999L;
 
         when(grupoDeProductosRepository.findById(idInexistente)).thenReturn(Optional.empty());
 
         assertThrows(
-                ProductosExceptions.ProductoNoEncontradoException.class,
+                ProductosExceptions.GrupoNoEncontradoException.class,
                 () -> productoService.obtenerGrupoPorId(idInexistente)
         );
 
@@ -336,19 +345,41 @@ class ProductoServiceTest {
     //  borrarProducto 
 
     @Test
-    @DisplayName("borrarProducto() → elimina el producto cuando el id existe")
+    @DisplayName("borrarProducto() → elimina el producto, hace flush y borra su imagen del bucket")
     public void deberiaBorrarProducto() {
         Producto existente = crearProductoFake();
+        existente.setImagenKey("images/abc.jpg");
 
         when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
 
         productoService.borrarProducto(existente.getId());
 
-        verify(productoRepository).delete(existente);
+        InOrder orden = inOrder(productoRepository, storageService);
+        orden.verify(productoRepository).delete(existente);
+        orden.verify(productoRepository).flush();
+        orden.verify(storageService).delete("images/abc.jpg");
     }
 
     @Test
-    @DisplayName("borrarProducto() → lanza ProductoNoEncontradoException y no borra si no existe")
+    @DisplayName("borrarProducto() → no borra la imagen si la BD rechaza el borrado")
+    public void noDeberiaBorrarImagenSiFallaElBorrado() {
+        Producto existente = crearProductoFake();
+        existente.setImagenKey("images/abc.jpg");
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        doThrow(new org.springframework.dao.DataIntegrityViolationException("FK"))
+                .when(productoRepository).flush();
+
+        assertThrows(
+                org.springframework.dao.DataIntegrityViolationException.class,
+                () -> productoService.borrarProducto(existente.getId())
+        );
+
+        verify(storageService, never()).delete(any());
+    }
+
+    @Test
+    @DisplayName("borrarProducto() → lanza ProductoNoEncontradoException y no borra nada si no existe")
     public void deberiaLanzarExcepcionAlBorrarProductoInexistente() {
         Long idInexistente = 999L;
 
@@ -360,5 +391,111 @@ class ProductoServiceTest {
         );
 
         verify(productoRepository, never()).delete((Producto) any());
+        verifyNoInteractions(storageService);
+    }
+    //  imagenUrl en lecturas
+
+    @Test
+    @DisplayName("obtenerProductoPorId() → resuelve imagenUrl con el StorageService")
+    public void deberiaIncluirImagenUrl() {
+        Producto producto = crearProductoFake();
+        producto.setImagenKey("images/abc.jpg");
+
+        when(productoRepository.findById(producto.getId())).thenReturn(Optional.of(producto));
+        when(storageService.getPublicUrl("images/abc.jpg")).thenReturn("https://bucket/images/abc.jpg");
+
+        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(producto.getId());
+
+        assertEquals("https://bucket/images/abc.jpg", resultado.imagenUrl());
+    }
+
+    @Test
+    @DisplayName("obtenerGrupoPorId() → incluye las URLs de imagen de sus productos, sin nulos")
+    public void deberiaIncluirImagenUrlsDelGrupo() {
+        Producto conImagen = crearProductoFake();
+        conImagen.setImagenKey("images/a.jpg");
+        Producto sinImagen = crearProductoFake();
+
+        GrupoDeProductos grupo = crearGrupoFake();
+        grupo.setEstilos(List.of(conImagen, sinImagen));
+
+        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
+        when(storageService.getPublicUrl("images/a.jpg")).thenReturn("https://bucket/images/a.jpg");
+
+        GruposDeProductosDTO.GrupoPublicoResponse resultado = productoService.obtenerGrupoPorId(grupo.getId());
+
+        assertEquals(List.of(conImagen.getId(), sinImagen.getId()), resultado.productoIds());
+        assertEquals(List.of("https://bucket/images/a.jpg"), resultado.imagenUrls());
+    }
+
+//  subirImagen
+
+    @Test
+    @DisplayName("subirImagen() → sube la nueva, guarda la key, hace flush y borra la anterior")
+    public void deberiaSubirImagenYBorrarLaAnterior() throws IOException {
+        Producto existente = crearProductoFake();
+        existente.setImagenKey("images/vieja.jpg");
+        MultipartFile file = mock(MultipartFile.class);
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        when(storageService.upload(file)).thenReturn("images/nueva.jpg");
+        when(storageService.getPublicUrl("images/nueva.jpg")).thenReturn("https://bucket/images/nueva.jpg");
+
+        var resultado = productoService.subirImagen(existente.getId(), file);
+
+        assertEquals("images/nueva.jpg", existente.getImagenKey());
+        assertEquals("https://bucket/images/nueva.jpg", resultado.imagenUrl());
+
+        InOrder orden = inOrder(storageService, productoRepository);
+        orden.verify(storageService).upload(file);
+        orden.verify(productoRepository).flush();
+        orden.verify(storageService).delete("images/vieja.jpg"); // la vieja se borra al final
+    }
+
+    @Test
+    @DisplayName("subirImagen() → funciona cuando el producto no tenía imagen previa")
+    public void deberiaSubirImagenCuandoNoHabiaAnterior() throws IOException {
+        Producto existente = crearProductoFake(); // imagenKey null
+        MultipartFile file = mock(MultipartFile.class);
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        when(storageService.upload(file)).thenReturn("images/nueva.jpg");
+
+        productoService.subirImagen(existente.getId(), file);
+
+        assertEquals("images/nueva.jpg", existente.getImagenKey());
+        verify(storageService).delete(null); // el StorageService real ignora null
+    }
+
+    @Test
+    @DisplayName("subirImagen() → lanza ProductoNoEncontradoException y no sube nada si no existe")
+    public void deberiaLanzarExcepcionAlSubirImagenAProductoInexistente() throws IOException {
+        Long idInexistente = 999L;
+        MultipartFile file = mock(MultipartFile.class);
+
+        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
+
+        assertThrows(
+                ProductosExceptions.ProductoNoEncontradoException.class,
+                () -> productoService.subirImagen(idInexistente, file)
+        );
+
+        verifyNoInteractions(storageService);
+    }
+
+    @Test
+    @DisplayName("subirImagen() → si falla el upload, conserva la imagen anterior")
+    public void deberiaConservarImagenAnteriorSiFallaElUpload() throws IOException {
+        Producto existente = crearProductoFake();
+        existente.setImagenKey("images/vieja.jpg");
+        MultipartFile file = mock(MultipartFile.class);
+
+        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
+        when(storageService.upload(file)).thenThrow(new IOException("S3 caído"));
+
+        assertThrows(IOException.class, () -> productoService.subirImagen(existente.getId(), file));
+
+        assertEquals("images/vieja.jpg", existente.getImagenKey());
+        verify(storageService, never()).delete(any());
     }
 }

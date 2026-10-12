@@ -28,7 +28,8 @@ public class CarritoDTO {
             String descripcion,
             String clave,
             Integer cantidad,
-            BigDecimal precioPublicoIva
+            BigDecimal precioPublicoIva,
+            String imagenUrl
     ) {}
     public record CarritoResponseDTO(
             Long id,

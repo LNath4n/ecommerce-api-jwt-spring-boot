@@ -59,6 +59,9 @@ public class Producto { //Cada objeto "producto" es una fila de la tabla product
     @Column(name = "marca")
     private String marca;
 
+    @Column(name = "imagen_key")
+    private String imagenKey;
+
     // FK nullable: no todos los productos pertenecen a un GrupoDeProductos
     @ManyToOne
     @JoinColumn(name = "producto_generico_id", nullable = true)

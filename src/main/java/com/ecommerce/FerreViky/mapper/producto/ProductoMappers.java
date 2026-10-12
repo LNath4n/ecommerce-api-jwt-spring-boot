@@ -18,14 +18,14 @@ public class ProductoMappers {
      * @param producto entidad a convertir
      * @return DTO con los campos visibles para el cliente final
      */
-    public static ProductoPublicoResponse toPublicoResponse(Producto producto) {
+    public static ProductoPublicoResponse toPublicoResponse(Producto producto,String imagenUrl) {
         return new ProductoPublicoResponse(
                 producto.getId(),
                 producto.getCodigo(),
                 producto.getDescripcion(),
                 producto.getUnidad(),
                 producto.getMarca(),
-                producto.getPrecioPublicoIva(),
+                producto.getPrecioPublicoIva(),imagenUrl,
                 producto.getStock()
         );
     }
@@ -39,7 +39,7 @@ public class ProductoMappers {
      * @param producto entidad a convertir
      * @return DTO completo incluyendo precios internos, márgenes y grupo asociado
      */
-    public static ProductoAdminResponse toAdminResponse(Producto producto) {
+    public static ProductoAdminResponse toAdminResponse(Producto producto,String imagenUrl) {
         return new ProductoAdminResponse(
                 producto.getId(),
                 producto.getCodigo(),
@@ -55,6 +55,7 @@ public class ProductoMappers {
                 producto.getPrecioPublicoIva(),
                 producto.getMarca(),
                 producto.getGrupoDeProductos() != null ? producto.getGrupoDeProductos().getId() : null,
+                imagenUrl,
                 producto.getStock()
         );
     }

@@ -16,4 +16,9 @@ public class ProductosExceptionHandler {
     public ResponseEntity<String> handleGrupoDeProductoNoEncontrado(ProductosExceptions.GrupoNoEncontradoException ex) {
         return ResponseEntity.status(404).body(ex.getMessage());
     }
+
+    @ExceptionHandler(ProductosExceptions.ImagenInvalidaException.class)
+    public ResponseEntity<String> handleImagenInvalida(ProductosExceptions.ImagenInvalidaException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
+    }
 }
