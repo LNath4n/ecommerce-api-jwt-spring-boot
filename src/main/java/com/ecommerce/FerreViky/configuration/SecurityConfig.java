@@ -75,7 +75,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         config.setAllowedOrigins(List.of(
-                "http://nathan-demo-ecommerce.s3.us-east-1.amazonaws.com/"
+                "http://nathan-demo-ecommerce.s3.us-east-1.amazonaws.com"
+                //"http://localhost:4200"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));

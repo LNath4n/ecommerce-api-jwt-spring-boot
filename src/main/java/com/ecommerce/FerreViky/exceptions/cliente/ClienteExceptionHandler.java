@@ -22,4 +22,14 @@ public class ClienteExceptionHandler {
     public ResponseEntity<String> handleCredencialesInvalidas(ClienteExceptions.CredencialesInvalidasException ex) {
         return ResponseEntity.status(401).body(ex.getMessage());
     }
+
+    @ExceptionHandler(ClienteExceptions.ContrasenaInvalida.class)
+    public ResponseEntity<String> handleContrasenaInvalida(ClienteExceptions.ContrasenaInvalida ex) {
+        return ResponseEntity.status(401).body(ex.getMessage());
+    }
+
+    @ExceptionHandler(ClienteExceptions.ImagenInvalidaException.class)
+    public ResponseEntity<String> handleImagenInvalida(ClienteExceptions.ImagenInvalidaException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
+    }
 }

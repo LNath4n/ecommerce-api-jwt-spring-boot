@@ -191,7 +191,7 @@ public class ProductoService {
         productoRepository.delete(p);
         productoRepository.flush();
 
-        storageService.delete(imagenKey);
+        storageService.deleteAfterCommit(imagenKey);
     }
 
     /**
@@ -225,10 +225,9 @@ public class ProductoService {
                 .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
         String keyAnterior = p.getImagenKey();
-        p.setImagenKey(storageService.upload(file));
-        productoRepository.flush();
+        p.setImagenKey(storageService.upload(file, StorageService.Carpeta.PRODUCTOS));
 
-        storageService.delete(keyAnterior); // borra la vieja para no dejar basura en el bucket
+        storageService.deleteAfterCommit(keyAnterior); // borra la vieja solo si la BD confirma el cambio
         return toAdmin(p);
     }
 
@@ -268,6 +267,29 @@ public class ProductoService {
 
         return productoRepository.findAll(spec, pageable)
                 .map(this::toPublico);
+    }
+
+    /**
+     * Quita la imagen de un producto sin borrar el producto.
+     *
+     * <p>Pone la key de la imagen en {@code null} y, solo si la transacción se
+     * confirma, borra el archivo del bucket. Si el producto no tenía imagen,
+     * la operación no tiene efecto.</p>
+     *
+     * @param idProducto id del producto
+     * @return vista de administración del producto con {@code imagenUrl} en {@code null}
+     * @throws ProductoNoEncontradoException si no existe un producto con ese id
+     */
+    @Transactional
+    public ProductoAdminResponse quitarImagen(Long idProducto) {
+        Producto p = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
+
+        String key = p.getImagenKey();
+        p.setImagenKey(null);
+        storageService.deleteAfterCommit(key);
+
+        return toAdmin(p);
     }
 
     /**

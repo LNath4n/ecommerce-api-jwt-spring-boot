@@ -85,4 +85,16 @@ public class ProductoAdminController {
             @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.ok(productoService.subirImagen(id, file));
     }
+
+    @DeleteMapping("/{id}/imagen")
+    @Operation(summary = "Quitar imagen del producto",
+            description = "Elimina la imagen del producto del bucket sin borrar el producto. Si no tenía, no hace nada")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Imagen eliminada; devuelve el producto sin imagenUrl"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado")
+    })
+    public ResponseEntity<ProductoAdminResponse> quitarImagen(
+            @Parameter(description = "ID del producto", example = "1") @PathVariable Long id) {
+        return ResponseEntity.ok(productoService.quitarImagen(id));
+    }
 }

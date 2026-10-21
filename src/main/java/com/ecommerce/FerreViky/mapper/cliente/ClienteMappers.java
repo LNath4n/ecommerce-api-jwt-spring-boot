@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.mapper.cliente;
 
+import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClientePublico;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.CreacionDeClienteRespuestaDto;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.models.Cliente;
@@ -37,5 +38,10 @@ public class ClienteMappers {
         return new CreacionDeClienteRespuestaDto(
                 cliente.getId(), cliente.getEmail()
         );
+    }
+
+    public ClientePublico devolverClientePublico(Cliente cliente){
+
+        return new ClientePublico(cliente.getEmail(),cliente.getNombre(),cliente.getTelefono(), cliente.getImagenKey());
     }
 }

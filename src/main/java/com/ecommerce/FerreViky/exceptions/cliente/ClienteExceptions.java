@@ -23,4 +23,16 @@ public class ClienteExceptions {
         }
     }
 
+    public static class ContrasenaInvalida extends RuntimeException {
+        public ContrasenaInvalida() {
+            super("La contrasena proporcionada es invalida");
+        }
+    }
+
+    public static class ImagenInvalidaException extends RuntimeException {
+        public ImagenInvalidaException(String mensaje) {
+            super(mensaje);
+        }
+    }
+
 }

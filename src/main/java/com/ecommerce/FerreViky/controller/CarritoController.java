@@ -103,6 +103,6 @@ public class CarritoController {
             @PathVariable Long idProducto,
             @AuthenticationPrincipal Cliente cliente) {
         carritoService.eliminarProducto(idProducto, cliente);
-        return ResponseEntity.ok("Producto con id " + idProducto + "eliminado");
+        return ResponseEntity.ok("Producto con id " + idProducto + " eliminado");
     }
 }
