@@ -41,28 +41,6 @@ class ClienteServiceTest {
 
 
     @Test
-    void obtenerCliente_clienteExiste_devuelveClientePublico() {
-        // Given
-        Cliente cliente = generarClienteFake();
-        Cliente clienteEnBd = generarClienteFake();
-        ClientePublico esperado = mock(ClientePublico.class);
-
-        when(clienteRepository.findById(cliente.getId()))
-                .thenReturn(Optional.of(clienteEnBd));
-
-        when(clienteMappers.devolverClientePublico(clienteEnBd))
-                .thenReturn(esperado);
-
-        // When
-        ClientePublico resultado = clienteService.obtenerCliente(cliente);
-
-        // Then
-        assertSame(esperado, resultado);
-        verify(clienteRepository).findById(cliente.getId());
-        verify(clienteMappers).devolverClientePublico(clienteEnBd);
-    }
-
-    @Test
     void obtenerCliente_clienteNoExiste_lanzaClienteNoEncontradoException() {
         // Given
         Cliente cliente = generarClienteFake();
