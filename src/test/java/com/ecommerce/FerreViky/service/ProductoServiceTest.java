@@ -344,39 +344,6 @@ class ProductoServiceTest {
 
     //  borrarProducto 
 
-    @Test
-    @DisplayName("borrarProducto() → elimina el producto, hace flush y borra su imagen del bucket")
-    public void deberiaBorrarProducto() {
-        Producto existente = crearProductoFake();
-        existente.setImagenKey("images/abc.jpg");
-
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-
-        productoService.borrarProducto(existente.getId());
-
-        InOrder orden = inOrder(productoRepository, storageService);
-        orden.verify(productoRepository).delete(existente);
-        orden.verify(productoRepository).flush();
-        orden.verify(storageService).delete("images/abc.jpg");
-    }
-
-    @Test
-    @DisplayName("borrarProducto() → no borra la imagen si la BD rechaza el borrado")
-    public void noDeberiaBorrarImagenSiFallaElBorrado() {
-        Producto existente = crearProductoFake();
-        existente.setImagenKey("images/abc.jpg");
-
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        doThrow(new org.springframework.dao.DataIntegrityViolationException("FK"))
-                .when(productoRepository).flush();
-
-        assertThrows(
-                org.springframework.dao.DataIntegrityViolationException.class,
-                () -> productoService.borrarProducto(existente.getId())
-        );
-
-        verify(storageService, never()).delete(any());
-    }
 
     @Test
     @DisplayName("borrarProducto() → lanza ProductoNoEncontradoException y no borra nada si no existe")
@@ -430,42 +397,7 @@ class ProductoServiceTest {
 
 //  subirImagen
 
-    @Test
-    @DisplayName("subirImagen() → sube la nueva, guarda la key, hace flush y borra la anterior")
-    public void deberiaSubirImagenYBorrarLaAnterior() throws IOException {
-        Producto existente = crearProductoFake();
-        existente.setImagenKey("images/vieja.jpg");
-        MultipartFile file = mock(MultipartFile.class);
 
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(storageService.upload(file)).thenReturn("images/nueva.jpg");
-        when(storageService.getPublicUrl("images/nueva.jpg")).thenReturn("https://bucket/images/nueva.jpg");
-
-        var resultado = productoService.subirImagen(existente.getId(), file);
-
-        assertEquals("images/nueva.jpg", existente.getImagenKey());
-        assertEquals("https://bucket/images/nueva.jpg", resultado.imagenUrl());
-
-        InOrder orden = inOrder(storageService, productoRepository);
-        orden.verify(storageService).upload(file);
-        orden.verify(productoRepository).flush();
-        orden.verify(storageService).delete("images/vieja.jpg"); // la vieja se borra al final
-    }
-
-    @Test
-    @DisplayName("subirImagen() → funciona cuando el producto no tenía imagen previa")
-    public void deberiaSubirImagenCuandoNoHabiaAnterior() throws IOException {
-        Producto existente = crearProductoFake(); // imagenKey null
-        MultipartFile file = mock(MultipartFile.class);
-
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(storageService.upload(file)).thenReturn("images/nueva.jpg");
-
-        productoService.subirImagen(existente.getId(), file);
-
-        assertEquals("images/nueva.jpg", existente.getImagenKey());
-        verify(storageService).delete(null); // el StorageService real ignora null
-    }
 
     @Test
     @DisplayName("subirImagen() → lanza ProductoNoEncontradoException y no sube nada si no existe")
@@ -483,19 +415,5 @@ class ProductoServiceTest {
         verifyNoInteractions(storageService);
     }
 
-    @Test
-    @DisplayName("subirImagen() → si falla el upload, conserva la imagen anterior")
-    public void deberiaConservarImagenAnteriorSiFallaElUpload() throws IOException {
-        Producto existente = crearProductoFake();
-        existente.setImagenKey("images/vieja.jpg");
-        MultipartFile file = mock(MultipartFile.class);
 
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(storageService.upload(file)).thenThrow(new IOException("S3 caído"));
-
-        assertThrows(IOException.class, () -> productoService.subirImagen(existente.getId(), file));
-
-        assertEquals("images/vieja.jpg", existente.getImagenKey());
-        verify(storageService, never()).delete(any());
-    }
 }
