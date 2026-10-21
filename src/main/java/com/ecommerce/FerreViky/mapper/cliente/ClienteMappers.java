@@ -40,8 +40,12 @@ public class ClienteMappers {
         );
     }
 
-    public ClientePublico devolverClientePublico(Cliente cliente){
-
-        return new ClientePublico(cliente.getEmail(),cliente.getNombre(),cliente.getTelefono(), cliente.getImagenKey());
+    public ClientePublico devolverClientePublico(Cliente cliente, String fotoUrl) {
+        return new ClientePublico(
+                cliente.getEmail(),
+                cliente.getNombre(),
+                cliente.getTelefono(),
+                fotoUrl
+        );
     }
 }

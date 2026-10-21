@@ -19,6 +19,7 @@ import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.time.Duration;
 
 @AllArgsConstructor
 @Service
@@ -28,6 +29,7 @@ public class ClienteService {
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
     private final ClienteRepository clienteRepository;
+    private static final Duration VALIDEZ_FOTO = Duration.ofMinutes(15);
 
     /**
      * Obtiene los datos públicos de un cliente.
@@ -46,7 +48,7 @@ public class ClienteService {
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(cliente.getEmail()));
 
-        return clienteMappers.devolverClientePublico(c);
+        return aPublico(c);
     }
 
     /**
@@ -112,7 +114,7 @@ public class ClienteService {
             c.setTelefono(request.telefono());
         }
 
-        return clienteMappers.devolverClientePublico(c);
+        return aPublico(c);
     }
 
     /**
@@ -162,7 +164,7 @@ public class ClienteService {
 
         storageService.deleteAfterCommit(keyAnterior);
 
-        return clienteMappers.devolverClientePublico(c);
+        return aPublico(c);
     }
 
     /**
@@ -186,6 +188,27 @@ public class ClienteService {
         c.setImagenKey(null);
         storageService.deleteAfterCommit(key);   // borra de S3 solo si la BD confirma
 
-        return clienteMappers.devolverClientePublico(c);
+        return aPublico(c);
+    }
+
+    /**
+     * Convierte un cliente en su representación pública, incluyendo la URL
+     * firmada de su foto de perfil.
+     *
+     * <p>La foto vive en una carpeta privada del bucket, por lo que se genera
+     * una URL prefirmada de lectura con vigencia de {@link #VALIDEZ_FOTO}.
+     * Si el cliente no tiene foto, el campo {@code fotoUrl} del DTO será
+     * {@code null}.</p>
+     *
+     * <p>La URL generada expira, por lo que no debe almacenarse: debe
+     * solicitarse de nuevo cada vez que se consulte el perfil.</p>
+     *
+     * @param c entidad del cliente a convertir
+     * @return datos públicos del cliente con la URL firmada de su foto
+     *         (o {@code null} si no tiene)
+     */
+    private ClientePublico aPublico(Cliente c) {
+        String fotoUrl = storageService.getPresignedUrl(c.getImagenKey(), VALIDEZ_FOTO);
+        return clienteMappers.devolverClientePublico(c, fotoUrl);
     }
 }
