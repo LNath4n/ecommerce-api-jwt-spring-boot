@@ -1,19 +1,19 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoOpcionResponse;
-import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO.GrupoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoAdminResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoRequest;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.GrupoNoEncontradoException;
+import com.ecommerce.FerreViky.dto.producto.ProductoDTO.*;
+import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
+import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
-import com.ecommerce.FerreViky.mapper.grupoDeProductos.GrupoDeProductosMappers;
 import com.ecommerce.FerreViky.mapper.producto.ProductoMappers;
-import com.ecommerce.FerreViky.models.GrupoDeProductos;
+import com.ecommerce.FerreViky.models.Categoria;
+import com.ecommerce.FerreViky.models.CodigoVirtual.EstadoCodigo;
 import com.ecommerce.FerreViky.models.Producto;
-import com.ecommerce.FerreViky.repository.GrupoDeProductosRepository;
+import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
+import com.ecommerce.FerreViky.repository.CategoriaRepository;
+import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import com.ecommerce.FerreViky.specification.ProductoSpecification;
+import com.ecommerce.FerreViky.utils.SlugUtil;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -25,199 +25,314 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @AllArgsConstructor
 @Service
 public class ProductoService {
 
     private final ProductoRepository productoRepository;
-    private final GrupoDeProductosRepository grupoDeProductosRepository;
+    private final CategoriaRepository categoriaRepository;
+    private final CodigoVirtualRepository codigoVirtualRepository;
+    private final CarritoProductoRepository carritoProductoRepository;
     private final StorageService storageService;
 
     /**
-     * Convierte un producto a su vista pública resolviendo la URL de su imagen.
+     * Calcula el stock de un solo producto.
      *
-     * @param p producto a convertir
-     * @return vista pública con {@code imagenUrl} ({@code null} si no tiene imagen)
+     * <p>El stock corresponde a la cantidad de códigos virtuales del producto
+     * cuyo estado es {@link EstadoCodigo#DISPONIBLE}.</p>
+     *
+     * @param p producto cuyo stock se desea consultar
+     * @return cantidad de códigos disponibles del producto
+     */
+    private int stockDe(Producto p) {
+        return (int) codigoVirtualRepository
+                .countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE);
+    }
+
+    /**
+     * Calcula el stock de varios productos en una sola consulta.
+     *
+     * @param productos productos cuyo stock se desea consultar
+     * @return mapa con el id del producto como clave y su stock disponible
+     *         como valor; vacío si no se proporcionan productos
+     */
+    private Map<Long, Integer> stockPorProducto(Collection<Producto> productos) {
+        if (productos.isEmpty()) {
+            return Map.of();
+        }
+        List<Long> ids = productos.stream().map(Producto::getId).toList();
+        Map<Long, Integer> mapa = new HashMap<>();
+        codigoVirtualRepository.contarPorProducto(ids, EstadoCodigo.DISPONIBLE)
+                .forEach(s -> mapa.put(s.getProductoId(), s.getTotal().intValue()));
+        return mapa;
+    }
+
+    /**
+     * Convierte un producto en su representación pública.
+     *
+     * <p>Incluye la URL pública de la imagen y el stock disponible actual.</p>
+     *
+     * @param p entidad del producto a convertir
+     * @return datos públicos del producto
      */
     private ProductoPublicoResponse toPublico(Producto p) {
-        return ProductoMappers.toPublicoResponse(p, storageService.getPublicUrl(p.getImagenKey()));
+        return ProductoMappers.toPublicoResponse(p, storageService.getPublicUrl(p.getImagenKey()), stockDe(p));
     }
 
     /**
-     * Convierte un producto a su vista de administración resolviendo la URL de su imagen.
+     * Convierte un producto en su representación para administración.
      *
-     * @param p producto a convertir
-     * @return vista de administración con {@code imagenUrl} ({@code null} si no tiene imagen)
+     * <p>Incluye la URL pública de la imagen y el stock disponible actual.</p>
+     *
+     * @param p entidad del producto a convertir
+     * @return datos de administración del producto
      */
     private ProductoAdminResponse toAdmin(Producto p) {
-        return ProductoMappers.toAdminResponse(p, storageService.getPublicUrl(p.getImagenKey()));
+        return ProductoMappers.toAdminResponse(p, storageService.getPublicUrl(p.getImagenKey()), stockDe(p));
     }
 
     /**
-     * Convierte un grupo a su vista pública, incluyendo las URLs de imagen de sus
-     * productos (máximo 5, sin nulos) para el carrusel.
+     * Convierte una página de productos en una página de respuestas públicas.
      *
-     * @param g grupo a convertir
-     * @return vista pública del grupo con {@code productoIds} e {@code imagenUrls}
+     * <p>El stock de todos los productos de la página se obtiene con una sola
+     * consulta mediante {@link #stockPorProducto(Collection)}. Los productos
+     * sin códigos disponibles se reportan con stock {@code 0}.</p>
+     *
+     * @param pagina página de entidades a convertir
+     * @return página con los datos públicos de cada producto
      */
-    private GrupoPublicoResponse toGrupoPublico(GrupoDeProductos g) {
-        return GrupoDeProductosMappers.toPublicoResponse(
-                g, p -> storageService.getPublicUrl(p.getImagenKey()));
+    private Page<ProductoPublicoResponse> toPaginaPublica(Page<Producto> pagina) {
+        Map<Long, Integer> stock = stockPorProducto(pagina.getContent());
+        return pagina.map(p -> ProductoMappers.toPublicoResponse(
+                p,
+                storageService.getPublicUrl(p.getImagenKey()),
+                stock.getOrDefault(p.getId(), 0)));
     }
 
     /**
-     * Obtiene todos los productos paginados.
+     * Obtiene los productos activos de forma paginada.
      *
      * @param pageable configuración de paginación y ordenamiento
-     * @return página de productos en formato público
+     * @return página de productos activos con sus datos públicos
      */
     public Page<ProductoPublicoResponse> obtenerTodos(Pageable pageable) {
-        return productoRepository.findAllWithGrupo(pageable)
-                .map(this::toPublico);
+        return toPaginaPublica(productoRepository.findByActivoTrue(pageable));
     }
 
     /**
-     * Obtiene un producto por su ID.
+     * Obtiene un producto activo por su id.
      *
-     * @param id ID del producto a buscar
-     * @return producto encontrado en formato público
-     * @throws ProductoNoEncontradoException si no existe el producto
+     * @param id identificador del producto
+     * @return datos públicos del producto encontrado
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id o si está inactivo
      */
     public ProductoPublicoResponse obtenerProductoPorId(Long id) {
         Producto producto = productoRepository.findById(id)
+                .filter(Producto::getActivo)
                 .orElseThrow(() -> new ProductoNoEncontradoException(id));
-
         return toPublico(producto);
     }
 
     /**
-     * Obtiene todos los grupos de productos paginados.
+     * Busca productos activos por texto libre, con filtros opcionales de
+     * plataforma y categoría.
      *
-     * @param pageable configuración de paginación y ordenamiento
-     * @return página de grupos en formato público
+     * <p>Los criterios se combinan mediante {@link Specification}. Cada
+     * filtro que se reciba como {@code null} se omite de la búsqueda.</p>
+     *
+     * @param texto       texto libre a buscar
+     * @param plataforma  plataforma por la cual filtrar
+     * @param categoriaId id de la categoría por la cual filtrar
+     * @param pageable    configuración de paginación y ordenamiento
+     * @return página de productos activos que cumplen los criterios
      */
-    public Page<GrupoPublicoResponse> obtenerTodosLosGrupos(Pageable pageable) {
-        Page<GrupoDeProductos> pageGrupos = grupoDeProductosRepository.findAllPaged(pageable);
-        List<GrupoDeProductos> conEstilos = grupoDeProductosRepository.findWithEstilos(pageGrupos.getContent());
+    public Page<ProductoPublicoResponse> buscar(String texto, String plataforma, Long categoriaId, Pageable pageable) {
+        Specification<Producto> spec = ProductoSpecification.soloActivos()
+                .and(ProductoSpecification.buscarPorTexto(texto))
+                .and(ProductoSpecification.conPlataforma(plataforma))
+                .and(ProductoSpecification.conCategoria(categoriaId));
 
-        return pageGrupos.map(g ->
-                toGrupoPublico(
-                        conEstilos.stream().filter(c -> c.getId().equals(g.getId())).findFirst().orElse(g)
-                )
-        );
+        return toPaginaPublica(productoRepository.findAll(spec, pageable));
     }
 
     /**
-     * Obtiene un grupo de productos por su ID.
+     * Obtiene las plataformas distintas registradas en el catálogo.
      *
-     * @param id ID del grupo a buscar
-     * @return grupo encontrado en formato público
-     * @throws GrupoNoEncontradoException si no existe el grupo
+     * @return lista de plataformas sin repetir
      */
-    public GrupoPublicoResponse obtenerGrupoPorId(Long id) {
-        GrupoDeProductos grupoDeProductos = grupoDeProductosRepository.findById(id)
-                .orElseThrow(() -> new GrupoNoEncontradoException(id));
-
-        return toGrupoPublico(grupoDeProductos);
+    public List<String> obtenerPlataformas() {
+        return productoRepository.findPlataformasDistintas();
     }
 
     /**
-     * Crea un producto nuevo a partir de los datos del request.
-     * <p>
-     * Si el request incluye {@code grupoDeProductosId}, el grupo debe existir; si viene
-     * {@code null}, el producto se crea sin grupo. La imagen se sube aparte con
-     * {@link #subirImagen(Long, MultipartFile)}.
+     * Obtiene todas las categorías en formato resumido.
      *
-     * @param productoRequest datos del producto a crear
-     * @return vista pública del producto guardado, incluyendo el {@code id} generado
-     * @throws GrupoNoEncontradoException      si el grupo indicado no existe
-     * @throws DataIntegrityViolationException si viola una restricción de la BD (por ejemplo, {@code clave} duplicada)
+     * @return lista de categorías ordenadas por nombre
+     */
+    public List<CategoriaOpcionResponse> obtenerListaDeCategorias() {
+        return categoriaRepository.findAll(Sort.by("nombre")).stream()
+                .map(c -> new CategoriaOpcionResponse(c.getId(), c.getNombre()))
+                .toList();
+    }
+
+    /**
+     * Obtiene la vista de administración de un producto.
+     *
+     * <p>A diferencia de las consultas públicas, esta también devuelve
+     * productos inactivos.</p>
+     *
+     * @param id identificador del producto
+     * @return datos de administración del producto
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
+     */
+    public ProductoAdminResponse obtenerUnProducto(Long id) {
+        Producto p = productoRepository.findById(id)
+                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+        return toAdmin(p);
+    }
+
+    /**
+     * Crea un nuevo producto.
+     *
+     * <p>Resuelve la categoría indicada (si se proporciona) y genera un slug
+     * único a partir del nombre mediante {@link #generarSlugUnico(String)}.</p>
+     *
+     * @param request datos del producto a crear
+     * @return datos públicos del producto creado
+     * @throws CategoriaNoEncontradaException si se indica una categoría que
+     *         no existe
      */
     @Transactional
-    public ProductoPublicoResponse crearProducto(ProductoRequest productoRequest) {
-        GrupoDeProductos grupo = resolverGrupo(productoRequest.grupoDeProductosId());
-
-        Producto p = productoRepository.save(ProductoMappers.toEntity(productoRequest, grupo));
-
+    public ProductoPublicoResponse crearProducto(ProductoRequest request) {
+        Categoria categoria = resolverCategoria(request.categoriaId());
+        Producto nuevo = ProductoMappers.toEntity(request, categoria);
+        nuevo.setSlug(generarSlugUnico(request.nombre()));
+        Producto p = productoRepository.save(nuevo);
         return toPublico(p);
     }
 
     /**
-     * Reemplaza todos los datos de un producto existente con los del request (semántica PUT).
-     * <p>
-     * Los campos que lleguen {@code null} se guardan como {@code null}, excepto la imagen,
-     * que no se toca (se administra con {@link #subirImagen(Long, MultipartFile)}).
+     * Actualiza los datos de un producto existente.
      *
-     * @param productoRequest nuevos datos del producto
-     * @param idProducto      id del producto a editar
-     * @return vista pública del producto ya actualizado
-     * @throws ProductoNoEncontradoException   si no existe un producto con ese id
-     * @throws GrupoNoEncontradoException      si el grupo indicado no existe
-     * @throws DataIntegrityViolationException si viola una restricción de la BD
+     * <p>Resuelve la categoría indicada (si se proporciona) y aplica los
+     * cambios sobre la entidad. Se hace {@code flush} para que las
+     * violaciones de integridad se detecten dentro de la operación.</p>
+     *
+     * @param request    nuevos datos del producto
+     * @param idProducto identificador del producto a editar
+     * @return datos públicos del producto actualizado
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
+     * @throws CategoriaNoEncontradaException si se indica una categoría que
+     *         no existe
      */
     @Transactional
-    public ProductoPublicoResponse editarProducto(ProductoRequest productoRequest, Long idProducto) {
+    public ProductoPublicoResponse editarProducto(ProductoRequest request, Long idProducto) {
         Producto p = productoRepository.findById(idProducto)
                 .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
-        GrupoDeProductos grupo = resolverGrupo(productoRequest.grupoDeProductosId());
+        Categoria categoria = resolverCategoria(request.categoriaId());
 
-        ProductoMappers.actualizarEntidad(p, productoRequest, grupo);
-        productoRepository.flush(); // Manda ya a la BD los cambios pendientes
+        ProductoMappers.actualizarEntidad(p, request, categoria);
+        productoRepository.flush();
 
         return toPublico(p);
     }
 
     /**
-     * Elimina un producto por su id y, si tenía, su imagen del bucket.
-     * <p>
-     * Se hace {@code flush()} antes de borrar la imagen: si la BD rechaza el borrado
-     * (por ejemplo, el producto está en pedidos), la excepción sale aquí y la imagen
-     * se conserva.
+     * Obtiene un producto activo por su slug.
      *
-     * @param idProducto id del producto a eliminar
-     * @throws ProductoNoEncontradoException   si no existe un producto con ese id
-     * @throws DataIntegrityViolationException si el producto está en uso y no puede borrarse
+     * @param slug identificador amigable del producto
+     * @return datos públicos del producto encontrado
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese slug o si está inactivo
+     */
+    public ProductoPublicoResponse obtenerProductoPorSlug(String slug) {
+        Producto producto = productoRepository.findBySlug(slug)
+                .filter(Producto::getActivo)
+                .orElseThrow(() -> new ProductoNoEncontradoException(slug));
+        return toPublico(producto);
+    }
+
+    /**
+     * Elimina un producto y su imagen.
+     *
+     * <p>Si el producto ya tiene códigos o pedidos asociados, la base de
+     * datos rechaza la eliminación ({@code DataIntegrityViolationException})
+     * y la imagen se conserva.</p>
+     *
+     * <p>La imagen se borra del bucket solo si la transacción se
+     * confirma.</p>
+     *
+     * @param idProducto identificador del producto a eliminar
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
      */
     @Transactional
     public void borrarProducto(Long idProducto) {
         Producto p = productoRepository.findById(idProducto)
                 .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
+        if (codigoVirtualRepository.existsByProductoId(idProducto)) {
+            throw new ProductoConDependenciasException(idProducto);
+        }
+
         String imagenKey = p.getImagenKey();
 
-        productoRepository.delete(p);
-        productoRepository.flush();
+        try {
+            carritoProductoRepository.eliminarPorProductoId(idProducto);  // limpia carrito, solo para no quedarnos esperando
+            productoRepository.delete(p);
+            productoRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new ProductoConDependenciasException(idProducto);
+        }
 
         storageService.deleteAfterCommit(imagenKey);
     }
 
     /**
-     * Obtiene un producto por su id con la vista de administración.
+     * Desactiva un producto sin eliminar su registro.
      *
-     * @param id id del producto a consultar
-     * @return vista de administración del producto encontrado
-     * @throws ProductoNoEncontradoException si no existe un producto con ese id
+     * <p>Cambia su estado a {@code activo = false}, por lo que deja de
+     * aparecer en las consultas públicas pero conserva sus códigos, pedidos
+     * e imagen. Es la alternativa a {@link #borrarProducto(Long)} cuando el
+     * producto ya tiene códigos o pedidos asociados.</p>
+     *
+     * <p>Al ejecutarse dentro de una transacción, el cambio se persiste al
+     * finalizar correctamente la operación.</p>
+     *
+     * @param idProducto identificador del producto a desactivar
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
      */
-    public ProductoAdminResponse obtenerUnProducto(Long id) {
-        Producto p = productoRepository.findById(id)
-                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+    @Transactional
+    public void desactivarProducto(Long idProducto) {
+        Producto p = productoRepository.findById(idProducto)
+                .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
-        return toAdmin(p);
+        p.setActivo(false);
     }
 
     /**
      * Sube (o reemplaza) la imagen de un producto.
-     * <p>
-     * Sube la nueva al bucket, guarda su key en la BD y, solo después, borra la anterior.
      *
-     * @param idProducto id del producto
+     * <p>Sube la nueva imagen a la carpeta de productos, guarda su key en la
+     * BD y, solo si la transacción se confirma, borra la imagen anterior del
+     * bucket.</p>
+     *
+     * @param idProducto identificador del producto
      * @param file       imagen a subir
-     * @return vista de administración con la nueva {@code imagenUrl}
-     * @throws ProductoNoEncontradoException si no existe un producto con ese id
-     * @throws IOException                   si falla la lectura del archivo
+     * @return datos de administración del producto con su imagen actualizada
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
+     * @throws IOException si falla la lectura del archivo
      */
     @Transactional
     public ProductoAdminResponse subirImagen(Long idProducto, MultipartFile file) throws IOException {
@@ -227,58 +342,21 @@ public class ProductoService {
         String keyAnterior = p.getImagenKey();
         p.setImagenKey(storageService.upload(file, StorageService.Carpeta.PRODUCTOS));
 
-        storageService.deleteAfterCommit(keyAnterior); // borra la vieja solo si la BD confirma el cambio
+        storageService.deleteAfterCommit(keyAnterior);
         return toAdmin(p);
     }
 
     /**
-     * Obtiene la lista de marcas distintas del catálogo, sin nulas ni vacías, ordenadas.
+     * Elimina la imagen de un producto.
      *
-     * @return lista de marcas sin repetir
-     */
-    public List<String> obtenerMarcas() {
-        return productoRepository.findMarcasDistintas();
-    }
-
-    /**
-     * Obtiene todos los grupos en formato resumido (id y nombre), sin paginar.
+     * <p>Pone la key de la imagen en {@code null} y, solo si la transacción
+     * se confirma, borra el archivo del bucket. Si el producto no tenía
+     * imagen, la operación no tiene efecto.</p>
      *
-     * @return lista de grupos ordenada por nombre
-     */
-    public List<GrupoOpcionResponse> obtenerListaDeGrupos() {
-        return grupoDeProductosRepository.findAll(Sort.by("nombre")).stream()
-                .map(g -> new GrupoOpcionResponse(g.getId(), g.getNombre()))
-                .toList();
-    }
-
-    /**
-     * Busca productos por texto libre, con filtros opcionales de marca y grupo.
-     *
-     * @param texto    palabras a buscar en descripción, código, clave y marca
-     * @param marca    marca exacta, o {@code null} para no filtrar
-     * @param grupoId  id del grupo, o {@code null} para no filtrar
-     * @param pageable configuración de paginación y ordenamiento
-     * @return página de productos que cumplen los filtros, en formato público
-     */
-    public Page<ProductoPublicoResponse> buscar(String texto, String marca, Long grupoId, Pageable pageable) {
-        Specification<Producto> spec = ProductoSpecification.buscarPorTexto(texto)
-                .and(ProductoSpecification.conMarca(marca))
-                .and(ProductoSpecification.conGrupo(grupoId));
-
-        return productoRepository.findAll(spec, pageable)
-                .map(this::toPublico);
-    }
-
-    /**
-     * Quita la imagen de un producto sin borrar el producto.
-     *
-     * <p>Pone la key de la imagen en {@code null} y, solo si la transacción se
-     * confirma, borra el archivo del bucket. Si el producto no tenía imagen,
-     * la operación no tiene efecto.</p>
-     *
-     * @param idProducto id del producto
-     * @return vista de administración del producto con {@code imagenUrl} en {@code null}
-     * @throws ProductoNoEncontradoException si no existe un producto con ese id
+     * @param idProducto identificador del producto
+     * @return datos de administración del producto sin imagen
+     * @throws ProductoNoEncontradoException si no existe un producto con
+     *         ese id
      */
     @Transactional
     public ProductoAdminResponse quitarImagen(Long idProducto) {
@@ -293,17 +371,40 @@ public class ProductoService {
     }
 
     /**
-     * Busca el grupo de productos asociado a un id.
+     * Genera un slug único a partir del nombre de un producto.
      *
-     * @param grupoId id del grupo, o {@code null} si el producto no pertenece a ninguno
-     * @return el grupo encontrado, o {@code null} si {@code grupoId} es {@code null}
-     * @throws GrupoNoEncontradoException si el id no es {@code null} y no existe el grupo
+     * <p>Si el slug base ya existe, se le agrega un sufijo numérico
+     * incremental a partir de {@code 2}. Por ejemplo:
+     * {@code steam-gift-card-200-mxn-2}.</p>
+     *
+     * @param nombre nombre del producto
+     * @return slug que no está en uso por ningún otro producto
      */
-    private GrupoDeProductos resolverGrupo(Long grupoId) {
-        if (grupoId == null) {
-            return null; // FK nullable: "sin grupo" es válido
+    private String generarSlugUnico(String nombre) {
+        String base = SlugUtil.slugify(nombre);
+        String slug = base;
+        int i = 2;
+        while (productoRepository.existsBySlug(slug)) {
+            slug = base + "-" + i++;
         }
-        return grupoDeProductosRepository.findById(grupoId)
-                .orElseThrow(() -> new GrupoNoEncontradoException(grupoId));
+        return slug;
+    }
+
+    /**
+     * Resuelve una categoría a partir de su id.
+     *
+     * @param categoriaId id de la categoría, o {@code null} si el producto
+     *                    no tiene categoría
+     * @return la categoría encontrada, o {@code null} si el id es
+     *         {@code null}
+     * @throws CategoriaNoEncontradaException si el id no es {@code null} y
+     *         no existe una categoría con ese id
+     */
+    private Categoria resolverCategoria(Long categoriaId) {
+        if (categoriaId == null) {
+            return null;
+        }
+        return categoriaRepository.findById(categoriaId)
+                .orElseThrow(() -> new CategoriaNoEncontradaException(categoriaId));
     }
 }

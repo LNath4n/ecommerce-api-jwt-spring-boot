@@ -14,7 +14,7 @@ public class CarritoDTO {
             @Schema(description = "ID perteneciente al Producto", example = "2")
             @NotNull Long idProducto,
 
-            @Schema(description = "Cantidad del producto", example = "1")
+            @Schema(description = "Cantidad de códigos que se quieren", example = "1")
             @NotNull @Min(1) Integer cantidad
     ) {}
 
@@ -25,12 +25,15 @@ public class CarritoDTO {
 
     public record CarritoProductoDTO(
             Long productoId,
-            String descripcion,
-            String clave,
+            String slug,
+            String nombre,
+            String sku,
+            String plataforma,
             Integer cantidad,
-            BigDecimal precioPublicoIva,
+            BigDecimal precioVenta,
             String imagenUrl
     ) {}
+
     public record CarritoResponseDTO(
             Long id,
             List<CarritoProductoDTO> productos,

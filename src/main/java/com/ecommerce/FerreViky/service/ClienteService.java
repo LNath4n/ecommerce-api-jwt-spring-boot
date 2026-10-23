@@ -138,6 +138,27 @@ public class ClienteService {
     }
 
     /**
+     * Activa la cuenta de un cliente sin modificar su registro.
+     *
+     * <p>Busca el registro correspondiente y cambia su estado a
+     * {@code activo = true}. Al ejecutarse dentro de una transacción,
+     * el cambio se persiste al finalizar correctamente la operación.</p>
+     *
+     * @param cliente cliente cuya cuenta se desea activar
+     * @throws ClienteNoEncontradoException si no existe un registro
+     *         asociado al cliente proporcionado
+     */
+    @Transactional
+    public void activarCliente(Cliente cliente) {
+        Cliente c = clienteRepository.findById(cliente.getId())
+                .orElseThrow(() ->
+                        new ClienteNoEncontradoException(cliente.getEmail()));
+
+        c.setActivo(true);
+    }
+
+
+    /**
      * Sube (o reemplaza) la foto de perfil del cliente.
      *
      * <p>Sube la nueva imagen a la carpeta privada de perfiles, guarda su key

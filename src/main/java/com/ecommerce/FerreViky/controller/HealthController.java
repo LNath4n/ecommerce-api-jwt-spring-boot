@@ -23,6 +23,6 @@ public class HealthController {
             @ApiResponse(responseCode = "200", description = "Versión obtenida exitosamente")
     })
     public ResponseEntity<String> obtenerVersion() {
-        return ResponseEntity.ok("Version 2.3.0 : Se agregaron fotos a los clientes \n");
+        return ResponseEntity.ok("Version 2.4.0 : Se cambio el Producto de Fisico a Electronico \n ");
     }
 }

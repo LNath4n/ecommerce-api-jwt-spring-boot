@@ -7,7 +7,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -16,6 +15,9 @@ import java.util.List;
 @AllArgsConstructor
 @NoArgsConstructor
 public class Carrito {
+    //Aqui guardamos el Cliente y su lista de productos en el Carrito
+    //La anotación se lee de la entidad donde está escrita hacia el tipo del campo.
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -25,7 +27,7 @@ public class Carrito {
     Cliente cliente;
 
     @OneToMany(mappedBy = "carrito", cascade = CascadeType.ALL, orphanRemoval = true)
-    private List<CarritoProducto> productos;
+    private List<ProductoEnCarrito> productos;
 
     private LocalDateTime fechaCreacion;
 }

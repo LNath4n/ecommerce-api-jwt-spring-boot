@@ -17,6 +17,11 @@ public class ProductosExceptionHandler {
         return ResponseEntity.status(404).body(ex.getMessage());
     }
 
+    @ExceptionHandler(ProductosExceptions.CategoriaNoEncontradaException.class)
+    public ResponseEntity<String> handleCategoriaNoEncontrada(ProductosExceptions.CategoriaNoEncontradaException ex) {
+        return ResponseEntity.status(404).body(ex.getMessage());
+    }
+
     @ExceptionHandler(ProductosExceptions.ImagenInvalidaException.class)
     public ResponseEntity<String> handleImagenInvalida(ProductosExceptions.ImagenInvalidaException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());

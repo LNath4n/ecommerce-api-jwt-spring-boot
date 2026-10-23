@@ -1,127 +1,88 @@
 package com.ecommerce.FerreViky.dto.producto;
 
+import com.ecommerce.FerreViky.models.Producto.TipoProducto;
 import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 
 public class ProductoDTO {
 
-    @Schema(description = "Respuesta al cliente al preguntar por un producto")
-    public record ProductoPublicoResponse(
-            @Schema(description = "ID generado para el producto",example = "2")
-            Long id,
-            @Schema(description = "ID que utiliza el catalogo de productos del cliente",example = "100101")
-            String codigo,
-            @Schema(description = "Nombre del Producto",example = "Estuche con 50 cuchillas SK4 de 18 mm para cutter, TRUPER")
-            String descripcion,
-            @Schema(description = "Unidad en la que viene el producto",example = "Set")
-            String unidad,
-            @Schema(description = "Marca del producto",example = "TRUPER")
-            String marca,
-            @Schema(description = "Precio que vera el cliente",example = "135.00")
-            BigDecimal precioPublicoIva,
-            @Schema(description = "Url de la imagen que vera el frontend")
-            String imagenUrl,
-            @Schema(description = "Cantidad del stock disponible",example = "5")
-            Integer stock
-    ) {}
+        @Schema(description = "Respuesta al cliente al preguntar por un producto")
+        public record ProductoPublicoResponse(
+                @Schema(example = "2") Long id,
+                @Schema(example = "steam-gift-card-200-mxn") String slug,
+                @Schema(example = "STEAM-MX-200") String sku,
+                @Schema(example = "Steam Gift Card $200 MXN") String nombre,
+                String descripcion,
+                @Schema(example = "Steam") String plataforma,
+                TipoProducto tipo,
+                @Schema(example = "MX") String region,
+                @Schema(example = "200.00") BigDecimal valorNominal,
+                @Schema(example = "MXN") String moneda,
+                @Schema(example = "189.00") BigDecimal precioVenta,
+                String instruccionesCanje,
+                String imagenUrl,
+                @Schema(description = "Códigos disponibles para la venta", example = "5") Integer stock
+        ) {}
 
-    @Schema(description = "Respuesta al administrador con todos los detalles del producto")
-    public record ProductoAdminResponse(
-            @Schema(description = "ID generado para el producto", example = "2")
-            Long id,
+        @Schema(description = "Respuesta al administrador con todos los detalles del producto")
+        public record ProductoAdminResponse(
+                Long id,
+                String sku,
+                String slug,
+                String nombre,
+                String descripcion,
+                String plataforma,
+                TipoProducto tipo,
+                String region,
+                BigDecimal valorNominal,
+                String moneda,
+                BigDecimal precioVenta,
+                BigDecimal precioCosto,
+                String instruccionesCanje,
+                Boolean activo,
+                Long categoriaId,
+                String imagenUrl,
+                Integer stock,
+                LocalDateTime fechaCreacion
+        ) {}
 
-            @Schema(description = "ID del catálogo del cliente", example = "100048")
-            String codigo,
+        @Schema(description = "Datos de entrada para crear o actualizar un producto (administrador)")
+        public record ProductoRequest(
+                @NotBlank(message = "El SKU es obligatorio")
+                @Schema(example = "STEAM-MX-200") String sku,
 
-            @Schema(description = "SKU o clave corta del producto", example = "PET-15X")
-            String clave,
+                @NotBlank(message = "El nombre es obligatorio")
+                @Schema(example = "Steam Gift Card $200 MXN") String nombre,
 
-            @Schema(description = "Nombre completo del producto", example = "Llave ajustable 15' cromada, TRUPER")
-            String descripcion,
+                String descripcion,
+                String plataforma,
 
-            @Schema(description = "Segmento de precio (ej: MM00 = mayoreo)", example = "MM00")
-            String margenMercado,
+                @NotNull(message = "El tipo es obligatorio")
+                TipoProducto tipo,
 
-            @Schema(description = "Cantidad mínima por caja", example = "2")
-            String caja,
+                String region,
+                BigDecimal valorNominal,
+                String moneda,
 
-            @Schema(description = "Cantidad por master/pallet", example = "12")
-            String master,
+                @NotNull(message = "El precio de venta es obligatorio")
+                @DecimalMin(value = "0.00", message = "El precio no puede ser negativo")
+                BigDecimal precioVenta,
 
-            @Schema(description = "Unidad de venta del producto", example = "Pieza")
-            String unidad,
+                @DecimalMin(value = "0.00", message = "El costo no puede ser negativo")
+                BigDecimal precioCosto,
 
-            @Schema(description = "Código de barras EAN-13", example = "7506240674542")
-            String ean,
+                String instruccionesCanje,
+                Boolean activo,
 
-            @Schema(description = "Precio para mayoristas con IVA", example = "485.00")
-            BigDecimal precioMayoreoIva,
+                @Schema(description = "ID de la categoría (opcional)", example = "3")
+                Long categoriaId
+        ) {}
 
-            @Schema(description = "Precio para distribuidores con IVA", example = "375.00")
-            BigDecimal precioDistribuidorIva,
-
-            @Schema(description = "Precio al público con IVA", example = "585.00")
-            BigDecimal precioPublicoIva,
-
-            @Schema(description = "Marca del producto", example = "Truper")
-            String marca,
-
-            @Schema(description = "ID del grupo de productos al que pertenece", example = "3")
-            Long grupoDeProductosId,
-            @Schema(description = "Url de la imagen que vera el frontend")
-            String imagenUrl,
-
-            @Schema(description = "Stock disponible", example = "50")
-            Integer stock
-    ) {}
-
-    @Schema(description = "Datos de entrada para crear o actualizar un producto (administrador)")
-    public record ProductoRequest(
-            @Schema(description = "ID del catálogo del cliente", example = "100048")
-            String codigo,
-
-            @NotBlank(message = "La clave es obligatoria")
-            @Schema(description = "SKU o clave corta del producto (única)", example = "PET-15X")
-            String clave,
-
-            @Schema(description = "Nombre completo del producto", example = "Llave ajustable 15' cromada, TRUPER")
-            String descripcion,
-
-            @Schema(description = "Segmento de precio (ej: MM00 = mayoreo)", example = "MM00")
-            String margenMercado,
-
-            @Schema(description = "Cantidad mínima por caja", example = "2")
-            String caja,
-
-            @Schema(description = "Cantidad por master/pallet", example = "12")
-            String master,
-
-            @Schema(description = "Unidad de venta del producto", example = "Pieza")
-            String unidad,
-
-            @Schema(description = "Código de barras EAN-13", example = "7506240674542")
-            String ean,
-
-            @Schema(description = "Precio para mayoristas con IVA", example = "485.00")
-            BigDecimal precioMayoreoIva,
-
-            @Schema(description = "Precio para distribuidores con IVA", example = "375.00")
-            BigDecimal precioDistribuidorIva,
-
-            @Schema(description = "Precio al público con IVA", example = "585.00")
-            BigDecimal precioPublicoIva,
-
-            @Schema(description = "Marca del producto", example = "Truper")
-            String marca,
-
-            @Schema(description = "ID del grupo de productos (opcional, puede ser null)", example = "3")
-            Long grupoDeProductosId,
-
-            @PositiveOrZero(message = "El stock debe ser mayor o igual a 0")
-            @Schema(description = "Stock disponible", example = "50")
-            Integer stock
-    ) {}
+        @Schema(description = "Categoría en formato resumido")
+        public record CategoriaOpcionResponse(Long id, String nombre) {}
 }

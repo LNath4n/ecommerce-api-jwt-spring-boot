@@ -4,12 +4,15 @@ import com.ecommerce.FerreViky.models.Producto;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 
 public class ProductoSpecification {
 
+    /** Solo productos activos (visibles en la tienda). */
+    public static Specification<Producto> soloActivos() {
+        return (root, query, cb) -> cb.isTrue(root.get("activo"));
+    }
 
     /**
      * Cada palabra del texto debe aparecer en al menos uno de los campos.
@@ -24,27 +27,27 @@ public class ProductoSpecification {
             for (String palabra : texto.trim().toLowerCase().split("\\s+")) {
                 String patron = "%" + palabra + "%";
                 porPalabra.add(cb.or(
-                        cb.like(cb.lower(root.get("descripcion")), patron),
-                        cb.like(cb.lower(root.get("codigo")), patron),
-                        cb.like(cb.lower(root.get("clave")), patron),
-                        cb.like(cb.lower(root.get("marca")), patron)
+                        cb.like(cb.lower(root.get("nombre")), patron),
+                        cb.like(cb.lower(root.get("sku")), patron),
+                        cb.like(cb.lower(root.get("plataforma")), patron),
+                        cb.like(cb.lower(root.get("descripcion")), patron)
                 ));
             }
             return cb.and(porPalabra.toArray(new Predicate[0]));
         };
     }
 
-    public static Specification<Producto> conMarca(String marca) {
+    public static Specification<Producto> conPlataforma(String plataforma) {
         return (root, query, cb) ->
-                (marca == null || marca.isBlank())
+                (plataforma == null || plataforma.isBlank())
                         ? cb.conjunction()
-                        : cb.equal(root.get("marca"), marca);
+                        : cb.equal(root.get("plataforma"), plataforma);
     }
 
-    public static Specification<Producto> conGrupo(Long grupoId) {
+    public static Specification<Producto> conCategoria(Long categoriaId) {
         return (root, query, cb) ->
-                grupoId == null
+                categoriaId == null
                         ? cb.conjunction()
-                        : cb.equal(root.get("grupoDeProductos").get("id"), grupoId);
+                        : cb.equal(root.get("categoria").get("id"), categoriaId);
     }
 }

@@ -4,7 +4,7 @@ import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.*;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.Cliente;
@@ -45,7 +45,7 @@ class AuthServiceTest {
     // login()
 
     @Test
-    @DisplayName("login() → retorna AuthResponse con token cuando las credenciales son válidas")
+    @DisplayName("Al hacer login con credenciales validas este devuelve un AuthResponse con el token")
     void login_deberiaRetornarToken_cuandoCredencialesValidas() {
         // Given
         LoginClienteDto dto = new LoginClienteDto("tilin@gmail.com", "secreto123");
@@ -73,7 +73,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("login() → lanza excepción cuando las credenciales son inválidas (password incorrecto o email no existe)")
+    @DisplayName("Al hacer login con credenciales invalidas este lanza BadCredentialsException y no consulta el repositorio")
     void login_deberiaLanzarExcepcion_cuandoCredencialesInvalidas() {
         // Given
         // El AuthenticationManager es quien valida: si las creds son malas, lanza BadCredentialsException
@@ -94,7 +94,7 @@ class AuthServiceTest {
     // guardarCliente()
 
     @Test
-    @DisplayName("guardarCliente() → guarda cliente y carrito, retorna token cuando el email no existe")
+    @DisplayName("Al guardar un cliente con email nuevo este se guarda junto con su carrito y devuelve el token")
     void guardarCliente_deberiaGuardarClienteYCarritoYRetornarToken_cuandoEmailNoExiste() {
         // Given
         LoginClienteDto dto = new LoginClienteDto("nuevo@mail.com", "pass123");
@@ -133,7 +133,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("guardarCliente() → lanza EmailYaExisteException y no toca nada más cuando el email ya existe")
+    @DisplayName("Al guardar un cliente con un email que ya existe este lanza EmailYaExisteException y no guarda nada")
     void guardarCliente_deberiaLanzarExcepcion_cuandoEmailYaExiste() {
         // Given
         LoginClienteDto dto = new LoginClienteDto("existente@mail.com", "cualquierpass");
@@ -141,7 +141,7 @@ class AuthServiceTest {
         when(clienteRepository.existsByEmail(dto.email())).thenReturn(true);
 
         // When / Then
-        assertThrows(ClienteExceptions.EmailYaExisteException.class,
+        assertThrows(EmailYaExisteException.class,
                 () -> authService.guardarCliente(dto));
 
         verify(clienteRepository).existsByEmail(dto.email());
@@ -151,8 +151,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("guardarCliente() → lanza ErrorAlCrearCarritoException cuando falla guardar el carrito")
-    void guardarCliente_deberiaLanzarExcepcion_cuandoFallaGuardarCarrito() {
+    @DisplayName("Al guardar un cliente y fallar el guardado del carrito este lanza ErrorAlCrearCarritoException y no genera token")    void guardarCliente_deberiaLanzarExcepcion_cuandoFallaGuardarCarrito() {
         // Given
         LoginClienteDto dto = new LoginClienteDto("nuevo@mail.com", "pass");
 
@@ -175,5 +174,18 @@ class AuthServiceTest {
 
         // El token nunca debería generarse si el carrito falló
         verify(jwtService, never()).getToken(any());
+    }
+
+    @Test
+    @DisplayName("Al hacer login con credenciales validas pero sin cliente en el repositorio este lanza CredencialesInvalidasException y no genera token")
+    void login_clienteNoEncontrado_lanzaCredencialesInvalidas() {
+        // Arrange
+        LoginClienteDto dto = new LoginClienteDto("tilin@gmail.com", "secreto123");
+        when(clienteRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
+
+        // Act + Assert
+        assertThrows(CredencialesInvalidasException.class, () -> authService.login(dto));
+        verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
+        verifyNoInteractions(jwtService);
     }
 }

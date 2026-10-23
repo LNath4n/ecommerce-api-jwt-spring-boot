@@ -25,21 +25,23 @@ public class ProductoAdminController {
     private final ProductoService productoService;
 
     @PostMapping
-    @Operation(summary = "Crear producto", description = "Crea un producto nuevo. Si se indica grupoDeProductosId, el grupo debe existir; si es null, el producto se crea sin grupo. La imagen se sube aparte en POST /admin/productos/{id}/imagen")
+    @Operation(summary = "Crear producto", description = "Crea un producto nuevo. Si se indica categoriaId, la categoría debe existir; si es null, el producto se crea sin categoría. El stock no se envía: se calcula con los códigos cargados. La imagen se sube aparte en POST /admin/productos/{id}/imagen")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Producto creado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos del producto inválidos"),
-            @ApiResponse(responseCode = "404", description = "Grupo de productos no encontrado")
+            @ApiResponse(responseCode = "404", description = "Categoría no encontrada"),
+            @ApiResponse(responseCode = "409", description = "Ya existe un producto con ese SKU")
     })
     public ResponseEntity<ProductoPublicoResponse> crearProducto(@Validated @RequestBody ProductoRequest productoAdminRequest) {
         return ResponseEntity.ok(productoService.crearProducto(productoAdminRequest));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Borrar producto", description = "Elimina un producto según su ID, junto con su imagen del bucket")
+    @Operation(summary = "Borrar producto", description = "Elimina un producto y su imagen del bucket. Si ya tiene códigos o pedidos asociados no se puede borrar: desactívalo con activo = false")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Producto borrado con éxito"),
-            @ApiResponse(responseCode = "404", description = "Producto no encontrado")
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado"),
+            @ApiResponse(responseCode = "409", description = "El producto tiene códigos o pedidos asociados")
     })
     public ResponseEntity<String> borrarUnProducto(
             @Parameter(description = "ID del producto a borrar", example = "1") @PathVariable Long id) {
@@ -47,12 +49,25 @@ public class ProductoAdminController {
         return ResponseEntity.ok("Producto borrado con exito");
     }
 
+    @PatchMapping("/{id}/desactivar")
+    @Operation(summary = "Desactivar producto", description = "Desactiva un producto sin eliminarlo: deja de aparecer en el catálogo público pero conserva sus códigos, pedidos e imagen. Úsalo cuando el producto ya no se pueda borrar")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Producto desactivado con éxito"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado")
+    })
+    public ResponseEntity<String> desactivarUnProducto(
+            @Parameter(description = "ID del producto a desactivar", example = "1") @PathVariable Long id) {
+        productoService.desactivarProducto(id);
+        return ResponseEntity.ok("Producto desactivado con exito");
+    }
+
     @PutMapping("/{id}")
-    @Operation(summary = "Editar producto", description = "Reemplaza los datos del producto con los del request (semántica PUT). Los campos null se guardan como null. No modifica la imagen")
+    @Operation(summary = "Editar producto", description = "Reemplaza los datos del producto con los del request (semántica PUT). Los campos null se guardan como null, salvo 'activo', que conserva su valor si no se envía. No modifica la imagen")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Producto actualizado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos del producto inválidos"),
-            @ApiResponse(responseCode = "404", description = "Producto o grupo de productos no encontrado")
+            @ApiResponse(responseCode = "404", description = "Producto o categoría no encontrado"),
+            @ApiResponse(responseCode = "409", description = "Ya existe un producto con ese SKU")
     })
     public ResponseEntity<ProductoPublicoResponse> editarProducto(
             @Validated @RequestBody ProductoRequest productoAdminRequest,

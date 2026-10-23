@@ -1,419 +1,533 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.gruposDeProductos.GruposDeProductosDTO;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoRequest;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions;
-import com.ecommerce.FerreViky.models.GrupoDeProductos;
+
+import com.ecommerce.FerreViky.dto.producto.ProductoDTO.*;
+import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
+import com.ecommerce.FerreViky.models.Categoria;
+import com.ecommerce.FerreViky.models.CodigoVirtual;
+import com.ecommerce.FerreViky.models.CodigoVirtual.EstadoCodigo;
 import com.ecommerce.FerreViky.models.Producto;
-import com.ecommerce.FerreViky.repository.GrupoDeProductosRepository;
+import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
+import com.ecommerce.FerreViky.repository.CategoriaRepository;
+import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import net.datafaker.Faker;
-import org.springframework.web.multipart.MultipartFile;
-import java.io.IOException;
-import org.mockito.InOrder;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.doThrow;
-import static org.mockito.Mockito.inOrder;
-import static org.mockito.Mockito.mock;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.data.domain.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
+import static com.ecommerce.FerreViky.utils.Fakes.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
+
 
 @ExtendWith(MockitoExtension.class)
 @DisplayName("ProductoService - Pruebas unitarias")
 class ProductoServiceTest {
-
     @Mock
     private ProductoRepository productoRepository;
-
     @Mock
-    private GrupoDeProductosRepository grupoDeProductosRepository;
+    private CategoriaRepository categoriaRepository;
+    @Mock
+    private CodigoVirtualRepository codigoVirtualRepository;
+    @Mock
+    private StorageService storageService;
+    @Mock
+    private CarritoProductoRepository carritoProductoRepository;
 
     @InjectMocks
     private ProductoService productoService;
-    @Mock
-    private StorageService storageService;
 
     private Pageable pageable;
 
     private final Faker faker = new Faker();
-
-    // Helpers
-
-    private Producto crearProductoFake() {
-        Producto p = new Producto();
-        p.setId(faker.number().randomNumber());
-        p.setCodigo(faker.code().ean8());
-        p.setDescripcion(faker.commerce().productName());
-        p.setMarca(faker.company().name());
-        p.setUnidad("Pieza");
-        p.setPrecioPublicoIva(BigDecimal.valueOf(faker.number().randomDouble(2, 10, 500)));
-        p.setStock((int) faker.number().numberBetween(1L, 100L));
-        return p;
-    }
-
-    private GrupoDeProductos crearGrupoFake() {
-        GrupoDeProductos g = new GrupoDeProductos();
-        g.setId(faker.number().randomNumber());
-        g.setNombre(faker.commerce().department());
-        g.setPrefijoClave(faker.bothify("??##"));
-        g.setPalabrasComunes(faker.lorem().word());
-        g.setEstilos(List.of());
-        return g;
-    }
-
-    private ProductoRequest crearRequestFake(Long grupoId) {
-        return new ProductoRequest(
-                faker.code().ean8(),                         // codigo
-                faker.bothify("??-###"),                     // clave
-                faker.commerce().productName(),              // descripcion
-                "MM00",                                      // margenMercado
-                "2",                                         // caja
-                "12",                                        // master
-                "Pieza",                                     // unidad
-                faker.code().ean13(),                        // ean
-                BigDecimal.valueOf(300),                     // precioMayoreoIva
-                BigDecimal.valueOf(250),                     // precioDistribuidorIva
-                BigDecimal.valueOf(400),                     // precioPublicoIva
-                faker.company().name(),                      // marca
-                grupoId,                                     // grupoDeProductosId
-                (int) faker.number().numberBetween(1L, 100L) // stock
-        );
-    }
 
     @BeforeEach
     void setUp() {
         pageable = PageRequest.of(0, 10);
     }
 
-    //  Productos 
 
     @Test
-    @DisplayName("obtenerTodos() → retorna página con los productos encontrados")
-    public void deberiaRetornarPaginaDeProductos() {
-        Page<Producto> paginaFalsa = new PageImpl<>(List.of(
-                crearProductoFake(),
-                crearProductoFake()
-        ));
+    @DisplayName("Al buscar por id un producto existente y activo este devuelve sus datos publicos con imagen y stock")
+    void obtenerProductoPorId_existeYActivo_devuelveProductoPublico() {
+        // Arrange
+        Producto p = generarProductoFake();
+        String url = "http://img.com/abc.png";
+        ProductoPublicoResponse esperado = esperadoPublico(p, url, 5);
 
-        when(productoRepository.findAllWithGrupo(pageable)).thenReturn(paginaFalsa);
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE)).thenReturn(5L);
 
-        Page<ProductoPublicoResponse> resultado = productoService.obtenerTodos(pageable);
+        // Act
+        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(p.getId());
 
-        assertNotNull(resultado);
-        assertEquals(2, resultado.getTotalElements());
-        verify(productoRepository).findAllWithGrupo(pageable);
+        // Assert
+        assertEquals(esperado, resultado);
+        verify(productoRepository).findById(p.getId());
     }
 
     @Test
-    @DisplayName("obtenerProductoPorId() → retorna el producto cuando el ID existe")
-    public void deberiaEncontrarElProducto() {
-        Producto producto = crearProductoFake();
+    @DisplayName("Al buscar por id un producto que no existe este lanza ProductoNoEncontradoException")
+    void obtenerProductoPorId_noExiste_lanzaProductoNoEncontrado() {
+        //Arrange
+        Producto p = generarProductoFake();
 
-        when(productoRepository.findById(producto.getId())).thenReturn(Optional.of(producto));
-
-        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(producto.getId());
-
-        assertNotNull(resultado);
-        assertEquals(producto.getId(), resultado.id());
-        verify(productoRepository).findById(producto.getId());
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.empty());
+        //Act + Assert
+        assertThrows(ProductoNoEncontradoException.class, () -> productoService.obtenerProductoPorId(p.getId()));
     }
 
     @Test
-    @DisplayName("obtenerProductoPorId() → lanza ProductoNoEncontradoException cuando el ID no existe")
-    public void deberiaLanzarExcepcionCuandoProductoNoExiste() {
-        Long idInexistente = 999L;
-
-        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.ProductoNoEncontradoException.class,
-                () -> productoService.obtenerProductoPorId(idInexistente)
-        );
-
-        verify(productoRepository).findById(idInexistente);
-    }
-
-    //  Grupos de Productos 
-
-    @Test
-    @DisplayName("obtenerTodosLosGrupos() → retorna página con los grupos encontrados")
-    public void deberiaRetornarPaginaDeGrupos() {
-        List<GrupoDeProductos> grupos = List.of(crearGrupoFake(), crearGrupoFake());
-        Page<GrupoDeProductos> paginaFalsa = new PageImpl<>(grupos);
-
-        when(grupoDeProductosRepository.findAllPaged(pageable)).thenReturn(paginaFalsa);
-        when(grupoDeProductosRepository.findWithEstilos(grupos)).thenReturn(grupos);
-
-        Page<GruposDeProductosDTO.GrupoPublicoResponse> resultado = productoService.obtenerTodosLosGrupos(pageable);
-
-        assertNotNull(resultado);
-        assertEquals(2, resultado.getTotalElements());
-        verify(grupoDeProductosRepository).findAllPaged(pageable);
-        verify(grupoDeProductosRepository).findWithEstilos(grupos);
-    }
-
-    @Test
-    @DisplayName("obtenerTodosLosGrupos() → retorna página vacía cuando no hay grupos registrados")
-    public void deberiaRetornarPaginaVaciaDeGrupos() {
-        when(grupoDeProductosRepository.findAllPaged(pageable)).thenReturn(Page.empty());
-        when(grupoDeProductosRepository.findWithEstilos(List.of())).thenReturn(List.of());
-
-        Page<GruposDeProductosDTO.GrupoPublicoResponse> resultado = productoService.obtenerTodosLosGrupos(pageable);
-
-        assertNotNull(resultado);
-        assertEquals(0, resultado.getTotalElements());
-        verify(grupoDeProductosRepository).findAllPaged(pageable);
-    }
-
-    @Test
-    @DisplayName("obtenerGrupoPorId() → retorna el grupo cuando el ID existe")
-    public void deberiaEncontrarElGrupo() {
-        GrupoDeProductos grupo = crearGrupoFake();
-
-        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
-
-        GruposDeProductosDTO.GrupoPublicoResponse resultado = productoService.obtenerGrupoPorId(grupo.getId());
-
-        assertNotNull(resultado);
-        assertEquals(grupo.getId(), resultado.id());
-        assertEquals(grupo.getNombre(), resultado.nombre());
-        verify(grupoDeProductosRepository).findById(grupo.getId());
-    }
-
-    @Test
-    @DisplayName("obtenerGrupoPorId() → lanza GrupoNoEncontradoException cuando el grupo no existe")
-    public void deberiaLanzarExcepcionCuandoGrupoNoExiste() {
-        Long idInexistente = 999L;
-
-        when(grupoDeProductosRepository.findById(idInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.GrupoNoEncontradoException.class,
-                () -> productoService.obtenerGrupoPorId(idInexistente)
-        );
-
-        verify(grupoDeProductosRepository).findById(idInexistente);
-    }
-
-    //  crearProducto 
-
-    @Test
-    @DisplayName("crearProducto() → guarda el producto sin grupo cuando grupoDeProductosId es null")
-    public void deberiaCrearProductoSinGrupo() {
-        ProductoRequest request = crearRequestFake(null);
-
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> {
-            Producto p = inv.getArgument(0);
-            p.setId(1L); // simula el id generado por la BD
-            return p;
+    @DisplayName("Al buscar por id un producto inactivo este lanza ProductoNoEncontradoException")
+    void obtenerProductoPorId_inactivo_lanzaProductoNoEncontrado() {
+        //Arrange
+        Producto p = generarProductoFake(producto -> {
+            producto.setActivo(false);
         });
 
-        ProductoPublicoResponse resultado = productoService.crearProducto(request);
-
-        assertEquals(1L, resultado.id());
-        assertEquals(request.codigo(), resultado.codigo());
-        assertEquals(request.stock(), resultado.stock());
-        verifyNoInteractions(grupoDeProductosRepository);
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        //Act + Assert
+        assertThrows(ProductoNoEncontradoException.class, () -> productoService.obtenerProductoPorId(p.getId()));
     }
 
     @Test
-    @DisplayName("crearProducto() → asigna el grupo cuando el id existe")
-    public void deberiaCrearProductoConGrupo() {
-        GrupoDeProductos grupo = crearGrupoFake();
-        ProductoRequest request = crearRequestFake(grupo.getId());
+    @DisplayName("Al buscar por slug un producto existente y activo este devuelve sus datos publicos")
+    void obtenerProductoPorSlug_existeYActivo_devuelveProductoPublico() {
+        // Arrange
+        Producto p = generarProductoFake();
+        String url = "http://img.com/abc.png";
+        ProductoPublicoResponse esperado = esperadoPublico(p, url, 7);
 
-        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
+        when(productoRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE)).thenReturn(7L);
+
+        // Act
+        ProductoPublicoResponse resultado = productoService.obtenerProductoPorSlug(p.getSlug());
+
+        // Assert
+        assertEquals(esperado, resultado);
+        verify(productoRepository).findBySlug(p.getSlug());
+    }
+
+    @Test
+    @DisplayName("Al buscar por slug un producto que no existe este lanza ProductoNoEncontradoException")
+    void obtenerProductoPorSlug_noExiste_lanzaProductoNoEncontrado() {
+        //Arrange
+        Producto p = generarProductoFake();
+
+        when(productoRepository.findBySlug(p.getSlug())).thenReturn(Optional.empty());
+        //Act + Assert
+        assertThrows(ProductoNoEncontradoException.class, () -> productoService.obtenerProductoPorSlug(p.getSlug()));
+    }
+
+    @Test
+    @DisplayName("Al buscar por slug un producto inactivo este lanza ProductoNoEncontradoException")
+    void obtenerProductoPorSlug_inactivo_lanzaProductoNoEncontrado() {
+        //Arrange
+        Producto p = generarProductoFake(producto -> {
+            producto.setActivo(false);
+        });
+
+        //Act + Assert
+        when(productoRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
+        assertThrows(ProductoNoEncontradoException.class,
+                () -> productoService.obtenerProductoPorSlug(p.getSlug()));
+    }
+
+    //  obtenerTodos / buscar 
+    @Test
+    @DisplayName("Al obtener todos los productos cada uno recibe el stock que le corresponde")
+    void obtenerTodos_conProductos_asignaStockDeCadaProducto() {
+        // Arrange
+        Producto p1 = generarProductoFake(p -> { p.setId(1L); p.setImagenKey("productos/uno.png"); });
+        Producto p2 = generarProductoFake(p -> { p.setId(2L); p.setImagenKey("productos/dos.png"); });
+        Page<Producto> pagina = new PageImpl<>(List.of(p1, p2), pageable, 2);
+
+        when(productoRepository.findByActivoTrue(pageable)).thenReturn(pagina);
+        when(codigoVirtualRepository.contarPorProducto(List.of(1L, 2L), EstadoCodigo.DISPONIBLE))
+                .thenReturn(List.of(stockFake(1L, 5L), stockFake(2L, 3L)));
+        when(storageService.getPublicUrl("productos/uno.png")).thenReturn("http://img.com/uno.png");
+        when(storageService.getPublicUrl("productos/dos.png")).thenReturn("http://img.com/dos.png");
+
+        // Act
+        Page<ProductoPublicoResponse> resultado = productoService.obtenerTodos(pageable);
+
+        // Assert
+        assertEquals(2, resultado.getContent().size());
+        assertEquals(esperadoPublico(p1, "http://img.com/uno.png", 5), resultado.getContent().get(0));
+        assertEquals(esperadoPublico(p2, "http://img.com/dos.png", 3), resultado.getContent().get(1));
+    }
+
+    @Test
+    @DisplayName("Al obtener un producto sin codigos disponibles su stock se reporta en cero")
+    void obtenerTodos_productoSinCodigosDisponibles_stockEsCero() {
+        // Arrange
+        Producto conStock = generarProductoFake(p -> { p.setId(1L); p.setImagenKey("productos/uno.png"); });
+        Producto sinStock = generarProductoFake(p -> { p.setId(2L); p.setImagenKey("productos/dos.png"); });
+        Page<Producto> pagina = new PageImpl<>(List.of(conStock, sinStock), pageable, 2);
+
+        when(productoRepository.findByActivoTrue(pageable)).thenReturn(pagina);
+        when(codigoVirtualRepository.contarPorProducto(List.of(1L, 2L), EstadoCodigo.DISPONIBLE))
+                .thenReturn(List.of(stockFake(1L, 5L)));   // el 2 no aparece
+        when(storageService.getPublicUrl("productos/uno.png")).thenReturn("http://img.com/uno.png");
+        when(storageService.getPublicUrl("productos/dos.png")).thenReturn("http://img.com/dos.png");
+
+        // Act
+        Page<ProductoPublicoResponse> resultado = productoService.obtenerTodos(pageable);
+
+        // Assert
+        assertEquals(esperadoPublico(conStock, "http://img.com/uno.png", 5), resultado.getContent().get(0));
+        assertEquals(esperadoPublico(sinStock, "http://img.com/dos.png", 0), resultado.getContent().get(1));
+    }
+
+    @Test
+    @DisplayName("Al obtener una pagina vacia no se consulta el stock en el repositorio de codigos")
+    void obtenerTodos_paginaVacia_noConsultaStock() {
+        // Arrange
+        Page<Producto> vacia = new PageImpl<>(List.of(), pageable, 0);
+        when(productoRepository.findByActivoTrue(pageable)).thenReturn(vacia);
+
+        // Act
+        Page<ProductoPublicoResponse> resultado = productoService.obtenerTodos(pageable);
+
+        // Assert
+        assertTrue(resultado.isEmpty());
+        verifyNoInteractions(codigoVirtualRepository);
+    }
+
+    @Test
+    @DisplayName("Al buscar con filtros el servicio devuelve la pagina que entrega el repositorio")
+    void buscar_conFiltros_devuelvePaginaDelRepositorio() {
+        // Arrange
+        Producto p = generarProductoFake();
+        String url = "http://img.com/abc.png";
+        Page<Producto> pagina = new PageImpl<>(List.of(p), pageable, 1);
+
+        when(productoRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(pagina);
+        when(codigoVirtualRepository.contarPorProducto(List.of(p.getId()), EstadoCodigo.DISPONIBLE))
+                .thenReturn(List.of(stockFake(p.getId(), 4L)));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+
+        // Act
+        Page<ProductoPublicoResponse> resultado =
+                productoService.buscar("steam", "Steam", 1L, pageable);
+
+        // Assert
+        assertEquals(1, resultado.getContent().size());
+        assertEquals(esperadoPublico(p, url, 4), resultado.getContent().get(0));
+        verify(productoRepository).findAll(any(Specification.class), eq(pageable));
+    }
+
+    //  obtenerPlataformas / obtenerListaDeCategorias 
+    @Test
+    @DisplayName("Al obtener las plataformas devuelve la lista de plataformas distintas del repositorio")
+    void obtenerPlataformas_devuelveListaDelRepositorio() {
+        // Arrange
+        List<String> plataformas = List.of("Xbox", "PlayStation");
+        when(productoRepository.findPlataformasDistintas()).thenReturn(plataformas);
+
+        // Act
+        List<String> resultado = productoService.obtenerPlataformas();
+
+        // Assert
+        assertEquals(plataformas, resultado);
+        verify(productoRepository).findPlataformasDistintas();
+    }
+
+    @Test
+    @DisplayName("Al obtener la lista de categorias cada una se convierte con su id y su nombre")
+    void obtenerListaDeCategorias_mapeaIdYNombre() {
+        // Arrange
+        Categoria c1 = new Categoria();
+        c1.setId(1L);
+        c1.setNombre("Gift Cards");
+
+        Categoria c2 = new Categoria();
+        c2.setId(2L);
+        c2.setNombre("Videojuegos");
+
+        when(categoriaRepository.findAll(Sort.by("nombre"))).thenReturn(List.of(c1, c2));
+
+        // Act
+        List<CategoriaOpcionResponse> resultado = productoService.obtenerListaDeCategorias();
+
+        // Assert
+        assertEquals(List.of(
+                new CategoriaOpcionResponse(1L, "Gift Cards"),
+                new CategoriaOpcionResponse(2L, "Videojuegos")
+        ), resultado);
+    }
+
+    //  obtenerUnProducto (admin) 
+    @Test
+    @DisplayName("Al consultar un producto como administrador lo devuelve aunque este inactivo")
+    void obtenerUnProducto_existe_devuelveAunqueEsteInactivo() {
+        // Arrange
+        Producto p = generarProductoFake(producto -> producto.setActivo(false));
+        String url = "http://img.com/abc.png";
+
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE))
+                .thenReturn(3L);
+
+        // Act
+        ProductoAdminResponse resultado = productoService.obtenerUnProducto(p.getId());
+
+        // Assert
+        assertNotNull(resultado);
+        assertEquals(p.getId(), resultado.id());
+        assertEquals(3, resultado.stock());
+        assertEquals(url, resultado.imagenUrl());
+    }
+
+    @Test
+    @DisplayName("Al consultar como administrador un producto que no existe este lanza ProductoNoEncontradoException")
+    void obtenerUnProducto_noExiste_lanzaProductoNoEncontrado() {
+        // Arrange
+        Producto p = generarProductoFake(producto -> producto.setActivo(false));
+
+        //Act
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.empty());
+
+        //Assert
+        assertThrows(ProductoNoEncontradoException.class,()->productoService.obtenerUnProducto(p.getId()));
+    }
+
+    @Test
+    @DisplayName("Al crear un producto sin categoria no se consulta el repositorio de categorias")
+    void crearProducto_sinCategoria_noConsultaCategoriaRepository() {
+        // Arrange
+        ProductoRequest request = generarRequestFake();
         when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+        //Cuando alguien llame a esta funcion devuelve el producto que me mando jeje
 
+        // Act
         productoService.crearProducto(request);
 
-        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
-        verify(productoRepository).save(captor.capture());
-        assertSame(grupo, captor.getValue().getGrupoDeProductos());
-        assertEquals(request.clave(), captor.getValue().getClave());
+        // Assert
+        verifyNoInteractions(categoriaRepository);
     }
 
     @Test
-    @DisplayName("crearProducto() → lanza GrupoNoEncontradoException y no guarda si el grupo no existe")
-    public void deberiaLanzarExcepcionAlCrearConGrupoInexistente() {
-        Long grupoInexistente = 999L;
-        ProductoRequest request = crearRequestFake(grupoInexistente);
+    @DisplayName("Al crear un producto con una categoria inexistente este lanza CategoriaNoEncontradaException")
+    void crearProducto_categoriaNoExiste_lanzaCategoriaNoEncontrada() {
+        // Arrange
+        ProductoRequest conCategoria = generarRequestFake(b -> b.categoriaId = 5L);
+        when(categoriaRepository.findById(5L)).thenReturn(Optional.empty());
 
-        when(grupoDeProductosRepository.findById(grupoInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.GrupoNoEncontradoException.class,
-                () -> productoService.crearProducto(request)
-        );
-
+        // Act + Assert
+        assertThrows(CategoriaNoEncontradaException.class,
+                () -> productoService.crearProducto(conCategoria));
         verify(productoRepository, never()).save(any());
+        //Verifica que a este repositorio nadie haya hablado con el
+    }
+
+    @Test
+    @DisplayName("Al crear un producto con slug libre este se guarda con el slug base del nombre")
+    void crearProducto_slugLibre_guardaConSlugBase() {
+        // Arrange
+        ProductoRequest request = generarRequestFake();
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(false);
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        productoService.crearProducto(request);
+
+        // Assert
+        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class); //Argumento real con el que se llamo al metodo Mock
+        //Util cuando no somos nosotros quien creamos eso
+        verify(productoRepository).save(captor.capture()); //Se llamo SAVE y encima me quedo lo que recibio
+        assertEquals("steam-gift-card-200-mxn", captor.getValue().getSlug());
+    }
+
+    @Test
+    @DisplayName("Al crear un producto cuyo slug ya existe se le agrega el sufijo 2")
+    void crearProducto_slugOcupado_agregaSufijo2() {
+        // Arrange
+        ProductoRequest request = generarRequestFake();
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(true);
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-2")).thenReturn(false);
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        productoService.crearProducto(request);
+
+        // Assert
+        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
+        verify(productoRepository).save(captor.capture());
+        assertEquals("steam-gift-card-200-mxn-2", captor.getValue().getSlug());
+    }
+
+    @Test
+    @DisplayName("Al crear un producto cuyo slug y sufijo 2 ya existen se le agrega el sufijo 3")
+    void crearProducto_slugBaseYSufijo2Ocupados_agregaSufijo3() {
+        // Arrange
+        ProductoRequest request = generarRequestFake();
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(true);
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-2")).thenReturn(true);
+        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-3")).thenReturn(false);
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        // Act
+        productoService.crearProducto(request);
+
+        // Assert
+        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
+        verify(productoRepository).save(captor.capture());
+        assertEquals("steam-gift-card-200-mxn-3", captor.getValue().getSlug());
     }
 
     //  editarProducto 
-
     @Test
-    @DisplayName("editarProducto() → actualiza los campos, hace flush y retorna el producto")
-    public void deberiaEditarProducto() {
-        Producto existente = crearProductoFake();
-        ProductoRequest request = crearRequestFake(null);
+    @DisplayName("Al editar un producto que no existe este lanza ProductoNoEncontradoException")
+    void editarProducto_noExiste_lanzaProductoNoEncontrado() {
+        // Arrange
+        ProductoRequest request = generarRequestFake();
+        when(productoRepository.findById(1L)).thenReturn(Optional.empty());
 
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-
-        ProductoPublicoResponse resultado = productoService.editarProducto(request, existente.getId());
-
-        assertEquals(existente.getId(), resultado.id()); // el id no cambia
-        assertEquals(request.codigo(), existente.getCodigo());
-        assertEquals(request.clave(), existente.getClave());
-        assertEquals(request.marca(), existente.getMarca());
-        assertNull(existente.getGrupoDeProductos());
-        verify(productoRepository).flush();
-        verify(productoRepository, never()).save(any()); // managed: no hace falta save
-    }
-
-    @Test
-    @DisplayName("editarProducto() → asigna el nuevo grupo cuando el id existe")
-    public void deberiaEditarProductoConGrupo() {
-        Producto existente = crearProductoFake();
-        GrupoDeProductos grupo = crearGrupoFake();
-        ProductoRequest request = crearRequestFake(grupo.getId());
-
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
-
-        productoService.editarProducto(request, existente.getId());
-
-        assertSame(grupo, existente.getGrupoDeProductos());
-        verify(productoRepository).flush();
-    }
-
-    @Test
-    @DisplayName("editarProducto() → lanza ProductoNoEncontradoException cuando el producto no existe")
-    public void deberiaLanzarExcepcionAlEditarProductoInexistente() {
-        Long idInexistente = 999L;
-
-        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.ProductoNoEncontradoException.class,
-                () -> productoService.editarProducto(crearRequestFake(null), idInexistente)
-        );
-
+        // Act + Assert
+        assertThrows(ProductoNoEncontradoException.class,
+                () -> productoService.editarProducto(request, 1L));
         verify(productoRepository, never()).flush();
     }
 
     @Test
-    @DisplayName("editarProducto() → lanza GrupoNoEncontradoException y no modifica el producto")
-    public void deberiaLanzarExcepcionAlEditarConGrupoInexistente() {
-        Long grupoInexistente = 999L;
-        Producto existente = crearProductoFake();
-        String descripcionOriginal = existente.getDescripcion();
+    @DisplayName("Al editar un producto con una categoria inexistente este lanza CategoriaNoEncontradaException")
+    void editarProducto_categoriaNoExiste_lanzaCategoriaNoEncontrada() {
+        // Arrange
+        Producto p = generarProductoFake();
+        ProductoRequest request = generarRequestFake(b -> b.categoriaId = 99L);
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(categoriaRepository.findById(99L)).thenReturn(Optional.empty());
 
-        when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(grupoDeProductosRepository.findById(grupoInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.GrupoNoEncontradoException.class,
-                () -> productoService.editarProducto(crearRequestFake(grupoInexistente), existente.getId())
-        );
-
-        assertEquals(descripcionOriginal, existente.getDescripcion());
+        // Act + Assert
+        assertThrows(CategoriaNoEncontradaException.class,
+                () -> productoService.editarProducto(request, p.getId()));
         verify(productoRepository, never()).flush();
+    }
+
+    @Test
+    @DisplayName("Al editar un producto existente se actualizan sus campos y se hace flush")
+    void editarProducto_existe_actualizaCamposYHaceFlush() {
+        // Arrange
+        Producto p = generarProductoFake();
+        Categoria nueva = new Categoria();
+        nueva.setId(7L);
+        nueva.setNombre("Streaming");
+
+        ProductoRequest request = generarRequestFake(b -> {
+            b.nombre = "Netflix Gift Card $300 MXN";
+            b.precioVenta = new BigDecimal("315.00");
+            b.categoriaId = 7L;
+        });
+
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(categoriaRepository.findById(7L)).thenReturn(Optional.of(nueva));
+
+        // Act
+        productoService.editarProducto(request, p.getId());
+
+        // Assert
+        assertEquals("Netflix Gift Card $300 MXN", p.getNombre());
+        assertEquals(new BigDecimal("315.00"), p.getPrecioVenta());
+        assertEquals(nueva, p.getCategoria());
+        verify(productoRepository).flush();
     }
 
     //  borrarProducto 
-
-
     @Test
-    @DisplayName("borrarProducto() → lanza ProductoNoEncontradoException y no borra nada si no existe")
-    public void deberiaLanzarExcepcionAlBorrarProductoInexistente() {
-        Long idInexistente = 999L;
+    @DisplayName("Al borrar un producto que no existe este lanza ProductoNoEncontradoException")
+    void borrarProducto_noExiste_lanzaProductoNoEncontrado() {
+        // Arrange
+        when(productoRepository.findById(1L)).thenReturn(Optional.empty());
 
-        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.ProductoNoEncontradoException.class,
-                () -> productoService.borrarProducto(idInexistente)
-        );
-
+        // Act + Assert
+        assertThrows(ProductoNoEncontradoException.class,
+                () -> productoService.borrarProducto(1L));
         verify(productoRepository, never()).delete((Producto) any());
         verifyNoInteractions(storageService);
     }
-    //  imagenUrl en lecturas
 
     @Test
-    @DisplayName("obtenerProductoPorId() → resuelve imagenUrl con el StorageService")
-    public void deberiaIncluirImagenUrl() {
-        Producto producto = crearProductoFake();
-        producto.setImagenKey("images/abc.jpg");
+    @DisplayName("Al borrar un producto existente este se elimina y se programa el borrado de su imagen")
+    void borrarProducto_existe_borraYProgramaBorradoDeImagen() {
+        // Arrange
+        Producto p = generarProductoFake(producto -> producto.setImagenKey("productos/borrar.png"));
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
-        when(productoRepository.findById(producto.getId())).thenReturn(Optional.of(producto));
-        when(storageService.getPublicUrl("images/abc.jpg")).thenReturn("https://bucket/images/abc.jpg");
+        // Act
+        productoService.borrarProducto(p.getId());
 
-        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(producto.getId());
+        // Assert
+        //Verifica que los metodos se llamaron en un Orden especial
+        InOrder orden = inOrder(carritoProductoRepository, productoRepository, storageService);
+        orden.verify(carritoProductoRepository).eliminarPorProductoId(p.getId());
+        orden.verify(productoRepository).delete(p);
+        orden.verify(productoRepository).flush();
+        orden.verify(storageService).deleteAfterCommit("productos/borrar.png");
 
-        assertEquals("https://bucket/images/abc.jpg", resultado.imagenUrl());
+        //Exige que haya sido asi DELETE->FLUSH->Delete
     }
 
-    @Test
-    @DisplayName("obtenerGrupoPorId() → incluye las URLs de imagen de sus productos, sin nulos")
-    public void deberiaIncluirImagenUrlsDelGrupo() {
-        Producto conImagen = crearProductoFake();
-        conImagen.setImagenKey("images/a.jpg");
-        Producto sinImagen = crearProductoFake();
-
-        GrupoDeProductos grupo = crearGrupoFake();
-        grupo.setEstilos(List.of(conImagen, sinImagen));
-
-        when(grupoDeProductosRepository.findById(grupo.getId())).thenReturn(Optional.of(grupo));
-        when(storageService.getPublicUrl("images/a.jpg")).thenReturn("https://bucket/images/a.jpg");
-
-        GruposDeProductosDTO.GrupoPublicoResponse resultado = productoService.obtenerGrupoPorId(grupo.getId());
-
-        assertEquals(List.of(conImagen.getId(), sinImagen.getId()), resultado.productoIds());
-        assertEquals(List.of("https://bucket/images/a.jpg"), resultado.imagenUrls());
-    }
-
-//  subirImagen
-
-
 
     @Test
-    @DisplayName("subirImagen() → lanza ProductoNoEncontradoException y no sube nada si no existe")
-    public void deberiaLanzarExcepcionAlSubirImagenAProductoInexistente() throws IOException {
-        Long idInexistente = 999L;
-        MultipartFile file = mock(MultipartFile.class);
+    @DisplayName("Al borrar un producto con codigos asociados lanza ProductoConDependenciasException sin tocar la BD ni la imagen")
+    void borrarProducto_conCodigos_lanzaProductoConDependencias() {
+        // Arrange
+        Producto p = generarProductoFake();
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(codigoVirtualRepository.existsByProductoId(p.getId())).thenReturn(true);
 
-        when(productoRepository.findById(idInexistente)).thenReturn(Optional.empty());
-
-        assertThrows(
-                ProductosExceptions.ProductoNoEncontradoException.class,
-                () -> productoService.subirImagen(idInexistente, file)
-        );
-
+        // Act + Assert
+        assertThrows(ProductoConDependenciasException.class,
+                () -> productoService.borrarProducto(p.getId()));
+        verify(productoRepository, never()).delete((Producto) any());
         verifyNoInteractions(storageService);
     }
 
+    //  desactivarProducto 
+    @Test
+    @DisplayName("Al desactivar un producto existente este cambia su estado activo a false")
+    void desactivarProducto_existe_poneActivoEnFalse() {
+        // Arrange
+        Producto p = generarProductoFake();   // activo = true
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+
+        // Act
+        productoService.desactivarProducto(p.getId());
+
+        // Assert
+        assertFalse(p.getActivo());
+    }
+
+    @Test
+    @DisplayName("Al desactivar un producto que no existe este lanza ProductoNoEncontradoException")
+    void desactivarProducto_noExiste_lanzaProductoNoEncontrado() {
+        // Arrange
+        when(productoRepository.findById(1L)).thenReturn(Optional.empty());
+
+        // Act + Assert
+        assertThrows(ProductoNoEncontradoException.class,
+                () -> productoService.desactivarProducto(1L));
+    }
 
 }
