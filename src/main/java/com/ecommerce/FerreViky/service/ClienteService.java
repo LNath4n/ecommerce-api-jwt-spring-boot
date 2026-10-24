@@ -106,7 +106,7 @@ public class ClienteService {
         }
 
         // Actualiza los datos personales enviados en la solicitud.
-        if (request.nombre() != null) {
+        if (request.nombre() != null && !request.nombre().isBlank()) {
             c.setNombre(request.nombre());
         }
 

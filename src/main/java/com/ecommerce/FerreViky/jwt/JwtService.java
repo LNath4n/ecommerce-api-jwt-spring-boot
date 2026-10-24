@@ -49,6 +49,8 @@ public class JwtService {
      */
     public String getToken(Cliente cliente) {
         Map<String, Object> extraClaims = new HashMap<>();
+        String nombre = (cliente.getNombre() != null && !cliente.getNombre().isBlank()) ? cliente.getNombre() : cliente.getUsername();
+        extraClaims.put("nombre", nombre);
         extraClaims.put("role", cliente.getRol().name()); // "ADMIN" o "USER"
         return getToken(extraClaims, cliente);
     }
