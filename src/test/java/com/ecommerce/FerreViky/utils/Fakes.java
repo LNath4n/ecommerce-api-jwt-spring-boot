@@ -272,4 +272,19 @@ public final class Fakes {
         cambios.accept(b);
         return b.build();
     }
+
+    // CodigoVirtual
+    public static CodigoVirtual generarCodigoFake(Producto producto, String texto) {
+        return generarCodigoFake(producto, texto, cv -> {});
+    }
+
+    public static CodigoVirtual generarCodigoFake(Producto producto, String texto, Consumer<CodigoVirtual> cambios) {
+        CodigoVirtual cv = new CodigoVirtual();
+        cv.setId(faker.number().numberBetween(1L, 100_000L));
+        cv.setProducto(producto);
+        cv.setCodigo(texto);
+        cv.setEstado(CodigoVirtual.EstadoCodigo.DISPONIBLE);
+        cambios.accept(cv);
+        return cv;
+    }
 }

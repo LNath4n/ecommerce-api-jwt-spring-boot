@@ -55,8 +55,6 @@ class ProductoServiceTest {
 
     private Pageable pageable;
 
-    private final Faker faker = new Faker();
-
     @BeforeEach
     void setUp() {
         pageable = PageRequest.of(0, 10);

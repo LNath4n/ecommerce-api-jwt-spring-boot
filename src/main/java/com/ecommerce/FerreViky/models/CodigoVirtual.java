@@ -15,8 +15,8 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "codigo_virtual")
 public class CodigoVirtual {
-    //Un Producto tiene muchos CodigoVirtual, y cada código pertenece a un solo producto.
 
+    //Un Producto tiene muchos CodigoVirtual, y cada código pertenece a un solo producto.
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -39,8 +39,8 @@ public class CodigoVirtual {
     @Column(name = "fecha_venta")
     private LocalDateTime fechaVenta;
 
-    // Pedidossss
-    // @ManyToOne @JoinColumn(name = "pedido_id") private Pedido pedido;
+    @ManyToOne @JoinColumn(name = "pedido_id")
+    private Pedido pedido;
 
     @Version // evita que dos compradores se lleven el mismo código a la vez
     private Long version;
