@@ -1,13 +1,14 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClienteEditarRequest;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClientePublico;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

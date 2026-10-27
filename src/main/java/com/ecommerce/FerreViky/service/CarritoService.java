@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadExcedidaException;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadNoValida;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CarritoDeClienteNoEncontrado;
@@ -18,6 +18,7 @@ import com.ecommerce.FerreViky.models.Producto;
 import com.ecommerce.FerreViky.repository.CarritoRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -40,7 +41,7 @@ public class CarritoService {
      * solicitada sea positiva.
      *
      * <p>La validación de stock se hace aparte con
-     * {@link #validarStock(Producto, int)}, porque al sumar a una línea
+     * {@link #validarStock(Producto, long)}, porque al sumar a una línea
      * existente hay que comparar contra la cantidad total resultante.</p>
      *
      * @param idProducto ID del producto a validar
@@ -73,9 +74,9 @@ public class CarritoService {
      * @throws CantidadExcedidaException si se piden más códigos de los
      *         disponibles
      */
-    private void validarStock(Producto p, int cantidadTotal) {
-        int disponibles = (int) codigoVirtualRepository
-                .countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE); //Regresa un Long
+    private void validarStock(Producto p, long cantidadTotal) {
+        long disponibles = codigoVirtualRepository
+                .countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE);
 
         if (cantidadTotal > disponibles)
             throw new CantidadExcedidaException(disponibles, cantidadTotal, p.getNombre());
@@ -140,7 +141,7 @@ public class CarritoService {
                 .findFirst();//Operacion terminal que regresa el primero
 
         int cantidadActual = itemExistente.map(ProductoEnCarrito::getCantidad).orElse(0);
-        int nuevaCantidad = cantidadActual + dto.cantidad();
+        int nuevaCantidad = Math.addExact(cantidadActual, dto.cantidad());
 
         validarStock(p, nuevaCantidad);
 

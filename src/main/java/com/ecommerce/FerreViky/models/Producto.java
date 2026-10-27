@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +11,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 @Getter
 @Setter
@@ -85,10 +87,24 @@ public class Producto {
     }
 
     public enum TipoProducto {
-        GIFT_CARD,
-        CLAVE_JUEGO,
-        LICENCIA_SOFTWARE,
-        RECARGA,
-        SUSCRIPCION
+        GIFT_CARD, SOFTWARE, SUSCRIPCION;
+
+        @JsonCreator
+        public static TipoProducto desdeTexto(String valor) {
+            if (valor == null || valor.isBlank()) return null;
+            String limpio = valor.trim();
+
+            if (limpio.chars().allMatch(Character::isDigit)) {
+                throw new IllegalArgumentException(
+                        "El tipo no puede ser un número (ordinal). Usa el nombre: "
+                                + Arrays.toString(values()));
+            }
+            try {
+                return valueOf(limpio.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Tipo inválido. Valores permitidos: " + Arrays.toString(values()));
+            }
+        }
     }
 }

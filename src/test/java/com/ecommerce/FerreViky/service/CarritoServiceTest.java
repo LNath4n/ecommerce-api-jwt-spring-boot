@@ -2,28 +2,23 @@ package com.ecommerce.FerreViky.service;
 
 import static com.ecommerce.FerreViky.utils.Fakes.*;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.*;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.*;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
 import com.ecommerce.FerreViky.models.*;
 import com.ecommerce.FerreViky.repository.CarritoRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import net.datafaker.Faker;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;

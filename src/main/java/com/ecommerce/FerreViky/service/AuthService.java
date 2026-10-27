@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ErrorAlCrearCarritoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.CredencialesInvalidasException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
@@ -19,7 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
+import java.util.Locale;
 
 @Service
 @AllArgsConstructor
@@ -44,11 +44,13 @@ public class AuthService {
      * @throws org.springframework.security.core.AuthenticationException si las credenciales son inválidas
      */
     public AuthResponse login(LoginClienteDto dto) {
+        String email = normalizarEmail(dto.email());
+
         authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(dto.email(), dto.password())
+                new UsernamePasswordAuthenticationToken(email, dto.password())
         );
 
-        Cliente user = clienteRepository.findByEmail(dto.email())
+        Cliente user = clienteRepository.findByEmail(email)
                 .orElseThrow(CredencialesInvalidasException::new);
 
         String token = jwtService.getToken(user);
@@ -75,11 +77,14 @@ public class AuthService {
      */
     @Transactional
     public AuthResponse guardarCliente(LoginClienteDto dto) {
-        if (clienteRepository.existsByEmail(dto.email())) {
+        String email = normalizarEmail(dto.email());
+
+        if (clienteRepository.existsByEmail(email)) {
             throw new EmailYaExisteException(dto.email());
         }
 
         Cliente cliente = clienteMappers.DtoLoginACliente(dto);
+        cliente.setEmail(email); // sobrescribe el email sin normalizar que puso el mapper
         cliente.setPassword(passwordEncoder.encode(dto.password()));
         cliente = clienteRepository.save(cliente);
 
@@ -94,5 +99,9 @@ public class AuthService {
         }
 
         return new AuthResponse(jwtService.getToken(cliente));
+    }
+
+    private String normalizarEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

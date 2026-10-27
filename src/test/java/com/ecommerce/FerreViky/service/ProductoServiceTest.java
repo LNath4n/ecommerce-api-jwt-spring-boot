@@ -1,7 +1,10 @@
 package com.ecommerce.FerreViky.service;
 
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.*;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
 import com.ecommerce.FerreViky.models.Categoria;
 import com.ecommerce.FerreViky.models.CodigoVirtual;
@@ -11,7 +14,7 @@ import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
 import com.ecommerce.FerreViky.repository.CategoriaRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import net.datafaker.Faker;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -265,12 +268,12 @@ class ProductoServiceTest {
         when(categoriaRepository.findAll(Sort.by("nombre"))).thenReturn(List.of(c1, c2));
 
         // Act
-        List<CategoriaOpcionResponse> resultado = productoService.obtenerListaDeCategorias();
+        List<ProductoDTO.CategoriaOpcionResponse> resultado = productoService.obtenerListaDeCategorias();
 
         // Assert
         assertEquals(List.of(
-                new CategoriaOpcionResponse(1L, "Gift Cards"),
-                new CategoriaOpcionResponse(2L, "Videojuegos")
+                new ProductoDTO.CategoriaOpcionResponse(1L, "Gift Cards"),
+                new ProductoDTO.CategoriaOpcionResponse(2L, "Videojuegos")
         ), resultado);
     }
 

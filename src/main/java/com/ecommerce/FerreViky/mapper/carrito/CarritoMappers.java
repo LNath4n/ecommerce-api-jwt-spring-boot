@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.mapper.carrito;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoProductoDTO;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoProductoDTO;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
 import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.ProductoEnCarrito;
 import com.ecommerce.FerreViky.models.Producto;
@@ -38,7 +38,6 @@ public class CarritoMappers {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         return new CarritoResponseDTO(
-                carrito.getId(),
                 productos,
                 carrito.getFechaCreacion(),
                 subtotal

@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;

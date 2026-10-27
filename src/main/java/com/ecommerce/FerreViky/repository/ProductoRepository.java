@@ -17,6 +17,9 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
     Page<Producto> findByActivoTrue(Pageable pageable);
     Optional<Producto> findBySlug(String slug);
     boolean existsBySlug(String slug);
+
+    boolean existsBySku(String sku);
+    boolean existsBySkuAndIdNot(String sku, Long id);
     @Query("""
             SELECT DISTINCT p.plataforma
             FROM Producto p

@@ -1,12 +1,17 @@
+
 package com.ecommerce.FerreViky.mapper.producto;
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.*;
+import static com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import static com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
+import static com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
+
 import com.ecommerce.FerreViky.models.Categoria;
 import com.ecommerce.FerreViky.models.Producto;
 
 public class ProductoMappers {
 
-    public static ProductoPublicoResponse toPublicoResponse(Producto p, String imagenUrl, int stock) {
+    public static ProductoPublicoResponse toPublicoResponse(
+            Producto p, String imagenUrl, int stock) {
         return new ProductoPublicoResponse(
                 p.getId(),
                 p.getSlug(),
@@ -25,7 +30,8 @@ public class ProductoMappers {
         );
     }
 
-    public static ProductoAdminResponse toAdminResponse(Producto p, String imagenUrl, int stock) {
+    public static ProductoAdminResponse toAdminResponse(
+            Producto p, String imagenUrl, int stock) {
         return new ProductoAdminResponse(
                 p.getId(),
                 p.getSku(),
@@ -52,7 +58,8 @@ public class ProductoMappers {
         return actualizarEntidad(new Producto(), dto, categoria);
     }
 
-    public static Producto actualizarEntidad(Producto p, ProductoRequest dto, Categoria categoria) {
+    public static Producto actualizarEntidad(
+            Producto p, ProductoRequest dto, Categoria categoria) {
         p.setSku(dto.sku());
         p.setNombre(dto.nombre());
         p.setDescripcion(dto.descripcion());
@@ -64,9 +71,11 @@ public class ProductoMappers {
         p.setPrecioVenta(dto.precioVenta());
         p.setPrecioCosto(dto.precioCosto());
         p.setInstruccionesCanje(dto.instruccionesCanje());
-        if (dto.activo() != null) {       // si no viene, se conserva el valor actual
+
+        if (dto.activo() != null) {
             p.setActivo(dto.activo());
         }
+
         p.setCategoria(categoria);
         return p;
     }

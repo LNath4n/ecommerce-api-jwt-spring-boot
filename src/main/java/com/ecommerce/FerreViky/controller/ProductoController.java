@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.CategoriaOpcionResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
 import com.ecommerce.FerreViky.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
@@ -10,7 +10,6 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,10 +27,10 @@ public class ProductoController {
     @GetMapping
     @Operation(summary = "Listar productos", description = "Retorna los productos activos del catálogo paginados, con su stock de códigos disponibles")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
-    public Page<ProductoPublicoResponse> obtenerTodos(@RequestParam(defaultValue = "0") int page,
-                                                      @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return productoService.obtenerTodos(pageable);
+    public Page<ProductoPublicoResponse> obtenerTodos(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return productoService.obtenerTodos(pageRequestSegura(page, size));
     }
 
     @GetMapping("/{id}")
@@ -72,6 +71,14 @@ public class ProductoController {
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return productoService.buscar(q, plataforma, categoriaId, PageRequest.of(page, size));
+        return productoService.buscar(q, plataforma, categoriaId, pageRequestSegura(page, size));
+    }
+
+
+    private PageRequest pageRequestSegura(int page, int size) {
+        int safePage = Math.max(0, Math.min(page, 10_000));
+        int safeSize = Math.max(1, Math.min(size, 100));
+
+        return PageRequest.of(safePage, safeSize);
     }
 }

@@ -1,16 +1,15 @@
 package com.ecommerce.FerreViky.service;
 
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClienteEditarRequest;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClientePublico;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ImagenInvalidaException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
-import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -20,6 +19,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Locale;
 
 @AllArgsConstructor
 @Service
@@ -95,14 +95,17 @@ public class ClienteService {
         }
 
         // Evita asignar un correo que ya pertenezca a otro cliente.
-        if (request.email() != null
-                && !request.email().equals(c.getEmail())) {
+        String emailNuevo = normalizarEmail(request.email());
 
-            if (clienteRepository.existsByEmail(request.email())) {
-                throw new EmailYaExisteException(request.email());
+        if (emailNuevo != null
+                && !emailNuevo.isBlank()
+                && !emailNuevo.equals(c.getEmail())) {
+
+            if (clienteRepository.existsByEmail(emailNuevo)) {
+                throw new EmailYaExisteException(emailNuevo);
             }
 
-            c.setEmail(request.email());
+            c.setEmail(emailNuevo);
         }
 
         // Actualiza los datos personales enviados en la solicitud.
@@ -231,5 +234,14 @@ public class ClienteService {
     private ClientePublico aPublico(Cliente c) {
         String fotoUrl = storageService.getPresignedUrl(c.getImagenKey(), VALIDEZ_FOTO);
         return clienteMappers.devolverClientePublico(c, fotoUrl);
+    }
+
+
+    /**
+     * Normaliza un correo: quita espacios y lo pasa a minúsculas.
+     * Devuelve {@code null} si el correo es {@code null}.
+     */
+    private String normalizarEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

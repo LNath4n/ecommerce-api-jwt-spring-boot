@@ -1,6 +1,9 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.*;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
@@ -12,6 +15,7 @@ import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
 import com.ecommerce.FerreViky.repository.CategoriaRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
+import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
 import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import com.ecommerce.FerreViky.utils.SlugUtil;
 import jakarta.transaction.Transactional;
@@ -201,21 +205,38 @@ public class ProductoService {
     /**
      * Crea un nuevo producto.
      *
-     * <p>Resuelve la categoría indicada (si se proporciona) y genera un slug
-     * único a partir del nombre mediante {@link #generarSlugUnico(String)}.</p>
+     * <p>Normaliza el SKU (sin espacios y en mayúsculas) y verifica que no exista
+     * otro producto con el mismo valor. Resuelve la categoría indicada (si se
+     * proporciona) y genera un slug único a partir del nombre mediante
+     * {@link #generarSlugUnico(String)}.</p>
+     *
+     * <p>La unicidad final del SKU la garantiza la restricción {@code unique} de la
+     * base de datos, por lo que también se detectan duplicados por concurrencia.</p>
      *
      * @param request datos del producto a crear
      * @return datos públicos del producto creado
+     * @throws SkuDuplicadoException si ya existe un producto con el mismo SKU
      * @throws CategoriaNoEncontradaException si se indica una categoría que
      *         no existe
      */
     @Transactional
     public ProductoPublicoResponse crearProducto(ProductoRequest request) {
+        String sku = request.sku().trim().toUpperCase();
+
+        if (productoRepository.existsBySku(sku)) {
+            throw new SkuDuplicadoException(sku);
+        }
+
         Categoria categoria = resolverCategoria(request.categoriaId());
         Producto nuevo = ProductoMappers.toEntity(request, categoria);
+        nuevo.setSku(sku);
         nuevo.setSlug(generarSlugUnico(request.nombre()));
-        Producto p = productoRepository.save(nuevo);
-        return toPublico(p);
+
+        try {
+            return toPublico(productoRepository.saveAndFlush(nuevo));
+        } catch (DataIntegrityViolationException e) {
+            throw new SkuDuplicadoException(sku); // carrera
+        }
     }
 
     /**
@@ -238,10 +259,22 @@ public class ProductoService {
         Producto p = productoRepository.findById(idProducto)
                 .orElseThrow(() -> new ProductoNoEncontradoException(idProducto));
 
+        String sku = request.sku().trim().toUpperCase();
+
+        if (productoRepository.existsBySkuAndIdNot(sku, idProducto)) {
+            throw new SkuDuplicadoException(sku);
+        }
+
         Categoria categoria = resolverCategoria(request.categoriaId());
 
         ProductoMappers.actualizarEntidad(p, request, categoria);
-        productoRepository.flush();
+        p.setSku(sku);
+
+        try {
+            productoRepository.flush();
+        } catch (DataIntegrityViolationException e) {
+            throw new SkuDuplicadoException(sku);
+        }
 
         return toPublico(p);
     }

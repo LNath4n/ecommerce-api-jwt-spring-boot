@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.jwt.JwtService;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.*;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;

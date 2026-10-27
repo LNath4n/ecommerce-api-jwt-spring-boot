@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.service;
 
+import com.ecommerce.FerreViky.exceptions.codigoVirtual.CodigosVirtualesExceptions.CodigosDuplicadosException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
 import com.ecommerce.FerreViky.models.CodigoVirtual;
 import com.ecommerce.FerreViky.models.Producto;
@@ -7,6 +8,7 @@ import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -37,6 +39,11 @@ public class CodigoVirtualService {
             throw new IllegalArgumentException("No se recibió ningún código válido");
         }
 
+        List<String> existentes = codigoVirtualRepository.findCodigosExistentes(limpios);
+        if (!existentes.isEmpty()) {
+            throw new CodigosDuplicadosException(existentes.size());
+        }
+
         List<CodigoVirtual> nuevos = limpios.stream().map(texto -> {
             CodigoVirtual cv = new CodigoVirtual();
             cv.setProducto(producto);
@@ -44,7 +51,12 @@ public class CodigoVirtualService {
             return cv;
         }).toList();
 
-        codigoVirtualRepository.saveAll(nuevos);
+        try {
+            codigoVirtualRepository.saveAllAndFlush(nuevos);
+        } catch (DataIntegrityViolationException e) {
+            throw new CodigosDuplicadosException(0); // carrera
+        }
+
         return nuevos.size();
     }
 

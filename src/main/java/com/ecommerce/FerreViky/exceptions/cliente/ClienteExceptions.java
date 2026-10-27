@@ -35,4 +35,11 @@ public class ClienteExceptions {
         }
     }
 
+    public static class CorreoYaEsTuyo extends RuntimeException {
+        public CorreoYaEsTuyo(String mensaje) {
+            super(mensaje);
+        }
+    }
+
+
 }

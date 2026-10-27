@@ -6,7 +6,12 @@ public class CarritoExceptions {
         public CantidadExcedidaException(Integer existencia, Integer cantidad,String nombre) {
             super("No puedes agregar "+cantidad+" cantidad de "+nombre+" solo hay "+existencia+" en existencia");
         }
+        public CantidadExcedidaException(long existencia, long cantidad, String nombre) {
+            super("No puedes agregar " + cantidad + " unidades de " + nombre
+                    + ", solo hay " + existencia + " en existencia");
+        }
     }
+
 
     public static class CarritoNoEncontrado extends RuntimeException {
         public CarritoNoEncontrado(Long id) {
