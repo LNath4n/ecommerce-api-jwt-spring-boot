@@ -1,70 +1,77 @@
-# FerreViky
+# FerreViky: Backend
 
-E-commerce system for a hardware store, backend built with Spring Boot. Designed as a real online sales platform: product catalog, shopping cart, secure authentication, and a documented, production-optimized API.
+REST API for **FerreViky**, an e-commerce platform for a hardware store, built with Spring Boot. It covers the product catalog, shopping cart, PayPal checkout and secure authentication, and it is deployed on AWS with a CI/CD pipeline.
+
+**Live demo:** https://d23ev6ydugwou7.cloudfront.net/productos
+**Frontend repo:** [Angular-FerreViky](https://github.com/LNath4n/Angular-FerreViky)
 
 ---
 
 ## Key Features
 
-- JWT Authentication — secure login and stateless session handling.
-- Dynamic filtering with JPA Specifications — product search by multiple combinable criteria.
-- Shopping cart — full purchase flow management.
-- Query optimization — N+1 problem fixes to improve performance on endpoints with nested relationships.
-- API documentation — endpoints documented with Swagger/OpenAPI.
-- Unit tests — business logic coverage with JUnit and Mockito.
+- **JWT authentication**: stateless login and session handling with Spring Security.
+- **Dynamic filtering with JPA Specifications**: product search by multiple combinable criteria.
+- **Shopping cart and PayPal checkout**: full purchase flow.
+- **Rate limiting with Bucket4j + Redis**: per-client limits to protect the API from abuse.
+- **Query optimization**: N+1 problems fixed with fetch joins / `@EntityGraph` on endpoints with nested relationships.
+- **API documentation**: endpoints documented with Swagger/OpenAPI.
+- **Testing**: unit tests with JUnit and Mockito, plus a Postman suite of 2,600+ tests.
 
 ---
 
 ## Tech Stack
 
-- Java + Spring Boot
-- Spring Security (JWT)
-- Spring Data JPA / Hibernate
-- PostgreSQL
-- Swagger / OpenAPI
-- JUnit + Mockito
+| Area | Technologies |
+|------|--------------|
+| Backend | Java, Spring Boot, Spring Security (JWT), Spring Data JPA / Hibernate |
+| Data | PostgreSQL, Redis |
+| Testing | JUnit, Mockito, Postman |
+| DevOps | Docker, GitHub Actions (CI/CD) |
+| Cloud (AWS) | ECR, EC2, RDS (PostgreSQL), ElastiCache (Redis), IAM, CloudFront |
 
 ---
 
 ## Architecture
 
-The project follows a typical Spring Boot layered architecture:
+Layered Spring Boot architecture:
 
 ```
 Controller → Service → Repository → Entity
 ```
 
-- Controllers expose the REST API and are documented with Swagger.
-- Services contain the business logic.
-- Repositories use Spring Data JPA with Specifications for dynamic queries.
-- Entities are optimized to avoid N+1 issues via fetch joins/`@EntityGraph` as needed.
+- **Controllers** expose the REST API and are documented with Swagger.
+- **Services** contain the business logic.
+- **Repositories** use Spring Data JPA, with Specifications for dynamic queries.
+- **Entities** are tuned to avoid N+1 issues.
+
+### Deployment
+
+On every push, GitHub Actions runs the tests, builds the Docker image, pushes it to Amazon ECR and deploys it to EC2. The database runs on RDS (PostgreSQL) and Redis on ElastiCache, and EC2 accesses AWS resources through an IAM role.
 
 ---
 
-## Installation and Local Setup
+## Local Setup
 
 ### Prerequisites
 
-- Java 17+ (or the version used in the project)
-- PostgreSQL running locally or via Docker
-- Maven
+- Java (see `pom.xml` for the exact version)
+- Maven (or the included `./mvnw`)
+- PostgreSQL and Redis, running locally or via Docker
 
 ### 1. Clone the repository
 
 ```bash
-git clone https://github.com/LNath4n/Spring-FerreViky.git
-cd Spring-FerreViky
+git clone https://github.com/LNath4n/ecommerce-api-jwt-spring-boot.git
+cd ecommerce-api-jwt-spring-boot
 ```
 
 ### 2. Configure the database
-
-Create a database in PostgreSQL:
 
 ```sql
 CREATE DATABASE ferreviky;
 ```
 
-Set the credentials in `src/main/resources/application.properties` (or `application.yml`):
+Set your credentials in `src/main/resources/application.properties`:
 
 ```properties
 spring.datasource.url=jdbc:postgresql://localhost:5432/ferreviky
@@ -74,6 +81,8 @@ spring.datasource.password=your_password
 jwt.secret=your_secret_key
 ```
 
+Redis (rate limiting) and PayPal sandbox credentials are also configured there; check `application.properties` for the exact property names.
+
 ### 3. Run the project
 
 ```bash
@@ -81,27 +90,10 @@ jwt.secret=your_secret_key
 ./mvnw spring-boot:run
 ```
 
-The backend will be available at `http://localhost:8080`.
-
-### 4. API Documentation
-
-With the project running, Swagger documentation will be available at:
-
-```
-http://localhost:8080/swagger-ui.html
-```
-
-> Adjust routes, ports, and property names according to your repo's actual structure.
-
----
-
-## Project Status
-
-Currently on pause, but I decided to make it public because it's one of the pieces I'm most proud of in Spring Boot: it reflects solid backend architecture, good security practices, and performance optimization.
-
+The API will be available at `http://localhost:8080`.
 ---
 
 ## Author
 
-**Nathan & Jaqueline**
-Full Stack Developer — Java/Spring Boot · Angular · Flutter · Python
+**Nathan Vargas**: Backend-focused Full Stack Developer (Java · Spring Boot · AWS)
+[GitHub](https://github.com/LNath4n) · [LinkedIn](https://www.linkedin.com/in/nathanvargas)
