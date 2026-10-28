@@ -1,9 +1,9 @@
-# FerreViky: Backend
+# E-commerce API: Spring Boot + JWT
 
-REST API for **FerreViky**, an e-commerce platform for a hardware store, built with Spring Boot. It covers the product catalog, shopping cart, PayPal checkout and secure authentication, and it is deployed on AWS with a CI/CD pipeline.
+REST API for an e-commerce platform, built with Spring Boot. It covers the product catalog, shopping cart, PayPal checkout and secure authentication, and it is deployed on AWS with a CI/CD pipeline.
 
 **Live demo:** https://d23ev6ydugwou7.cloudfront.net/productos
-**Frontend repo:** [Angular-FerreViky](https://github.com/LNath4n/Angular-FerreViky)
+**Frontend repo:** [ecommerce-web-jwt-angular](https://github.com/LNath4n/ecommerce-web-jwt-angular)
 
 ---
 
@@ -91,6 +91,15 @@ Redis (rate limiting) and PayPal sandbox credentials are also configured there; 
 ```
 
 The API will be available at `http://localhost:8080`.
+
+### 4. API documentation
+
+With the project running, Swagger UI is available at:
+
+```
+http://localhost:8080/swagger-ui.html
+```
+
 ---
 
 ## Author
