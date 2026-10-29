@@ -1,4 +1,3 @@
-
 package com.ecommerce.FerreViky.mapper.producto;
 
 import static com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
@@ -26,7 +25,10 @@ public class ProductoMappers {
                 p.getPrecioVenta(),
                 p.getInstruccionesCanje(),
                 imagenUrl,
-                stock
+                stock,
+                p.getVistas(),
+                p.getPromedioCalificacion(),
+                p.getTotalResenas()
         );
     }
 
@@ -50,7 +52,10 @@ public class ProductoMappers {
                 p.getCategoria() != null ? p.getCategoria().getId() : null,
                 imagenUrl,
                 stock,
-                p.getFechaCreacion()
+                p.getFechaCreacion(),
+                p.getVistas(),
+                p.getPromedioCalificacion(),
+                p.getTotalResenas()
         );
     }
 

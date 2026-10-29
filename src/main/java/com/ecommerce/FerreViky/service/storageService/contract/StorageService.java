@@ -1,4 +1,4 @@
-package com.ecommerce.FerreViky.service.StorageService.contract;
+package com.ecommerce.FerreViky.service.storageService.contract;
 
 import org.springframework.web.multipart.MultipartFile;
 

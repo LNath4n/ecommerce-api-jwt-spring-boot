@@ -2,21 +2,23 @@ package com.ecommerce.FerreViky.configuration;
 
 import com.ecommerce.FerreViky.jwt.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
-import java.util.List;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.CorsConfigurationSource;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+
+import java.util.List;
 
 /**
  * Configuración central de Spring Security para la aplicación.
@@ -30,6 +32,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
  *   <li>Cualquier otra ruta requiere autenticación JWT válida.</li>
  *   <li>El {@link JwtAuthenticationFilter} se ejecuta antes del filtro estándar de Spring Security
  *       para inyectar la autenticación desde el token antes de que se evalúen las reglas de acceso.</li>
+ *   <li>Los orígenes CORS permitidos se leen de {@code app.cors.allowed-origins}, definido por perfil
+ *       (dev / prod).</li>
  * </ul>
  */
 @Configuration
@@ -46,15 +50,17 @@ public class SecurityConfig {
      * El orden de filtros resultante es:
      * {@code JwtAuthenticationFilter → UsernamePasswordAuthenticationFilter → ...resto de la cadena}
      *
-     * @param http builder de configuración de seguridad HTTP de Spring
+     * @param http                    builder de configuración de seguridad HTTP de Spring
+     * @param corsConfigurationSource configuración CORS según el perfil activo
      * @return {@link SecurityFilterChain} configurada y lista para registrarse en el contexto
      * @throws Exception si la configuración de Spring Security falla al construir la cadena
      */
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+                                                   CorsConfigurationSource corsConfigurationSource) throws Exception {
         return http
                 .csrf(csrf -> csrf.disable())
-                .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
                 )//Da 401 si no me dan el Token
@@ -75,16 +81,17 @@ public class SecurityConfig {
                 .build();
     }
 
-    //Van las reglas de abajo hacia arriba
-
+    /**
+     * Configuración CORS. Los orígenes permitidos vienen de {@code app.cors.allowed-origins}
+     * (separados por coma si son varios), definido en application-dev / application-prod.
+     */
     @Bean
-    public CorsConfigurationSource corsConfigurationSource() {
+    public CorsConfigurationSource corsConfigurationSource(
+            @Value("${app.cors.allowed-origins}") List<String> allowedOrigins) {
+
         CorsConfiguration config = new CorsConfiguration();
-        config.setAllowedOrigins(List.of(
-                "https://d23ev6ydugwou7.cloudfront.net"
-                //,"http://localhost:4200"
-        ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE","PATCH", "OPTIONS"));
+        config.setAllowedOrigins(allowedOrigins);
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

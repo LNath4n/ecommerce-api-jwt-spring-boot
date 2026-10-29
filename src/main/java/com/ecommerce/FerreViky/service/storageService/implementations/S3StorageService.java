@@ -1,6 +1,6 @@
-package com.ecommerce.FerreViky.service.StorageService.implementations;
+package com.ecommerce.FerreViky.service.storageService.implementations;
 
-import com.ecommerce.FerreViky.utils.AbstractStorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.AbstractStorageService;
 import com.ecommerce.FerreViky.utils.ImagenValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

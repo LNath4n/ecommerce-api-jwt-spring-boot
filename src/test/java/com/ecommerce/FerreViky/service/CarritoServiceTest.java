@@ -10,7 +10,7 @@ import com.ecommerce.FerreViky.models.*;
 import com.ecommerce.FerreViky.repository.CarritoRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

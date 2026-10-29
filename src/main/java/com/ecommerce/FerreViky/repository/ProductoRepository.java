@@ -6,7 +6,9 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.jpa.repository.Query;
-
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.repository.query.Param;
+import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.Optional;
 
@@ -27,4 +29,16 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
             ORDER BY p.plataforma
             """)
     List<String> findPlataformasDistintas();
+
+    @Modifying(clearAutomatically = true)
+    @Transactional
+    @Query("UPDATE Producto p SET p.vistas = p.vistas + 1 WHERE p.id = :id")
+    void incrementarVistas(@Param("id") Long id);
+
+    List<Producto> findTop10ByActivoTrueOrderByVistasDesc();
+
+    List<Producto> findTop10ByActivoTrueOrderByTotalResenasDesc();
+
+    // Mejor calificados, pero exigiendo un mínimo de reseñas
+    List<Producto> findTop10ByActivoTrueAndTotalResenasGreaterThanEqualOrderByPromedioCalificacionDescTotalResenasDesc(long minResenas);
 }

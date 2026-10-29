@@ -11,11 +11,13 @@ import com.ecommerce.FerreViky.mapper.producto.ProductoMappers;
 import com.ecommerce.FerreViky.models.Categoria;
 import com.ecommerce.FerreViky.models.CodigoVirtual.EstadoCodigo;
 import com.ecommerce.FerreViky.models.Producto;
+import com.ecommerce.FerreViky.cache.cacheEvict.EvictTopProductos;
+import org.springframework.cache.annotation.Cacheable;
 import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
 import com.ecommerce.FerreViky.repository.CategoriaRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import com.ecommerce.FerreViky.utils.SlugUtil;
 import jakarta.transaction.Transactional;
@@ -29,10 +31,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Service
@@ -63,7 +63,7 @@ public class ProductoService {
      *
      * @param productos productos cuyo stock se desea consultar
      * @return mapa con el id del producto como clave y su stock disponible
-     *         como valor; vacío si no se proporcionan productos
+     * como valor; vacío si no se proporcionan productos
      */
     private Map<Long, Integer> stockPorProducto(Collection<Producto> productos) {
         if (productos.isEmpty()) {
@@ -134,13 +134,13 @@ public class ProductoService {
      * @param id identificador del producto
      * @return datos públicos del producto encontrado
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id o si está inactivo
+     *                                       ese id o si está inactivo
      */
     public ProductoPublicoResponse obtenerProductoPorId(Long id) {
         Producto producto = productoRepository.findById(id)
                 .filter(Producto::getActivo)
                 .orElseThrow(() -> new ProductoNoEncontradoException(id));
-        return toPublico(producto);
+        return registrarVistaYConvertir(producto);
     }
 
     /**
@@ -194,7 +194,7 @@ public class ProductoService {
      * @param id identificador del producto
      * @return datos de administración del producto
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
+     *                                       ese id
      */
     public ProductoAdminResponse obtenerUnProducto(Long id) {
         Producto p = productoRepository.findById(id)
@@ -215,9 +215,9 @@ public class ProductoService {
      *
      * @param request datos del producto a crear
      * @return datos públicos del producto creado
-     * @throws SkuDuplicadoException si ya existe un producto con el mismo SKU
+     * @throws SkuDuplicadoException          si ya existe un producto con el mismo SKU
      * @throws CategoriaNoEncontradaException si se indica una categoría que
-     *         no existe
+     *                                        no existe
      */
     @Transactional
     public ProductoPublicoResponse crearProducto(ProductoRequest request) {
@@ -249,11 +249,12 @@ public class ProductoService {
      * @param request    nuevos datos del producto
      * @param idProducto identificador del producto a editar
      * @return datos públicos del producto actualizado
-     * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
+     * @throws ProductoNoEncontradoException  si no existe un producto con
+     *                                        ese id
      * @throws CategoriaNoEncontradaException si se indica una categoría que
-     *         no existe
+     *                                        no existe
      */
+    @EvictTopProductos
     @Transactional
     public ProductoPublicoResponse editarProducto(ProductoRequest request, Long idProducto) {
         Producto p = productoRepository.findById(idProducto)
@@ -285,13 +286,13 @@ public class ProductoService {
      * @param slug identificador amigable del producto
      * @return datos públicos del producto encontrado
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese slug o si está inactivo
+     *                                       ese slug o si está inactivo
      */
     public ProductoPublicoResponse obtenerProductoPorSlug(String slug) {
         Producto producto = productoRepository.findBySlug(slug)
                 .filter(Producto::getActivo)
                 .orElseThrow(() -> new ProductoNoEncontradoException(slug));
-        return toPublico(producto);
+        return registrarVistaYConvertir(producto);
     }
 
     /**
@@ -306,8 +307,9 @@ public class ProductoService {
      *
      * @param idProducto identificador del producto a eliminar
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
+     *                                       ese id
      */
+    @EvictTopProductos
     @Transactional
     public void borrarProducto(Long idProducto) {
         Producto p = productoRepository.findById(idProducto)
@@ -343,8 +345,10 @@ public class ProductoService {
      *
      * @param idProducto identificador del producto a desactivar
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
+     *                                       ese id
      */
+    @EvictTopProductos
+
     @Transactional
     public void desactivarProducto(Long idProducto) {
         Producto p = productoRepository.findById(idProducto)
@@ -364,8 +368,8 @@ public class ProductoService {
      * @param file       imagen a subir
      * @return datos de administración del producto con su imagen actualizada
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
-     * @throws IOException si falla la lectura del archivo
+     *                                       ese id
+     * @throws IOException                   si falla la lectura del archivo
      */
     @Transactional
     public ProductoAdminResponse subirImagen(Long idProducto, MultipartFile file) throws IOException {
@@ -389,7 +393,7 @@ public class ProductoService {
      * @param idProducto identificador del producto
      * @return datos de administración del producto sin imagen
      * @throws ProductoNoEncontradoException si no existe un producto con
-     *         ese id
+     *                                       ese id
      */
     @Transactional
     public ProductoAdminResponse quitarImagen(Long idProducto) {
@@ -429,9 +433,9 @@ public class ProductoService {
      * @param categoriaId id de la categoría, o {@code null} si el producto
      *                    no tiene categoría
      * @return la categoría encontrada, o {@code null} si el id es
-     *         {@code null}
+     * {@code null}
      * @throws CategoriaNoEncontradaException si el id no es {@code null} y
-     *         no existe una categoría con ese id
+     *                                        no existe una categoría con ese id
      */
     private Categoria resolverCategoria(Long categoriaId) {
         if (categoriaId == null) {
@@ -439,5 +443,112 @@ public class ProductoService {
         }
         return categoriaRepository.findById(categoriaId)
                 .orElseThrow(() -> new CategoriaNoEncontradaException(categoriaId));
+    }
+
+    /**
+     * Obtiene los diez productos activos con mayor número de vistas.
+     *
+     * <p>El resultado se almacena en caché para reutilizarlo en consultas
+     * posteriores.</p>
+     *
+     * @return lista de productos públicos ordenados por número de vistas
+     */
+    @Cacheable(value = "topVistas", unless = "#result == null or #result.isEmpty()")
+    public List<ProductoPublicoResponse> topMasVistos() {
+        return aPublicos(productoRepository.findTop10ByActivoTrueOrderByVistasDesc());
+    }
+
+
+    /**
+     * Obtiene los diez productos activos mejor calificados que cumplen el
+     * mínimo de reseñas configurado en la consulta.
+     *
+     * <p>El resultado se almacena en caché para reutilizarlo en consultas
+     * posteriores.</p>
+     *
+     * @return lista de productos públicos ordenados por calificación y número
+     * de reseñas
+     */
+    @Cacheable(value = "topCalificados", unless = "#result == null or #result.isEmpty()")
+    public List<ProductoPublicoResponse> topMejorCalificados() {
+        return aPublicos(productoRepository
+                .findTop10ByActivoTrueAndTotalResenasGreaterThanEqualOrderByPromedioCalificacionDescTotalResenasDesc(3));
+    }
+
+
+    /**
+     * Obtiene los diez productos activos con mayor número de reseñas.
+     *
+     * <p>El resultado se almacena en caché para reutilizarlo en consultas
+     * posteriores.</p>
+     *
+     * @return lista de productos públicos ordenados por número de reseñas
+     */
+    @Cacheable(value = "topResenados", unless = "#result == null or #result.isEmpty()")
+    public List<ProductoPublicoResponse> topMasResenados() {
+        return aPublicos(productoRepository.findTop10ByActivoTrueOrderByTotalResenasDesc());
+    }
+
+    /**
+     * Convierte una lista de productos en sus respectivas representaciones públicas.
+     *
+     * <p>Obtiene el stock disponible de todos los productos mediante una consulta
+     * agrupada por producto, evitando realizar una consulta individual por cada
+     * elemento. Posteriormente, convierte cada entidad en un
+     * {@link ProductoPublicoResponse}, incluyendo la URL pública de su imagen
+     * y su stock disponible actual.</p>
+     *
+     * <p>Si un producto no tiene códigos virtuales disponibles, se le asigna
+     * un stock de {@code 0}. Si la lista recibida está vacía, devuelve una
+     * lista vacía.</p>
+     *
+     * <p>El resultado se construye como un {@link ArrayList} para mantener
+     * compatibilidad con el mecanismo de serialización de Java utilizado
+     * por la caché. Por este motivo, no se utiliza {@code .toList()} para
+     * construir la lista final en métodos cuyos resultados se almacenan
+     * en caché, ya que puede generar incompatibilidades con el serializador
+     * configurado.</p>
+     *
+     * @param productos lista de entidades de productos que se convertirán
+     *                  a sus representaciones públicas
+     * @return lista mutable de respuestas públicas con la URL de la imagen
+     * y el stock disponible de cada producto; vacía si no hay productos
+     */
+    private List<ProductoPublicoResponse> aPublicos(List<Producto> productos) {
+        if (productos.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        List<Long> ids = productos.stream().map(Producto::getId).toList();
+
+        Map<Long, Integer> stockPorId = codigoVirtualRepository
+                .contarPorProducto(ids, EstadoCodigo.DISPONIBLE)
+                .stream()
+                .collect(Collectors.toMap(
+                        CodigoVirtualRepository.StockProducto::getProductoId,
+                        s -> s.getTotal().intValue()));
+
+        return productos.stream()
+                .map(p -> ProductoMappers.toPublicoResponse(
+                        p,
+                        storageService.getPublicUrl(p.getImagenKey()),
+                        stockPorId.getOrDefault(p.getId(), 0)))
+                .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+
+    /**
+     * Registra una vista del producto y lo convierte a su representación pública.
+     *
+     * <p>Actualiza también el contador de vistas de la entidad para que la
+     * respuesta refleje el valor incrementado.</p>
+     *
+     * @param producto producto cuya vista se registra
+     * @return datos públicos del producto con el contador de vistas actualizado
+     */
+    private ProductoPublicoResponse registrarVistaYConvertir(Producto producto) {
+        productoRepository.incrementarVistas(producto.getId());
+        producto.setVistas(producto.getVistas() + 1); // solo para que la respuesta muestre el valor actualizado
+        return toPublico(producto);
     }
 }

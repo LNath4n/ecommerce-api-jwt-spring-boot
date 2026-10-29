@@ -1,3 +1,4 @@
+
 package com.ecommerce.FerreViky.controller;
 
 import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
@@ -10,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -29,8 +31,10 @@ public class ProductoController {
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
     public Page<ProductoPublicoResponse> obtenerTodos(
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        return productoService.obtenerTodos(pageRequestSegura(page, size));
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "none") String orden
+            ) {
+        return productoService.obtenerTodos(pageRequestSegura(page, size,orden));
     }
 
     @GetMapping("/{id}")
@@ -58,6 +62,11 @@ public class ProductoController {
     }
 
     @GetMapping("/slug/{slug}")
+    @Operation(summary = "Obtener producto por slug", description = "Retorna un producto del catálogo mediante su slug")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Producto encontrado"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado")
+    })
     public ResponseEntity<ProductoPublicoResponse> obtenerPorSlug(@PathVariable String slug) {
         return ResponseEntity.ok(productoService.obtenerProductoPorSlug(slug));
     }
@@ -69,16 +78,45 @@ public class ProductoController {
             @RequestParam(required = false) String q,
             @RequestParam(required = false) String plataforma,
             @RequestParam(required = false) Long categoriaId,
+            @RequestParam(defaultValue = "relevancia") String orden,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return productoService.buscar(q, plataforma, categoriaId, pageRequestSegura(page, size));
+        return productoService.buscar(q, plataforma, categoriaId, pageRequestSegura(page, size, orden));
     }
 
+    @GetMapping("/top/vistas")
+    @Operation(summary = "Listar productos más vistos", description = "Retorna los productos con mayor número de vistas")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topVistas() {
+        return productoService.topMasVistos();
+    }
 
-    private PageRequest pageRequestSegura(int page, int size) {
+    @GetMapping("/top/calificados")
+    @Operation(summary = "Listar productos mejor calificados", description = "Retorna los productos con las mejores calificaciones")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topCalificados() {
+        return productoService.topMejorCalificados();
+    }
+
+    @GetMapping("/top/resenados")
+    @Operation(summary = "Listar productos más reseñados", description = "Retorna los productos con mayor número de reseñas")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topResenados() {
+        return productoService.topMasResenados();
+    }
+
+    private PageRequest pageRequestSegura(int page, int size, String orden) {
         int safePage = Math.max(0, Math.min(page, 10_000));
         int safeSize = Math.max(1, Math.min(size, 100));
-
-        return PageRequest.of(safePage, safeSize);
+        Sort sort = switch (orden) {
+            case "calificacion" -> Sort.by(Sort.Order.desc("promedioCalificacion"), Sort.Order.desc("totalResenas"));
+            case "vistas"       -> Sort.by(Sort.Order.desc("vistas"));
+            case "resenas"      -> Sort.by(Sort.Order.desc("totalResenas"));
+            case "precio_asc"   -> Sort.by(Sort.Order.asc("precioVenta"));
+            case "precio_desc"  -> Sort.by(Sort.Order.desc("precioVenta"));
+            default             -> Sort.unsorted();
+        };
+        return PageRequest.of(safePage, safeSize, sort);
     }
+
 }

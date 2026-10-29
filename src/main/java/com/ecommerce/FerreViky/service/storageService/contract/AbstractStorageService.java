@@ -1,6 +1,6 @@
-package com.ecommerce.FerreViky.utils;
+package com.ecommerce.FerreViky.service.storageService.contract;
 
-import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
+import com.ecommerce.FerreViky.utils.ImagenValidator;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;

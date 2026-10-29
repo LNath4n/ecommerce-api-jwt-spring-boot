@@ -8,7 +8,7 @@ import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEnc
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
-import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;

@@ -9,7 +9,7 @@ import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEnc
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
-import com.ecommerce.FerreViky.service.StorageService.contract.StorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import jakarta.transaction.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;

@@ -81,6 +81,15 @@ public class Producto {
     @JoinColumn(name = "categoria_id")
     private Categoria categoria; // antes GrupoDeProductos
 
+    @Column(name = "vistas", nullable = false, columnDefinition = "bigint default 0")
+    private Long vistas = 0L;
+
+    @Column(name = "promedio_calificacion", nullable = false, columnDefinition = "double precision default 0")
+    private Double promedioCalificacion = 0.0;
+
+    @Column(name = "total_resenas", nullable = false, columnDefinition = "bigint default 0")
+    private Long totalResenas = 0L;
+
     @PrePersist
     void alCrear() {
         this.fechaCreacion = LocalDateTime.now();

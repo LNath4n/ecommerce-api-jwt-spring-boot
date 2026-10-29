@@ -1,16 +1,13 @@
-package com.ecommerce.FerreViky.service.StorageService.implementations;
+package com.ecommerce.FerreViky.service.storageService.implementations;
 
-import com.ecommerce.FerreViky.utils.AbstractStorageService;
+import com.ecommerce.FerreViky.service.storageService.contract.AbstractStorageService;
 import com.ecommerce.FerreViky.utils.ImagenValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
-import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
-import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -65,14 +62,3 @@ public class LocalStorageService extends AbstractStorageService {
     }
 }
 
-@Configuration
-@Profile("dev")
-class LocalStorageWebConfig implements WebMvcConfigurer {
-    @Value("${app.storage.local-dir}") private String dir;
-
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(Path.of(dir).toAbsolutePath().normalize().toUri().toString());
-    }
-}

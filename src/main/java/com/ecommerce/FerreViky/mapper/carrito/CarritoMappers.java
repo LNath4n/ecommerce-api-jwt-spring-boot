@@ -17,7 +17,7 @@ public class CarritoMappers {
         Producto p = cp.getProducto();
         return new CarritoProductoDTO(
                 p.getId(),
-                p.getSku(),
+                p.getSlug(),
                 p.getNombre(),
                 p.getSku(),
                 p.getPlataforma(),
