@@ -81,7 +81,7 @@ public class Producto {
     @JoinColumn(name = "categoria_id")
     private Categoria categoria; // antes GrupoDeProductos
 
-    @Column(name = "vistas", nullable = false, columnDefinition = "bigint default 0")
+    @Column(name = "vistas", nullable = false, columnDefinition = "bigint default 0", updatable = false)
     private Long vistas = 0L;
 
     @Column(name = "promedio_calificacion", nullable = false, columnDefinition = "double precision default 0")
@@ -89,6 +89,9 @@ public class Producto {
 
     @Column(name = "total_resenas", nullable = false, columnDefinition = "bigint default 0")
     private Long totalResenas = 0L;
+
+    @Version
+    private Long version;
 
     @PrePersist
     void alCrear() {

@@ -3,22 +3,26 @@ package com.ecommerce.FerreViky.controller;
 
 import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
 import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.validation.NoNulls.NoNullChars;
 import com.ecommerce.FerreViky.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @AllArgsConstructor
 @RestController
+@Validated
 @CrossOrigin("*")
 @RequestMapping("/productos")
 @Tag(name = "Productos", description = "Consulta del catálogo de códigos virtuales")
@@ -67,7 +71,7 @@ public class ProductoController {
             @ApiResponse(responseCode = "200", description = "Producto encontrado"),
             @ApiResponse(responseCode = "404", description = "Producto no encontrado")
     })
-    public ResponseEntity<ProductoPublicoResponse> obtenerPorSlug(@PathVariable String slug) {
+    public ResponseEntity<ProductoPublicoResponse> obtenerPorSlug(@NoNullChars @PathVariable String slug) {
         return ResponseEntity.ok(productoService.obtenerProductoPorSlug(slug));
     }
 
@@ -75,8 +79,8 @@ public class ProductoController {
     @Operation(summary = "Buscar productos", description = "Busca por texto libre en nombre, SKU, plataforma y descripción. Plataforma y categoría son filtros opcionales")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Resultados obtenidos exitosamente")})
     public Page<ProductoPublicoResponse> buscar(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String plataforma,
+            @RequestParam(required = false) @NoNullChars String q,
+            @RequestParam(required = false) @NoNullChars String plataforma,
             @RequestParam(required = false) Long categoriaId,
             @RequestParam(defaultValue = "relevancia") String orden,
             @RequestParam(defaultValue = "0") int page,

@@ -41,4 +41,9 @@ public class ProductosExceptions {
             super("Ya existe un producto con el SKU: " + sku);
         }
     }
+    public static class ProductoModificadoException extends RuntimeException {
+        public ProductoModificadoException(Long id) {
+            super("El producto " + id + " fue modificado por otra persona. Recarga e intenta de nuevo.");
+        }
+    }
 }

@@ -54,4 +54,8 @@ public class CarritoExceptions {
             super("No se pudo crear el carrito para el cliente con ID: " + clienteId, cause);
         }
     }
+
+    public static class ConflictoConcurrenteException extends RuntimeException {
+        public ConflictoConcurrenteException(String mensaje) { super(mensaje); }
+    }
 }

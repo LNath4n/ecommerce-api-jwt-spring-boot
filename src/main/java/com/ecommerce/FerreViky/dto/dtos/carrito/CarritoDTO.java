@@ -30,8 +30,10 @@ public class CarritoDTO {
             Long idProducto,
 
             @Schema(description = "New quantity (0 removes the product from the cart)", example = "3")
+            @NotNull(message = "Quantity is required")
             @Min(value = 0, message = "Quantity cannot be negative")
-            int cantidad
+            @Max(100)
+            Integer cantidad
     ) {}
 
     @Schema(description = "Product entry inside the cart")

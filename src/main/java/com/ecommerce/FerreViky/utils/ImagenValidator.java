@@ -19,6 +19,9 @@ public class ImagenValidator {
 
     /** Valida y devuelve la extensión (.jpg / .png). */
     public String validar(MultipartFile file) throws IOException {
+        if (file == null || file.isEmpty())
+            throw new ImagenInvalidaException("Debes enviar una imagen");
+
         String ct = file.getContentType();
         String ext = (ct == null) ? null : EXT.get(ct);
         if (ext == null) throw new ImagenInvalidaException("Formato no permitido. Usa JPG o PNG");

@@ -47,6 +47,10 @@ public class Cliente implements UserDetails {
     @Column(name = "imagen_key")
     private String imagenKey;
 
+    @Version
+    private Long version;
+
+
     @Builder.Default
     private boolean activo = true;
 

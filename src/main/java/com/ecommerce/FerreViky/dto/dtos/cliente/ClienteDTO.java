@@ -1,10 +1,13 @@
 package com.ecommerce.FerreViky.dto.dtos.cliente;
 
+import com.ecommerce.FerreViky.dto.validation.NoNulls.NoNullChars;
+import com.ecommerce.FerreViky.dto.validation.sinHtml.SinHtml;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.*;
 
 import java.nio.charset.StandardCharsets;
+import java.util.Locale;
 
 public class ClienteDTO {
     @Schema(description = "Response after registering a new customer")
@@ -21,6 +24,7 @@ public class ClienteDTO {
             @Schema(description = "Customer email", example = "juan@gmail.com")
             @NotBlank(message = "Email is required")
             @Email(message = "Email format is invalid")
+            @NoNullChars
             @Size(max = 254, message = "Email cannot exceed 254 characters")
             @Pattern(
                     regexp = "^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$",
@@ -35,7 +39,16 @@ public class ClienteDTO {
     ) {
 
         public LoginClienteDto {
-            email = email == null ? null : email.trim();
+            email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        }
+
+        @AssertTrue(message = "Password cannot contain only whitespace")
+        @Schema(hidden = true)
+        @JsonIgnore
+        public boolean isPasswordNotOnlyWhitespace() {
+            return password == null || password.codePoints().anyMatch(
+                    cp -> !Character.isWhitespace(cp) && !Character.isSpaceChar(cp)
+            );
         }
 
         @AssertTrue(message = "Password is too long (max 72 bytes)")
@@ -74,20 +87,29 @@ public class ClienteDTO {
             @Schema(description = "New customer email, if they want to change it (optional)",
                     example = "nuevo@gmail.com")
             @Email(message = "Email format is invalid")
+            @NoNullChars
             @Size(max = 254, message = "Email cannot exceed 254 characters")
+            @Pattern(
+                    regexp = "^[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)+$",
+                    message = "Email must have a valid domain"
+            )
             String email,
 
             @Schema(description = "Current password, required to change the password (optional)",
                     example = "secreto123", maxLength = 72)
             @Size(max = 72, message = "Current password cannot exceed 72 characters")
+            @NoNullChars
             String passwordVieja,
 
             @Schema(description = "New customer password (optional)",
                     example = "NuevaClave123", minLength = 8, maxLength = 72)
             @Size(min = 8, max = 72, message = "New password must be between 8 and 72 characters")
+            @NoNullChars
             String passwordNueva,
 
             @Schema(description = "New customer name (optional)", example = "Juan Pérez")
+            @SinHtml
+            @NoNullChars
             @Size(max = 100, message = "Name cannot exceed 100 characters")
             String nombre,
 
@@ -96,6 +118,10 @@ public class ClienteDTO {
                     message = "Phone must contain exactly 10 digits")
             String telefono
     ) {
+
+        public ClienteEditarRequest {
+            email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+        }
 
         @AssertTrue(message = "Current password is too long (max 72 bytes)")
         @Schema(hidden = true)
@@ -135,6 +161,14 @@ public class ClienteDTO {
             return nombre == null || !nombre.isBlank();
         }
 
+        @AssertTrue(message = "New password cannot contain only whitespace")
+        @Schema(hidden = true)
+        @JsonIgnore
+        public boolean isPasswordNuevaNotOnlyWhitespace() {
+            return passwordNueva == null || passwordNueva.codePoints().anyMatch(
+                    cp -> !Character.isWhitespace(cp) && !Character.isSpaceChar(cp)
+            );
+        }
         @AssertTrue(message = "Phone cannot be blank")
         @Schema(hidden = true)
         @JsonIgnore

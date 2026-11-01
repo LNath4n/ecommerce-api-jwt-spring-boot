@@ -35,6 +35,8 @@ public interface ProductoRepository extends JpaRepository<Producto, Long>, JpaSp
     @Query("UPDATE Producto p SET p.vistas = p.vistas + 1 WHERE p.id = :id")
     void incrementarVistas(@Param("id") Long id);
 
+    boolean existsByCategoriaId(Long categoriaId);
+
     List<Producto> findTop10ByActivoTrueOrderByVistasDesc();
 
     List<Producto> findTop10ByActivoTrueOrderByTotalResenasDesc();

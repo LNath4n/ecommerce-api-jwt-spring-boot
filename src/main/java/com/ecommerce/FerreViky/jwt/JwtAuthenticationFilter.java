@@ -18,6 +18,7 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 /**
  * Filtro de autenticación JWT que se ejecuta una sola vez por petición HTTP.
@@ -38,8 +39,32 @@ import java.io.IOException;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta una vez por cada request antes del controller
 
+    private static final List<String> PUBLIC_PATHS = List.of(
+            "/auth", "/productos", "/health", "/error"
+    );
+
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
+
+    /**
+     * Indica si el filtro debe omitirse para la petición actual.
+     * <p>
+     * Se omite en las peticiones {@code OPTIONS} (preflight de CORS) y en las rutas públicas
+     * definidas en {@link #PUBLIC_PATHS}, de modo que un Bearer inválido o expirado
+     * no afecte a endpoints que no requieren autenticación.
+     * <p>
+     * Esta lista debe mantenerse sincronizada con los {@code permitAll()} del
+     * {@code SecurityFilterChain}.
+     *
+     * @param request petición HTTP entrante
+     * @return {@code true} si el filtro no debe ejecutarse para esta petición
+     */
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
+        String path = request.getServletPath();
+        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    }
 
     /**
      * Lógica principal del filtro. Extrae y valida el JWT; si es válido, establece
@@ -66,7 +91,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta
         try {
             username = jwtService.getUsernameFromToken(token);
         } catch (JwtException e) { //Aqui atrapamos la excepcion de getAllClaims
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -77,7 +102,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta
             try { //Try en caso de que alguien tenga un token pero ya no exista su usaurio en BD
                 userDetails = userDetailsService.loadUserByUsername(username); //Se verifica el Rol con la BD
             } catch (UsernameNotFoundException e) {
-                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                filterChain.doFilter(request, response);
                 return;
             }
 

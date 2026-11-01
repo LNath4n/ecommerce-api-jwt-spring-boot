@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.dto.dtos.producto;
 
+import com.ecommerce.FerreViky.dto.validation.NoNulls.NoNullChars;
 import com.ecommerce.FerreViky.dto.validation.sinHtml.SinHtml;
 import com.ecommerce.FerreViky.models.Producto.TipoProducto;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
@@ -136,12 +137,14 @@ public class ProductoDTO {
     public record ProductoRequest(
             @Schema(description = "Stock keeping unit", example = "STEAM-MX-200")
             @SinHtml
+            @NoNullChars
             @NotBlank(message = "SKU is required")
             @Size(max = 64, message = "SKU cannot exceed 64 characters")
             String sku,
 
             @Schema(description = "Product name", example = "Steam Gift Card $200 MXN")
             @SinHtml
+            @NoNullChars
             @NotBlank(message = "Name is required")
             @Size(max = 150, message = "Name cannot exceed 150 characters")
             @Pattern(
@@ -152,11 +155,13 @@ public class ProductoDTO {
 
             @Schema(description = "Product description (optional)", example = "Digital gift card for the Steam store")
             @SinHtml
+            @NoNullChars
             @Size(max = 2000, message = "Description cannot exceed 2000 characters")
             String descripcion,
 
             @Schema(description = "Platform the product belongs to (optional)", example = "Steam")
             @SinHtml
+            @NoNullChars
             @Size(max = 50, message = "Platform cannot exceed 50 characters")
             String plataforma,
 
@@ -166,6 +171,7 @@ public class ProductoDTO {
 
             @Schema(description = "Region where the product can be redeemed (optional)", example = "MX")
             @SinHtml
+            @NoNullChars
             @Size(max = 10, message = "Region cannot exceed 10 characters")
             String region,
 
@@ -191,6 +197,7 @@ public class ProductoDTO {
 
             @Schema(description = "Instructions to redeem the code (optional)", example = "Go to Steam > Redeem a Steam Gift Card and enter the code")
             @SinHtml
+            @NoNullChars
             @Size(max = 2000, message = "Redemption instructions cannot exceed 2000 characters")
             String instruccionesCanje,
 
