@@ -21,7 +21,7 @@ import com.ecommerce.FerreViky.repository.ProductoRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import com.ecommerce.FerreViky.utils.SlugUtil;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;

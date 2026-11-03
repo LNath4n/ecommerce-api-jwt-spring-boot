@@ -104,7 +104,7 @@ public final class Fakes {
 
         public ProductoPublicoResponse build() {
             return new ProductoPublicoResponse(id, slug, sku, nombre, descripcion, plataforma, tipo,
-                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock);
+                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock,0L,0.0,0L);
         }
     }
 

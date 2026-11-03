@@ -6,7 +6,7 @@ import com.ecommerce.FerreViky.models.CodigoVirtual;
 import com.ecommerce.FerreViky.models.Producto;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;

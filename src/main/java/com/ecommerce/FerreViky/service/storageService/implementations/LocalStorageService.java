@@ -32,12 +32,10 @@ public class LocalStorageService extends AbstractStorageService {
     }
 
     @Override
-    protected void guardar(String key, MultipartFile file, Carpeta carpeta) throws IOException {
+    protected void guardar(String key, byte[] data, String ext, Carpeta carpeta) throws IOException {
         Path destino = resolver(key);
         Files.createDirectories(destino.getParent());
-        try (InputStream in = file.getInputStream()) {
-            Files.copy(in, destino, StandardCopyOption.REPLACE_EXISTING);
-        }
+        Files.write(destino, data); // sobrescribe si existe
     }
 
     // En dev no hay presigned: ambas carpetas se sirven por /uploads/**

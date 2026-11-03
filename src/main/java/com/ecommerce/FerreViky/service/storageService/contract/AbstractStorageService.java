@@ -14,12 +14,13 @@ public abstract class AbstractStorageService implements StorageService {
 
     @Override
     public String upload(MultipartFile file, Carpeta carpeta) throws IOException {
-        String ext = validator.validar(file);
-        String key = carpeta.prefijo() + UUID.randomUUID() + ext;
-        guardar(key, file, carpeta);
+        ImagenValidator.ImagenLimpia img = validator.validarYSanitizar(file);
+        String key = carpeta.prefijo() + UUID.randomUUID() + img.ext();
+        guardar(key, img.data(), img.ext(), carpeta);
         borrarSiHaceRollback(key);
         return key;
     }
+
 
     @Override
     public void deleteAfterCommit(String key) {
@@ -42,6 +43,6 @@ public abstract class AbstractStorageService implements StorageService {
         });
     }
 
-    protected abstract void guardar(String key, MultipartFile file, Carpeta carpeta) throws IOException;
+    protected abstract void guardar(String key, byte[] data, String ext, Carpeta carpeta) throws IOException;
     protected abstract void borrarSeguro(String key); // nunca lanza excepción
 }

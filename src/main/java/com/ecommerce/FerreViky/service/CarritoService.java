@@ -76,7 +76,7 @@ public class CarritoService {
         int cantidadActual = itemExistente.map(ProductoEnCarrito::getCantidad).orElse(0);
         int nuevaCantidad = Math.addExact(cantidadActual, dto.cantidad());
 
-        validarStock(producto, nuevaCantidad);
+        validarStock(producto, cantidadActual, dto.cantidad());
 
         if (itemExistente.isPresent()) {
             itemExistente.get().setCantidad(nuevaCantidad);
@@ -119,7 +119,7 @@ public class CarritoService {
         if (dto.cantidad() == 0) {
             carrito.getProductos().remove(item);
         } else {
-            validarStock(item.getProducto(), dto.cantidad());
+            validarStockExacto(item.getProducto(), dto.cantidad());
             item.setCantidad(dto.cantidad());
         }
 
@@ -241,7 +241,7 @@ public class CarritoService {
      * Busca el producto y valida que exista, esté activo y que la cantidad
      * solicitada sea positiva.
      *
-     * <p>El stock se valida aparte con {@link #validarStock(Producto, long)}, porque
+     * <p>El stock se valida aparte con {@link #validarStock(Producto, long, long)}, porque
      * al sumar a una línea existente hay que comparar contra la cantidad total.</p>
      *
      * @param idProducto ID del producto
@@ -262,18 +262,57 @@ public class CarritoService {
     }
 
     /**
-     * Verifica que existan suficientes códigos disponibles del producto.
+     * Verifica que haya stock suficiente para <b>sumar</b> unidades a un producto
+     * que ya puede estar en el carrito.
      *
-     * @param producto      producto cuyo stock se valida
-     * @param cantidadTotal cantidad total que se desea tener en el carrito
-     * @throws CantidadExcedidaException si se piden más códigos de los disponibles
+     * <p>El stock es la cantidad de códigos virtuales en estado
+     * {@link EstadoCodigo#DISPONIBLE}. Se compara contra {@code cantidadActual +
+     * cantidadSolicitada}.</p>
+     *
+     * @param producto          producto cuyo stock se valida
+     * @param cantidadActual    unidades que el cliente ya tiene en el carrito (0 si no está)
+     * @param cantidadSolicitada unidades que se quieren agregar
+     * @throws CantidadExcedidaException si el total resultante supera los códigos disponibles
      */
-    private void validarStock(Producto producto, long cantidadTotal) {
+    private void validarStock(Producto producto, long cantidadActual, long cantidadSolicitada) {
         long disponibles = codigoVirtualRepository
                 .countByProductoIdAndEstado(producto.getId(), EstadoCodigo.DISPONIBLE);
 
-        if (cantidadTotal > disponibles)
-            throw new CantidadExcedidaException(disponibles, cantidadTotal, producto.getNombre());
+        if (cantidadActual + cantidadSolicitada > disponibles)
+            throw new CantidadExcedidaException(
+                    producto.getNombre(), disponibles, cantidadActual, cantidadSolicitada);
+    }
+
+    /**
+     * Verifica que haya stock suficiente para <b>fijar</b> una cantidad exacta de
+     * un producto en el carrito, reemplazando la actual.
+     *
+     * @param producto       producto cuyo stock se valida
+     * @param cantidadDeseada cantidad total que el cliente quiere tener
+     * @throws CantidadExcedidaException si la cantidad deseada supera los códigos disponibles
+     */
+    private void validarStockExacto(Producto producto, long cantidadDeseada) {
+        long disponibles = codigoVirtualRepository
+                .countByProductoIdAndEstado(producto.getId(), EstadoCodigo.DISPONIBLE);
+
+        if (cantidadDeseada > disponibles)
+            throw new CantidadExcedidaException(
+                    producto.getNombre(), disponibles, cantidadDeseada);
+    }
+
+    /**
+     * Elimina todos los productos del carrito del cliente.
+     *
+     * <p>El carrito en sí se conserva (vacío); requiere {@code orphanRemoval = true}
+     * en la relación {@code Carrito → ProductoEnCarrito} para borrar las filas.</p>
+     *
+     * @param cliente cliente autenticado dueño del carrito
+     * @throws CarritoDeClienteNoEncontrado si el cliente no tiene carrito
+     */
+    @Transactional
+    public void vaciarCarrito(Cliente cliente) {
+        Carrito carrito = obtenerCarritoParaActualizar(cliente);
+        carrito.getProductos().clear();
     }
 
     /**

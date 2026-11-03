@@ -3,6 +3,7 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
 import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteModificadoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ImagenInvalidaException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
@@ -10,8 +11,10 @@ import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExist
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
@@ -83,6 +86,8 @@ public class ClienteService {
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(cliente.getEmail()));
 
+        boolean cerrarSesiones = Boolean.TRUE.equals(request.cerrarSesiones());
+
         // Actualiza la contraseña únicamente si se solicita el cambio.
         if (request.passwordNueva() != null) {
             if (request.passwordVieja() == null
@@ -115,6 +120,17 @@ public class ClienteService {
 
         if (request.telefono() != null) {
             c.setTelefono(request.telefono());
+        }
+
+        // Invalida todos los tokens emitidos antes (solo si se pidió).
+        if (cerrarSesiones) {
+            c.setTokenVersion(c.getTokenVersion() + 1);
+        }
+
+        try {
+            clienteRepository.flush();
+        } catch (ObjectOptimisticLockingFailureException e) {
+            throw new ClienteModificadoException(c.getId(), e);
         }
 
         return aPublico(c);

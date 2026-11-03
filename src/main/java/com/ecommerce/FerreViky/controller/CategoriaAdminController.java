@@ -8,6 +8,7 @@ import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -22,12 +23,12 @@ public class CategoriaAdminController {
     @PostMapping
     @Operation(summary = "Crear categoría", description = "Crea una categoría nueva. El nombre debe ser único (sin distinguir mayúsculas)")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Categoría creada exitosamente"),
+            @ApiResponse(responseCode = "201", description = "Categoría creada exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos de la categoría inválidos"),
             @ApiResponse(responseCode = "409", description = "Ya existe una categoría con ese nombre")
     })
     public ResponseEntity<CategoriaOpcionResponse> crearCategoria(@Validated @RequestBody CategoriaRequest request) {
-        return ResponseEntity.ok(categoriaService.crearCategoria(request));
+        return ResponseEntity.status(HttpStatus.CREATED).body(categoriaService.crearCategoria(request));
     }
 
     @PutMapping("/{id}")

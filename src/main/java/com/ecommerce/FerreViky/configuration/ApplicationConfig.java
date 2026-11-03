@@ -95,7 +95,7 @@ public class ApplicationConfig {
      */
     @Bean
     public UserDetailsService userDetailsService(){
-        return email -> clienteRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException(" Not Found"));
+        return email -> clienteRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException("Not Found"));
     }
 
 }

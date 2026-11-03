@@ -110,17 +110,25 @@ public class ClienteDTO {
             @Schema(description = "New customer name (optional)", example = "Juan Pérez")
             @SinHtml
             @NoNullChars
+            @Pattern(regexp = "^[^\\p{Cc}\\p{Cf}\\p{Zl}\\p{Zp}]*$",
+                    message = "Name cannot contain control or invisible characters")
             @Size(max = 100, message = "Name cannot exceed 100 characters")
             String nombre,
 
             @Schema(description = "New contact phone number (optional)", example = "2461234567")
             @Pattern(regexp = "[0-9]{10}",
                     message = "Phone must contain exactly 10 digits")
-            String telefono
+            String telefono,
+            @Schema(description = "If true, all existing sessions (tokens) are invalidated (optional, default false)",
+                    example = "true")
+            Boolean cerrarSesiones
     ) {
 
         public ClienteEditarRequest {
             email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
+            nombre = nombre == null ? null : nombre.trim();
+            telefono = telefono == null ? null
+                    : telefono.replaceAll("[\\s\\-().]", "");
         }
 
         @AssertTrue(message = "Current password is too long (max 72 bytes)")

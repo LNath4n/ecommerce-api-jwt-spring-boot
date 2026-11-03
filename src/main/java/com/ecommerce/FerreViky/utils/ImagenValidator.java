@@ -1,14 +1,19 @@
 package com.ecommerce.FerreViky.utils;
+
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ImagenInvalidaException;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
+
 import javax.imageio.ImageIO;
 import javax.imageio.ImageReader;
 import javax.imageio.stream.ImageInputStream;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Iterator;
 import java.util.Map;
-
 
 @Component
 public class ImagenValidator {
@@ -17,8 +22,11 @@ public class ImagenValidator {
     private static final int MAX_LADO_PX = 4000;
     private static final long MAX_PIXELES = 16_000_000L;
 
-    /** Valida y devuelve la extensión (.jpg / .png). */
-    public String validar(MultipartFile file) throws IOException {
+    /** Resultado: bytes de la imagen sin metadatos y su extensión (.jpg / .png). */
+    public record ImagenLimpia(byte[] data, String ext) {}
+
+    /** Valida, decodifica UNA sola vez y devuelve los bytes sin metadatos (EXIF/GPS/XMP). */
+    public ImagenLimpia validarYSanitizar(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty())
             throw new ImagenInvalidaException("Debes enviar una imagen");
 
@@ -26,6 +34,7 @@ public class ImagenValidator {
         String ext = (ct == null) ? null : EXT.get(ct);
         if (ext == null) throw new ImagenInvalidaException("Formato no permitido. Usa JPG o PNG");
 
+        BufferedImage original;
         try (ImageInputStream iis = ImageIO.createImageInputStream(file.getInputStream())) {
             if (iis == null) throw new ImagenInvalidaException("El archivo no es una imagen válida");
             Iterator<ImageReader> readers = ImageIO.getImageReaders(iis);
@@ -41,7 +50,8 @@ public class ImagenValidator {
                 if (w <= 0 || h <= 0 || w > MAX_LADO_PX || h > MAX_LADO_PX || (long) w * h > MAX_PIXELES)
                     throw new ImagenInvalidaException(
                             "La imagen es demasiado grande (máx. " + MAX_LADO_PX + "x" + MAX_LADO_PX + " px)");
-                reader.read(0);
+
+                original = reader.read(0); // única decodificación
             } catch (ImagenInvalidaException e) {
                 throw e;
             } catch (IOException | RuntimeException e) {
@@ -50,6 +60,22 @@ public class ImagenValidator {
                 reader.dispose();
             }
         }
-        return ext;
+
+        boolean png = ext.equals(".png");
+        BufferedImage limpia = original;
+
+        // JPEG no soporta canal alfa: convertir a RGB para evitar fallos al escribir
+        if (!png) {
+            limpia = new BufferedImage(original.getWidth(), original.getHeight(), BufferedImage.TYPE_INT_RGB);
+            Graphics2D g = limpia.createGraphics();
+            g.drawImage(original, 0, 0, Color.WHITE, null);
+            g.dispose();
+        }
+
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        if (!ImageIO.write(limpia, png ? "png" : "jpg", out))
+            throw new ImagenInvalidaException("No se pudo procesar la imagen");
+
+        return new ImagenLimpia(out.toByteArray(), ext);
     }
 }

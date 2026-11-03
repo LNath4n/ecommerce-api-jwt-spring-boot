@@ -88,8 +88,8 @@ class CarritoServiceTest {
         AgregarCarrito dto = agregarDto(p.getId(), 2);
 
         when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.empty());
-        when(carritoRepository.save(any(Carrito.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.empty());
+        when(carritoRepository.saveAndFlush(any(Carrito.class))).thenAnswer(inv -> inv.getArgument(0));
         when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(5L);
 
@@ -98,7 +98,7 @@ class CarritoServiceTest {
 
         // Assert
         ArgumentCaptor<Carrito> captor = ArgumentCaptor.forClass(Carrito.class);
-        verify(carritoRepository, times(2)).save(captor.capture());
+        verify(carritoRepository, times(2)).saveAndFlush(captor.capture());
 
         Carrito guardado = captor.getValue();
         assertEquals(c, guardado.getCliente());
@@ -119,7 +119,7 @@ class CarritoServiceTest {
         AgregarCarrito dto = agregarDto(2L, 3);
 
         when(productoRepository.findById(2L)).thenReturn(Optional.of(nuevo));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(2L, CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(10L);
 
@@ -132,7 +132,7 @@ class CarritoServiceTest {
         assertEquals(nuevo, lineaNueva.getProducto());
         assertEquals(3, lineaNueva.getCantidad());
         assertEquals(carrito, lineaNueva.getCarrito());
-        verify(carritoRepository).save(carrito);
+        verify(carritoRepository).saveAndFlush(carrito);
     }
 
     @Test
@@ -149,7 +149,7 @@ class CarritoServiceTest {
         int cantidadDeseadaFinal = cantidadExistente + cantidadDeseadaParaAgregar;
 
         when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(existente.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(10L);
 
@@ -159,7 +159,7 @@ class CarritoServiceTest {
         // Assert
         assertEquals(1, carrito.getProductos().size());
         assertEquals(cantidadDeseadaFinal, linea.getCantidad());   // la MISMA linea fue la que cambio
-        verify(carritoRepository).save(carrito);
+        verify(carritoRepository).saveAndFlush(carrito);
     }
 
     @Test
@@ -176,7 +176,7 @@ class CarritoServiceTest {
         int cantidadDeseadaFinal = cantidadExistente + cantidadDeseadaParaAgregar;
 
         when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(existente.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn((long) cantidadDeseadaFinal);
 
@@ -186,7 +186,7 @@ class CarritoServiceTest {
         // Assert
         assertEquals(1, carrito.getProductos().size());
         assertEquals(cantidadDeseadaFinal, carrito.getProductos().get(0).getCantidad());
-        verify(carritoRepository).save(carrito);
+        verify(carritoRepository).saveAndFlush(carrito);
     }
 
     @Test
@@ -200,13 +200,13 @@ class CarritoServiceTest {
         AgregarCarrito dto = agregarDto(existente.getId(), cantidadDeseada);
 
         when(productoRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(existente.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(2L);
 
         // Act + Assert
         assertThrows(CantidadExcedidaException.class, () -> carritoService.agregarOActualizar(dto, c));
-        verify(carritoRepository, never()).save(any());
+        verify(carritoRepository, never()).saveAndFlush(any());
     }
 
     @Test
@@ -220,14 +220,14 @@ class CarritoServiceTest {
         AgregarCarrito dto = agregarDto(p.getId(), 3);    // pide 3 mas entonccesss total 6
 
         when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(5L);                          // stock 5
 
         // Act + Assert
         assertThrows(CantidadExcedidaException.class,
                 () -> carritoService.agregarOActualizar(dto, c));
-        verify(carritoRepository, never()).save(any());
+        verify(carritoRepository, never()).saveAndFlush(any());
     }
 
     //2
@@ -238,7 +238,7 @@ class CarritoServiceTest {
         // Arrange
         Cliente c = generarClienteFake();
         ActualizarCantidad dto = actualizarDto(1L, 2);
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.empty());
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.empty());
 
         // Act + Assert
         assertThrows(CarritoDeClienteNoEncontrado.class,
@@ -256,7 +256,7 @@ class CarritoServiceTest {
         agregarItem(carrito, enCarrito, 2);
         ActualizarCantidad dto = actualizarDto(99L, 3);   // el 99 no esta en el carrito
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
 
         // Act + Assert
         assertThrows(ProductoNoEnCarritoException.class,
@@ -274,7 +274,7 @@ class CarritoServiceTest {
         ProductoEnCarrito linea = agregarItem(carrito, p, 2);   // tiene 2
         ActualizarCantidad dto = actualizarDto(1L, 5);          // ahora quiere 5 (si sumara seria 7)
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(1L, CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(10L);
 
@@ -299,7 +299,7 @@ class CarritoServiceTest {
         ProductoEnCarrito lineaOtra = agregarItem(carrito, otro, 1);
         ActualizarCantidad dto = actualizarDto(1L, 0);
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
 
         // Act
         carritoService.actualizarCantidad(dto, c);
@@ -313,7 +313,7 @@ class CarritoServiceTest {
     }
 
     // 3
-    
+
     @Test
     @DisplayName("Al actualizar la cantidad por encima del stock lanza CantidadExcedidaException y conserva la anterior")
     void actualizarCantidad_superaStock_lanzaCantidadExcedida() {
@@ -324,7 +324,7 @@ class CarritoServiceTest {
         ProductoEnCarrito linea = agregarItem(carrito, p, 2);
         ActualizarCantidad dto = actualizarDto(1L, 8);
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(1L, CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(5L);
 
@@ -335,13 +335,13 @@ class CarritoServiceTest {
         verify(carritoRepository, never()).save(any());
     }
 
-    //  eliminarProducto 
+    //  eliminarProducto
     @Test
     @DisplayName("Al eliminar un producto de un cliente sin carrito lanza CarritoDeClienteNoEncontrado")
     void eliminarProducto_sinCarrito_lanzaCarritoDeClienteNoEncontrado() {
         // Arrange
         Cliente c = generarClienteFake();
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.empty());
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.empty());
 
         // Act + Assert
         assertThrows(CarritoDeClienteNoEncontrado.class,
@@ -357,7 +357,7 @@ class CarritoServiceTest {
         Carrito carrito = generarCarritoFake(car -> car.setCliente(c));
         agregarItem(carrito, enCarrito, 2);
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
 
         // Act + Assert
         assertThrows(ProductoNoEnCarritoException.class,
@@ -376,7 +376,7 @@ class CarritoServiceTest {
         ProductoEnCarrito lineaBorrada = agregarItem(carrito, aBorrar, 2);
         ProductoEnCarrito lineaOtra = agregarItem(carrito, otro, 1);
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
 
         // Act
         carritoService.eliminarProducto(1L, c);
@@ -388,7 +388,7 @@ class CarritoServiceTest {
         verify(carritoRepository, never()).save(any());   // confia en orphanRemoval
     }
 
-    //  obtenerCarritoPorCliente 
+    //  obtenerCarritoPorCliente
     @Test
     @DisplayName("Al obtener el carrito de un cliente sin carrito lanza CarritoNoEncontrado")
     void obtenerCarritoPorCliente_noExiste_lanzaCarritoNoEncontrado() {
@@ -402,7 +402,7 @@ class CarritoServiceTest {
     }
 
 
-    //  obtenerCarritoPorId 
+    //  obtenerCarritoPorId
     @Test
     @DisplayName("Al obtener el carrito por id de cliente que no tiene carrito lanza CarritoNoEncontrado")
     void obtenerCarritoPorId_noExiste_lanzaCarritoNoEncontrado() {
@@ -425,7 +425,7 @@ class CarritoServiceTest {
         ProductoEnCarrito linea = agregarItem(carrito, p, 1);
         ActualizarCantidad dto = actualizarDto(1L, 10);
 
-        when(carritoRepository.findByClienteConProductos(c)).thenReturn(Optional.of(carrito));
+        when(carritoRepository.findByClienteParaActualizar(c)).thenReturn(Optional.of(carrito));
         when(codigoVirtualRepository.countByProductoIdAndEstado(1L, CodigoVirtual.EstadoCodigo.DISPONIBLE))
                 .thenReturn(10L);
 

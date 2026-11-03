@@ -109,8 +109,8 @@ class AuthServiceTest {
         when(clienteRepository.existsByEmail(dto.email())).thenReturn(false);
         when(clienteMappers.DtoLoginACliente(dto)).thenReturn(clienteSinId);
         when(passwordEncoder.encode(dto.password())).thenReturn("encoded-pass");
-        when(clienteRepository.save(clienteSinId)).thenReturn(clienteConId);
-        when(carritoRepository.save(any(Carrito.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(clienteRepository.saveAndFlush(clienteSinId)).thenReturn(clienteConId);
+        when(carritoRepository.saveAndFlush(any(Carrito.class))).thenAnswer(inv -> inv.getArgument(0));
         when(jwtService.getToken(clienteConId)).thenReturn("jwt-nuevo-cliente");
 
         // When
@@ -120,13 +120,11 @@ class AuthServiceTest {
         assertNotNull(response);
         assertEquals("jwt-nuevo-cliente", response.token());
 
-        // El password debe haber sido encodeado antes de guardar
         verify(passwordEncoder).encode(dto.password());
-        verify(clienteRepository).save(clienteSinId);
+        verify(clienteRepository).saveAndFlush(clienteSinId);
 
-        // Verificamos que el carrito guardado esté vinculado al cliente con ID
         ArgumentCaptor<Carrito> carritoCaptor = ArgumentCaptor.forClass(Carrito.class);
-        verify(carritoRepository).save(carritoCaptor.capture());
+        verify(carritoRepository).saveAndFlush(carritoCaptor.capture());
         Carrito carritoGuardado = carritoCaptor.getValue();
         assertEquals(clienteConId, carritoGuardado.getCliente());
         assertNotNull(carritoGuardado.getFechaCreacion());
@@ -151,7 +149,8 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("Al guardar un cliente y fallar el guardado del carrito este lanza ErrorAlCrearCarritoException y no genera token")    void guardarCliente_deberiaLanzarExcepcion_cuandoFallaGuardarCarrito() {
+    @DisplayName("Al guardar un cliente y fallar el guardado del carrito este lanza ErrorAlCrearCarritoException y no genera token")
+    void guardarCliente_deberiaLanzarExcepcion_cuandoFallaGuardarCarrito() {
         // Given
         LoginClienteDto dto = new LoginClienteDto("nuevo@mail.com", "pass");
 
@@ -164,8 +163,8 @@ class AuthServiceTest {
         when(clienteRepository.existsByEmail(dto.email())).thenReturn(false);
         when(clienteMappers.DtoLoginACliente(dto)).thenReturn(clienteSinId);
         when(passwordEncoder.encode(any())).thenReturn("encoded");
-        when(clienteRepository.save(clienteSinId)).thenReturn(clienteConId);
-        when(carritoRepository.save(any(Carrito.class)))
+        when(clienteRepository.saveAndFlush(clienteSinId)).thenReturn(clienteConId);
+        when(carritoRepository.saveAndFlush(any(Carrito.class)))
                 .thenThrow(new RuntimeException("Error de BD"));
 
         // When / Then

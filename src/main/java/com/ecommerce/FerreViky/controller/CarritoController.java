@@ -90,6 +90,24 @@ public class CarritoController {
     }
 
     @Operation(
+            summary = "Vaciar el carrito",
+            description = "Elimina todos los productos del carrito del cliente autenticado. " +
+                    "El carrito se conserva, pero queda vacío."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Carrito vaciado correctamente",
+                    content = @Content(schema = @Schema(type = "string", example = "Se limpió el carrito entero"))),
+            @ApiResponse(responseCode = "401", description = "Token JWT ausente o inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "El cliente no tiene un carrito registrado", content = @Content)
+    })
+    @DeleteMapping
+    public ResponseEntity<String> borrarCarritoEntero(
+            @AuthenticationPrincipal Cliente cliente) {
+        carritoService.vaciarCarrito(cliente);
+        return ResponseEntity.ok("Se limpió el carrito entero");
+    }
+
+    @Operation(
             summary = "Eliminar un producto del carrito",
             description = "Quita por completo un producto del carrito del cliente autenticado, " +
                     "sin importar la cantidad que tuviera."

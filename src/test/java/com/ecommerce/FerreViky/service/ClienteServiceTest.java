@@ -18,6 +18,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 import java.time.Duration;
+import java.util.Locale;
 import java.util.Optional;
 
 import static com.ecommerce.FerreViky.utils.Fakes.*;
@@ -74,7 +75,7 @@ class ClienteServiceTest {
     void editarCliente_noExiste_lanzaClienteNoEncontrado() {
         //Arrange
         Cliente c = generarClienteFake();
-        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),c.getPassword(),"NuevaPassword",c.getNombre(),c.getTelefono());
+        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),c.getPassword(),"NuevaPassword",c.getNombre(),c.getTelefono(),false);
         //Act
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.empty());
         //Assert
@@ -86,7 +87,7 @@ class ClienteServiceTest {
     void editarCliente_passwordNuevaSinPasswordVieja_lanzaContrasenaInvalida() {
         //Arrange
         Cliente c = generarClienteFake();
-        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),null,"NuevaPassword",c.getNombre(),c.getTelefono());
+        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),null,"NuevaPassword",c.getNombre(),c.getTelefono(),false);
         //Act
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
         //Assert
@@ -98,7 +99,7 @@ class ClienteServiceTest {
     void editarCliente_passwordViejaIncorrecta_lanzaContrasenaInvalida() {
         //Arrange
         Cliente c = generarClienteFake();
-        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),"DefinitivamenteNoLaPassword","NuevaPassword",c.getNombre(),c.getTelefono());
+        ClienteEditarRequest clienteEditarRequest = new ClienteEditarRequest(c.getEmail(),"DefinitivamenteNoLaPassword","NuevaPassword",c.getNombre(),c.getTelefono(),false);
         //Act
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
         //Assert
@@ -116,7 +117,7 @@ class ClienteServiceTest {
         String hashNuevo = "HASH_NUEVO";
 
         ClienteEditarRequest request = new ClienteEditarRequest(
-                c.getEmail(), vieja, contrasenaNueva, c.getNombre(), c.getTelefono());
+                c.getEmail(), vieja, contrasenaNueva, c.getNombre(), c.getTelefono(),false);
 
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
         when(passwordEncoder.matches(vieja, vieja)).thenReturn(true);
@@ -137,7 +138,7 @@ class ClienteServiceTest {
         Cliente clienteAEditar = generarClienteFake();
         Cliente clienteYaExistente = generarClienteFake(cli -> cli.setEmail("ocupado@mail.com"));
 
-        ClienteEditarRequest request = new ClienteEditarRequest(clienteYaExistente.getEmail(), null,null, clienteAEditar.getNombre(), clienteAEditar.getTelefono());
+        ClienteEditarRequest request = new ClienteEditarRequest(clienteYaExistente.getEmail(), null,null, clienteAEditar.getNombre(), clienteAEditar.getTelefono(),false);
         when(clienteRepository.findById(clienteAEditar.getId())).thenReturn(Optional.of(clienteAEditar));
         when(clienteRepository.existsByEmail(clienteYaExistente.getEmail())).thenReturn(true);
 
@@ -150,8 +151,8 @@ class ClienteServiceTest {
     void editarCliente_emailNuevoDisponible_actualizaEmail() {
         //Arrange
         Cliente c = generarClienteFake();
-        String correo = "NuevoCorreo@Gmail.com";
-        ClienteEditarRequest request = new ClienteEditarRequest(correo, null,null, c.getNombre(), c.getTelefono());
+        String correo = "NuevoCorreo@Gmail.com".toLowerCase(Locale.ROOT);
+        ClienteEditarRequest request = new ClienteEditarRequest(correo, null,null, c.getNombre(), c.getTelefono(),false);
 
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
@@ -168,7 +169,7 @@ class ClienteServiceTest {
         // Arrange
         Cliente c = generarClienteFake();
         ClienteEditarRequest request = new ClienteEditarRequest(
-                c.getEmail(), null, null, c.getNombre(), c.getTelefono());
+                c.getEmail(), null, null, c.getNombre(), c.getTelefono(),false);
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
         // Act
@@ -186,7 +187,7 @@ class ClienteServiceTest {
         String nombreCliente = c.getNombre();
         String telefonoCliente = c.getTelefono();
         ClienteEditarRequest request = new ClienteEditarRequest(
-                c.getEmail(), null, null, null, null);
+                c.getEmail(), null, null, null, null,false);
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
         //Act
@@ -205,7 +206,7 @@ class ClienteServiceTest {
         String nombreCliente = "Vargas";
         String telefonoCliente = "01234567890";
         ClienteEditarRequest request = new ClienteEditarRequest(
-                c.getEmail(), null, null, nombreCliente, telefonoCliente);
+                c.getEmail(), null, null, nombreCliente, telefonoCliente,false);
         when(clienteRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
         //Act

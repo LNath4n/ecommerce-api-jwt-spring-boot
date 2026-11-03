@@ -3,7 +3,8 @@ package com.ecommerce.FerreViky.service;
 import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ErrorAlCrearCarritoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.CredencialesInvalidasException;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
+import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
 import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
@@ -11,7 +12,7 @@ import com.ecommerce.FerreViky.models.Carrito;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.repository.CarritoRepository;
 import com.ecommerce.FerreViky.repository.ClienteRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -47,7 +48,7 @@ public class AuthService {
      * @param dto email y contraseña del cliente
      * @return {@link AuthResponse} con el JWT generado
      * @throws org.springframework.security.core.AuthenticationException si las credenciales son inválidas
-     * @throws CredencialesInvalidasException                            si el cliente no existe tras autenticar
+     * @throws ClienteNoEncontradoException                            si el cliente no existe tras autenticar
      */
     public AuthResponse login(LoginClienteDto dto) {
         String email = normalizarEmail(dto.email());
@@ -57,7 +58,7 @@ public class AuthService {
         );
 
         Cliente cliente = clienteRepository.findByEmail(email)
-                .orElseThrow(CredencialesInvalidasException::new);
+                .orElseThrow(()-> new ClienteNoEncontradoException(dto.email()));
 
         return new AuthResponse(jwtService.getToken(cliente));
     }

@@ -34,15 +34,15 @@ public class S3StorageService extends AbstractStorageService {
     }
 
     @Override
-    protected void guardar(String key, MultipartFile file, Carpeta carpeta) throws IOException {
+    protected void guardar(String key, byte[] data, String ext, Carpeta carpeta) throws IOException {
         String cache = (carpeta == Carpeta.PRODUCTOS)
                 ? "public,max-age=31536000,immutable" : "private,max-age=3600";
-        try (InputStream in = file.getInputStream()) {
-            s3.putObject(PutObjectRequest.builder()
-                            .bucket(bucket).key(key)
-                            .contentType(file.getContentType()).cacheControl(cache).build(),
-                    RequestBody.fromInputStream(in, file.getSize()));
-        }
+        String contentType = ext.equals(".png") ? "image/png" : "image/jpeg";
+
+        s3.putObject(PutObjectRequest.builder()
+                        .bucket(bucket).key(key)
+                        .contentType(contentType).cacheControl(cache).build(),
+                RequestBody.fromBytes(data));
     }
 
     @Override

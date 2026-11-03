@@ -8,7 +8,7 @@ import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.Categori
 import com.ecommerce.FerreViky.models.Categoria;
 import com.ecommerce.FerreViky.repository.CategoriaRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;

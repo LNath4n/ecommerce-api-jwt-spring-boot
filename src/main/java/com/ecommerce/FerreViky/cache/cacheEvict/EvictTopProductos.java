@@ -4,7 +4,7 @@ import org.springframework.cache.annotation.CacheEvict;
 import org.springframework.cache.annotation.Caching;
 import java.lang.annotation.*;
 
-@Target(ElementType.METHOD)
+@Target(ElementType.METHOD)//Solo metodos
 @Retention(RetentionPolicy.RUNTIME)
 @Caching(evict = {
         @CacheEvict(value = "topVistas", allEntries = true),

@@ -49,9 +49,11 @@ public class JwtService {
      */
     public String getToken(Cliente cliente) {
         Map<String, Object> extraClaims = new HashMap<>();
-        String nombre = (cliente.getNombre() != null && !cliente.getNombre().isBlank()) ? cliente.getNombre() : cliente.getUsername();
-        extraClaims.put("nombre", nombre);
+        //String nombre = (cliente.getNombre() != null && !cliente.getNombre().isBlank()) ? cliente.getNombre() : cliente.getUsername();
+        //extraClaims.put("nombre", nombre); Se volvio algo inutil ya que se regresa en el Endpoint de clietne
         extraClaims.put("role", cliente.getRol().name()); // "ADMIN" o "USER"
+        extraClaims.put("uid", cliente.getId()); //Alguien no puede ahora entrar a su correo viejo
+        extraClaims.put("tv", cliente.getTokenVersion()); // Si cambiamos contrasena saca a todos
         return getToken(extraClaims, cliente);
     }
 
@@ -99,7 +101,14 @@ public class JwtService {
      */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = getUsernameFromToken(token);
+        Long uid = getClaim(token, c -> c.get("uid", Long.class));
+        Integer tv = getClaim(token, c -> c.get("tv", Integer.class));
+
+        if (!(userDetails instanceof Cliente cliente)) return false;
+
         return username.equals(userDetails.getUsername())
+                && uid != null && uid.equals(cliente.getId())
+                && tv != null && tv == cliente.getTokenVersion()
                 && !isTokenExpired(token)
                 && userDetails.isEnabled();
     }

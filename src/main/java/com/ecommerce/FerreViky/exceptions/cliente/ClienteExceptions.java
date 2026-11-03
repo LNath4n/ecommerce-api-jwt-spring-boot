@@ -1,9 +1,14 @@
 package com.ecommerce.FerreViky.exceptions.cliente;
+
 public class ClienteExceptions {
 
     public static class EmailYaExisteException extends RuntimeException {
         public EmailYaExisteException(String email) {
             super("El usuario con email " + email + " ya existe");
+        }
+
+        public EmailYaExisteException(String email, Throwable cause) {
+            super("El usuario con email " + email + " ya existe", cause);
         }
     }
 
@@ -41,5 +46,9 @@ public class ClienteExceptions {
         }
     }
 
-
+    public static class ClienteModificadoException extends RuntimeException {
+        public ClienteModificadoException(Long id, Throwable cause) {
+            super("El cliente con id " + id + " fue modificado por otra operación", cause);
+        }
+    }
 }

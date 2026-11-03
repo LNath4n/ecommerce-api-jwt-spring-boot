@@ -36,12 +36,12 @@ public class CacheConfig implements CachingConfigurer {
                 .build();
 
         return RedisCacheConfiguration.defaultCacheConfig()
-                .entryTtl(Duration.ofMinutes(10))
-                .disableCachingNullValues()
+                .entryTtl(Duration.ofMinutes(10)) //Cada dato dura 10 minutos
+                .disableCachingNullValues()//No datos nulls
                 .serializeKeysWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(new StringRedisSerializer()))
+                        .fromSerializer(new StringRedisSerializer()))//Llaves Legibles
                 .serializeValuesWith(RedisSerializationContext.SerializationPair
-                        .fromSerializer(serializer));
+                        .fromSerializer(serializer));//Valores Json
     }
 
     @Override
@@ -50,19 +50,19 @@ public class CacheConfig implements CachingConfigurer {
             @Override
             public void handleCacheGetError(RuntimeException e, Cache cache, Object key) {
                 log.warn("Cache GET falló en '{}': {}", cache.getName(), e.getMessage());
-            }
+            }//Error al leer el cache
             @Override
             public void handleCachePutError(RuntimeException e, Cache cache, Object key, Object value) {
                 log.warn("Cache PUT falló en '{}': {}", cache.getName(), e.getMessage());
-            }
+            }//Error al guardar el cache
             @Override
             public void handleCacheEvictError(RuntimeException e, Cache cache, Object key) {
                 log.warn("Cache EVICT falló en '{}': {}", cache.getName(), e.getMessage());
-            }
+            }//Error al borrar
             @Override
             public void handleCacheClearError(RuntimeException e, Cache cache) {
                 log.warn("Cache CLEAR falló en '{}': {}", cache.getName(), e.getMessage());
-            }
+            }//Error al limpiar todo el cache
         };
     }
 }

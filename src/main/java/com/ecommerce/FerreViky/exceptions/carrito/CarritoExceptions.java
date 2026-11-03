@@ -7,10 +7,25 @@ public class CarritoExceptions {
             super("No puedes agregar "+cantidad+" cantidad de "+nombre+" solo hay "+existencia+" en existencia");
         }
         public CantidadExcedidaException(long existencia, long cantidad, String nombre) {
-            super("No puedes agregar " + cantidad + " unidades de " + nombre
+            super("No puedes tener " + cantidad + " unidades de " + nombre
+                    + ", solo hay " + existencia + " en existencia");
+        }
+
+        public CantidadExcedidaException(String nombre, long existencia, long enCarrito, long solicitada) {
+            super(enCarrito == 0
+                    ? "No puedes agregar " + solicitada + " unidades de " + nombre
+                    + ", solo hay " + existencia + " en existencia"
+                    : "Ya tienes " + enCarrito + " de " + nombre + " en tu carrito y solo hay "
+                    + existencia + " en existencia. Puedes agregar "
+                    + Math.max(0, existencia - enCarrito) + " más");
+        }
+
+        public CantidadExcedidaException(String nombre, long existencia, long deseada) {
+            super("No puedes tener " + deseada + " unidades de " + nombre
                     + ", solo hay " + existencia + " en existencia");
         }
     }
+
 
 
     public static class CarritoNoEncontrado extends RuntimeException {
@@ -54,7 +69,6 @@ public class CarritoExceptions {
             super("No se pudo crear el carrito para el cliente con ID: " + clienteId, cause);
         }
     }
-
     public static class ConflictoConcurrenteException extends RuntimeException {
         public ConflictoConcurrenteException(String mensaje) { super(mensaje); }
     }
