@@ -2,7 +2,7 @@
 import io, os, struct, zlib
 from PIL import Image
 
-OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+OUT = os.path.dirname(os.path.abspath(__file__))
 os.makedirs(OUT, exist_ok=True)
 MB = 1024 * 1024
 
@@ -67,7 +67,7 @@ w("polyglot.jpg", jpg + b"\n<?php system($_GET['c']); ?><script>alert(1)</script
 
 # ---------- formatos NO permitidos ----------
 w("svg_xss.svg", '<svg xmlns="http://www.w3.org/2000/svg" onload="alert(1)"><script>alert(document.cookie)</script></svg>')
-w("animated.gif", img_bytes("GIF", (32, 32), (0, 0, 0), mode="P"))
+w("animated.gif", img_bytes("GIF", (32, 32), 0, mode="P"))
 w("image.webp", img_bytes("WEBP", (32, 32), (0, 200, 0)))
 w("image.bmp", img_bytes("BMP", (32, 32), (0, 0, 200)))
 w("image.tiff", img_bytes("TIFF", (32, 32), (200, 200, 0)))
