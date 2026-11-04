@@ -42,6 +42,7 @@ jobs:
       DB_USERNAME: postgres
       DB_PASSWORD: pass
       REDIS_HOST: localhost
+      JWT_SECRET_KEY: Y2ktdGVzdC1zZWNyZXQtY2ktdGVzdC1zZWNyZXQtY2ktdGVzdC1zZWNyZXQtMTIzNDU2Nzg5MA==
       HEALTH_URL: http://localhost:8080/health
 
     steps:
@@ -93,7 +94,7 @@ jobs:
             --working-dir Postman \
             --env-var "baseUrl=http://localhost:8080" \
             --env-var "adminEmail=admin@admin.com" \
-            --env-var "adminPassword=Admin12345" \
+            --env-var "adminPassword=1234567890" \
             --reporters cli
 
       - name: Print app logs on failure
