@@ -77,10 +77,16 @@ jobs:
           cat app.log
           exit 1
 
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
       - name: Generate fixtures
         run: |
           pip install pillow
           python3 Postman/fixtures/make_fixtures.py
+          ls Postman/fixtures | head -20
 
       - name: Set up Node
         uses: actions/setup-node@v4
@@ -90,7 +96,7 @@ jobs:
       - name: Run Postman collection
         run: |
           npm install -g newman
-                    newman run "Postman/Postman Coleccion.postman_collection.json" \
+            newman run "Postman/Postman Coleccion.postman_collection.json" \
             --working-dir Postman \
             --env-var "baseUrl=http://localhost:8080" \
             --env-var "adminEmail=admin@admin.com" \
