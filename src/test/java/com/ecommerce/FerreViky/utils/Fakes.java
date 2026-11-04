@@ -102,9 +102,14 @@ public final class Fakes {
         public String imagenUrl;
         public Integer stock;
 
+        public Long vistas = 0L;
+        public Double promedioCalificacion = 0.0;
+        public Long totalResenas = 0L;
+
         public ProductoPublicoResponse build() {
             return new ProductoPublicoResponse(id, slug, sku, nombre, descripcion, plataforma, tipo,
-                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock,0L,0.0,0L);
+                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock,
+                    vistas, promedioCalificacion, totalResenas);
         }
     }
 
