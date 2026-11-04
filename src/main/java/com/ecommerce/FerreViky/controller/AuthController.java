@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -11,8 +11,11 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import static org.springframework.data.redis.connection.ReactiveStreamCommands.AddStreamRecord.body;
 
 @RestController
 @RequestMapping("/auth")
@@ -47,7 +50,7 @@ public class AuthController {
     )
     @ApiResponses({
             @ApiResponse(
-                    responseCode = "200",
+                    responseCode = "201",
                     description = "Cliente registrado exitosamente.",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))
             ),
@@ -57,6 +60,6 @@ public class AuthController {
     })
     @PostMapping
     public ResponseEntity<AuthResponse> crearCliente(@Valid @RequestBody LoginClienteDto dto) {
-        return ResponseEntity.ok(authService.guardarCliente(dto));
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.guardarCliente(dto));
     }
 }

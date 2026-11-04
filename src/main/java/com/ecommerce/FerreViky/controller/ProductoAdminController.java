@@ -1,14 +1,15 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoAdminResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
 import com.ecommerce.FerreViky.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import lombok.AllArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
@@ -27,13 +28,13 @@ public class ProductoAdminController {
     @PostMapping
     @Operation(summary = "Crear producto", description = "Crea un producto nuevo. Si se indica categoriaId, la categoría debe existir; si es null, el producto se crea sin categoría. El stock no se envía: se calcula con los códigos cargados. La imagen se sube aparte en POST /admin/productos/{id}/imagen")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Producto creado exitosamente"),
+            @ApiResponse(responseCode = "201", description = "Producto creado exitosamente"),
             @ApiResponse(responseCode = "400", description = "Datos del producto inválidos"),
             @ApiResponse(responseCode = "404", description = "Categoría no encontrada"),
             @ApiResponse(responseCode = "409", description = "Ya existe un producto con ese SKU")
     })
     public ResponseEntity<ProductoPublicoResponse> crearProducto(@Validated @RequestBody ProductoRequest productoAdminRequest) {
-        return ResponseEntity.ok(productoService.crearProducto(productoAdminRequest));
+        return  ResponseEntity.status(HttpStatus.CREATED).body(productoService.crearProducto(productoAdminRequest));
     }
 
     @DeleteMapping("/{id}")

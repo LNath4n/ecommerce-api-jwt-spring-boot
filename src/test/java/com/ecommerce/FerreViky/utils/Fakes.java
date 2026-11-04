@@ -1,11 +1,11 @@
 package com.ecommerce.FerreViky.utils;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoProductoDTO;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoProductoDTO;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
 import com.ecommerce.FerreViky.models.*;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository.StockProducto;
 import net.datafaker.Faker;
@@ -104,7 +104,7 @@ public final class Fakes {
 
         public ProductoPublicoResponse build() {
             return new ProductoPublicoResponse(id, slug, sku, nombre, descripcion, plataforma, tipo,
-                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock);
+                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock,0L,0.0,0L);
         }
     }
 
@@ -231,7 +231,7 @@ public final class Fakes {
         public BigDecimal subtotal;
 
         public CarritoResponseDTO build() {
-            return new CarritoResponseDTO(id, productos, fechaCreacion, subtotal);
+            return new CarritoResponseDTO(productos, fechaCreacion, subtotal);
         }
     }
 

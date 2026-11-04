@@ -35,4 +35,14 @@ public class ProductosExceptions {
             super("El producto con ID : " +id+" no puede ser borrado por conflictos");
         }
     }
+    public static class SkuDuplicadoException extends RuntimeException {
+        public SkuDuplicadoException(String sku) {
+            super("Ya existe un producto con el SKU: " + sku);
+        }
+    }
+    public static class ProductoModificadoException extends RuntimeException {
+        public ProductoModificadoException(Long id) {
+            super("El producto " + id + " fue modificado por otra persona. Recarga e intenta de nuevo.");
+        }
+    }
 }

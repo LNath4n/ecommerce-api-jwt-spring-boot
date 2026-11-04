@@ -1,23 +1,28 @@
+
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.CategoriaOpcionResponse;
-import com.ecommerce.FerreViky.dto.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
+import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.validation.NoNulls.NoNullChars;
 import com.ecommerce.FerreViky.service.ProductoService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Pattern;
 import lombok.AllArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.ResponseEntity;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
 @AllArgsConstructor
 @RestController
+@Validated
 @CrossOrigin("*")
 @RequestMapping("/productos")
 @Tag(name = "Productos", description = "Consulta del catálogo de códigos virtuales")
@@ -28,10 +33,12 @@ public class ProductoController {
     @GetMapping
     @Operation(summary = "Listar productos", description = "Retorna los productos activos del catálogo paginados, con su stock de códigos disponibles")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
-    public Page<ProductoPublicoResponse> obtenerTodos(@RequestParam(defaultValue = "0") int page,
-                                                      @RequestParam(defaultValue = "20") int size) {
-        Pageable pageable = PageRequest.of(page, size);
-        return productoService.obtenerTodos(pageable);
+    public Page<ProductoPublicoResponse> obtenerTodos(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(defaultValue = "none") String orden
+            ) {
+        return productoService.obtenerTodos(pageRequestSegura(page, size,orden));
     }
 
     @GetMapping("/{id}")
@@ -59,7 +66,12 @@ public class ProductoController {
     }
 
     @GetMapping("/slug/{slug}")
-    public ResponseEntity<ProductoPublicoResponse> obtenerPorSlug(@PathVariable String slug) {
+    @Operation(summary = "Obtener producto por slug", description = "Retorna un producto del catálogo mediante su slug")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Producto encontrado"),
+            @ApiResponse(responseCode = "404", description = "Producto no encontrado")
+    })
+    public ResponseEntity<ProductoPublicoResponse> obtenerPorSlug(@NoNullChars @PathVariable String slug) {
         return ResponseEntity.ok(productoService.obtenerProductoPorSlug(slug));
     }
 
@@ -67,11 +79,48 @@ public class ProductoController {
     @Operation(summary = "Buscar productos", description = "Busca por texto libre en nombre, SKU, plataforma y descripción. Plataforma y categoría son filtros opcionales")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Resultados obtenidos exitosamente")})
     public Page<ProductoPublicoResponse> buscar(
-            @RequestParam(required = false) String q,
-            @RequestParam(required = false) String plataforma,
+            @RequestParam(required = false) @NoNullChars String q,
+            @RequestParam(required = false) @NoNullChars String plataforma,
             @RequestParam(required = false) Long categoriaId,
+            @RequestParam(defaultValue = "relevancia") String orden,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        return productoService.buscar(q, plataforma, categoriaId, PageRequest.of(page, size));
+        return productoService.buscar(q, plataforma, categoriaId, pageRequestSegura(page, size, orden));
     }
+
+    @GetMapping("/top/vistas")
+    @Operation(summary = "Listar productos más vistos", description = "Retorna los productos con mayor número de vistas")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topVistas() {
+        return productoService.topMasVistos();
+    }
+
+    @GetMapping("/top/calificados")
+    @Operation(summary = "Listar productos mejor calificados", description = "Retorna los productos con las mejores calificaciones")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topCalificados() {
+        return productoService.topMejorCalificados();
+    }
+
+    @GetMapping("/top/resenados")
+    @Operation(summary = "Listar productos más reseñados", description = "Retorna los productos con mayor número de reseñas")
+    @ApiResponses({@ApiResponse(responseCode = "200", description = "Listado obtenido exitosamente")})
+    public List<ProductoPublicoResponse> topResenados() {
+        return productoService.topMasResenados();
+    }
+
+    private PageRequest pageRequestSegura(int page, int size, String orden) {
+        int safePage = Math.max(0, Math.min(page, 10_000));
+        int safeSize = Math.max(1, Math.min(size, 100));
+        Sort sort = switch (orden) {
+            case "calificacion" -> Sort.by(Sort.Order.desc("promedioCalificacion"), Sort.Order.desc("totalResenas"));
+            case "vistas"       -> Sort.by(Sort.Order.desc("vistas"));
+            case "resenas"      -> Sort.by(Sort.Order.desc("totalResenas"));
+            case "precio_asc"   -> Sort.by(Sort.Order.asc("precioVenta"));
+            case "precio_desc"  -> Sort.by(Sort.Order.desc("precioVenta"));
+            default             -> Sort.unsorted();
+        };
+        return PageRequest.of(safePage, safeSize, sort);
+    }
+
 }

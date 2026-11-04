@@ -1,8 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClienteEditarRequest;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.*;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClientePublico;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.service.ClienteService;
 import io.swagger.v3.oas.annotations.Operation;

@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.codigoVirtual.CodigoVirtualDTO.CargarCodigosRequest;
-import com.ecommerce.FerreViky.dto.codigoVirtual.CodigoVirtualDTO.CodigosCargadosResponse;
+import com.ecommerce.FerreViky.dto.dtos.codigoVirtual.CodigoVirtualDTO.CargarCodigosRequest;
+import com.ecommerce.FerreViky.dto.dtos.codigoVirtual.CodigoVirtualDTO.CodigosCargadosResponse;
 import com.ecommerce.FerreViky.service.CodigoVirtualService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;

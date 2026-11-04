@@ -1,9 +1,8 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.carrito.CarritoDTO.CarritoResponseDTO;
-import com.ecommerce.FerreViky.models.Carrito;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
+import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.service.CarritoService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,15 +13,18 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Positive;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/carrito")
 @AllArgsConstructor
 @CrossOrigin("*")
+@Validated
 @Tag(name = "Carrito", description = "Operaciones de registro y consulta de carrito de productos")
 @SecurityRequirement(name = "bearerAuth") // todos los endpoints de este controller requieren JWT
 public class CarritoController {
@@ -85,6 +87,24 @@ public class CarritoController {
             @AuthenticationPrincipal Cliente cliente) {
         carritoService.actualizarCantidad(dto, cliente);
         return ResponseEntity.ok("Carrito actualizado con las cantidades solicitadas");
+    }
+
+    @Operation(
+            summary = "Vaciar el carrito",
+            description = "Elimina todos los productos del carrito del cliente autenticado. " +
+                    "El carrito se conserva, pero queda vacío."
+    )
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Carrito vaciado correctamente",
+                    content = @Content(schema = @Schema(type = "string", example = "Se limpió el carrito entero"))),
+            @ApiResponse(responseCode = "401", description = "Token JWT ausente o inválido", content = @Content),
+            @ApiResponse(responseCode = "404", description = "El cliente no tiene un carrito registrado", content = @Content)
+    })
+    @DeleteMapping
+    public ResponseEntity<String> borrarCarritoEntero(
+            @AuthenticationPrincipal Cliente cliente) {
+        carritoService.vaciarCarrito(cliente);
+        return ResponseEntity.ok("Se limpió el carrito entero");
     }
 
     @Operation(

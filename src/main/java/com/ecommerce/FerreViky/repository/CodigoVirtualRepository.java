@@ -47,4 +47,6 @@ public interface CodigoVirtualRepository extends JpaRepository<CodigoVirtual, Lo
                                            Pageable pageable);
 
     boolean existsByProductoId(Long productoId);
+    @Query("select c.codigo from CodigoVirtual c where c.codigo in :codigos")
+    List<String> findCodigosExistentes(@Param("codigos") Collection<String> codigos);
 }

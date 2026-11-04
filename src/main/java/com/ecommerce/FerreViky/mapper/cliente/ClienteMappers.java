@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.mapper.cliente;
 
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.ClientePublico;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.CreacionDeClienteRespuestaDto;
-import com.ecommerce.FerreViky.dto.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.CreacionDeClienteRespuestaDto;
+import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
 import com.ecommerce.FerreViky.models.Cliente;
 import com.ecommerce.FerreViky.models.Rol;
 import org.springframework.stereotype.Component;

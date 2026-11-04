@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.models;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -10,6 +11,7 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.Arrays;
 
 @Getter
 @Setter
@@ -79,16 +81,42 @@ public class Producto {
     @JoinColumn(name = "categoria_id")
     private Categoria categoria; // antes GrupoDeProductos
 
+    @Column(name = "vistas", nullable = false, columnDefinition = "bigint default 0", updatable = false)
+    private Long vistas = 0L;
+
+    @Column(name = "promedio_calificacion", nullable = false, columnDefinition = "double precision default 0")
+    private Double promedioCalificacion = 0.0;
+
+    @Column(name = "total_resenas", nullable = false, columnDefinition = "bigint default 0")
+    private Long totalResenas = 0L;
+
+    @Version
+    private Long version;
+
     @PrePersist
     void alCrear() {
         this.fechaCreacion = LocalDateTime.now();
     }
 
     public enum TipoProducto {
-        GIFT_CARD,
-        CLAVE_JUEGO,
-        LICENCIA_SOFTWARE,
-        RECARGA,
-        SUSCRIPCION
+        GIFT_CARD, SOFTWARE, SUSCRIPCION;
+
+        @JsonCreator
+        public static TipoProducto desdeTexto(String valor) {
+            if (valor == null || valor.isBlank()) return null;
+            String limpio = valor.trim();
+
+            if (limpio.chars().allMatch(Character::isDigit)) {
+                throw new IllegalArgumentException(
+                        "El tipo no puede ser un número (ordinal). Usa el nombre: "
+                                + Arrays.toString(values()));
+            }
+            try {
+                return valueOf(limpio.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException(
+                        "Tipo inválido. Valores permitidos: " + Arrays.toString(values()));
+            }
+        }
     }
 }
