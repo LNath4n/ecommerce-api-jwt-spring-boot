@@ -31,3 +31,7 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Postman fixtures (generated in CI) ###
+Postman/fixtures/*
+!Postman/fixtures/make_fixtures.py

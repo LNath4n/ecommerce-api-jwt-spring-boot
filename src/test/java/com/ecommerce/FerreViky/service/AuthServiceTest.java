@@ -183,7 +183,7 @@ class AuthServiceTest {
         when(clienteRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CredencialesInvalidasException.class, () -> authService.login(dto));
+        assertThrows(ClienteNoEncontradoException.class, () -> authService.login(dto));
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verifyNoInteractions(jwtService);
     }

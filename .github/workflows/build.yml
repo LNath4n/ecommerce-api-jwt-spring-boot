@@ -1,28 +1,126 @@
-name: Build y push a ECR
+name: Test and push to ECR
 
 on:
   push:
     branches: [main]
+  pull_request:
 
 permissions:
   id-token: write
   contents: read
 
 jobs:
-  build:
+  test:
+    name: API tests (Newman)
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: ferreviky
+          POSTGRES_PASSWORD: pass
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+      redis:
+        image: redis:7
+        ports: ["6379:6379"]
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      SPRING_PROFILES_ACTIVE: dev   # enables the AdminSeeder
+      DB_SERVER: localhost
+      DB_NAME: ferreviky
+      DB_USERNAME: postgres
+      DB_PASSWORD: pass
+      REDIS_HOST: localhost
+      HEALTH_URL: http://localhost:8080/health
+
     steps:
       - uses: actions/checkout@v4
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: maven
+
+      - name: Run unit tests
+        run: ./mvnw -q test
+
+      - name: Build jar
+        run: ./mvnw -q -DskipTests package
+
+      - name: Start API in background
+        run: nohup java -jar target/*.jar > app.log 2>&1 &
+
+      - name: Wait for API to be healthy
+        run: |
+          for i in $(seq 1 40); do
+            if curl -sf "$HEALTH_URL" > /dev/null; then
+              echo "API is up"
+              exit 0
+            fi
+            sleep 3
+          done
+          echo "API did not start in time"
+          cat app.log
+          exit 1
+
+      - name: Generate fixtures
+        run: |
+          pip install pillow
+          python3 Postman/fixtures/make_fixtures.py
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Run Postman collection
+        run: |
+          npm install -g newman
+                    newman run "Postman/Postman Coleccion.postman_collection.json" \
+            --working-dir Postman \
+            --env-var "baseUrl=http://localhost:8080" \
+            --env-var "adminEmail=admin@admin.com" \
+            --env-var "adminPassword=Admin12345" \
+            --reporters cli
+
+      - name: Print app logs on failure
+        if: failure()
+        run: cat app.log
+
+  build:
+    name: Build and push image
+    needs: test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::181194339446:role/github-actions-ecr
           aws-region: us-east-1
 
-      - id: ecr
+      - name: Login to Amazon ECR
+        id: ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - uses: docker/build-push-action@v6
+      - name: Build and push image
+        uses: docker/build-push-action@v6
         with:
           context: .
           push: true

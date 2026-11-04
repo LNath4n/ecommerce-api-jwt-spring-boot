@@ -50,7 +50,7 @@ class CodigoVirtualServiceTest {
 
         // Assert
         assertEquals(2, resultado);
-        verify(codigoVirtualRepository).saveAll(anyList());
+        verify(codigoVirtualRepository).saveAllAndFlush(anyList());
     }
 
     @Test
@@ -62,7 +62,7 @@ class CodigoVirtualServiceTest {
         // Act + Assert
         assertThrows(ProductoNoEncontradoException.class,
                 () -> codigoVirtualService.guardarCodigos(99L, List.of("STEAM-0001")));
-        verify(codigoVirtualRepository, never()).saveAll(any());
+        verify(codigoVirtualRepository, never()).saveAllAndFlush(any());
     }
 
 
@@ -77,11 +77,11 @@ class CodigoVirtualServiceTest {
         // Act + Assert
         assertThrows(IllegalArgumentException.class,
                 () -> codigoVirtualService.guardarCodigos(1L, basura));
-        verify(codigoVirtualRepository, never()).saveAll(any());
+        verify(codigoVirtualRepository, never()).saveAllAndFlush(any());
     }
 
     @Test
-    @DisplayName("Al guardar limpia espacios, nulos, vacíos y repetidos antes de llamar a saveAll")
+    @DisplayName("Al guardar limpia espacios, nulos, vacíos y repetidos antes de llamar a saveAllAndFlush")
     void guardarCodigos_listaSucia_guardaSoloLosLimpiosYUnicos() {
         // Arrange
         Producto p = generarProductoFake(prod -> prod.setId(1L));
@@ -92,7 +92,7 @@ class CodigoVirtualServiceTest {
         int resultado = codigoVirtualService.guardarCodigos(1L, sucia);
 
         // Assert
-        verify(codigoVirtualRepository).saveAll(codigosCaptor.capture());
+        verify(codigoVirtualRepository).saveAllAndFlush(codigosCaptor.capture());
         List<String> textosGuardados = codigosCaptor.getValue().stream()
                 .map(CodigoVirtual::getCodigo)
                 .toList();
@@ -113,7 +113,7 @@ class CodigoVirtualServiceTest {
         codigoVirtualService.guardarCodigos(1L, List.of("STEAM-0001", "STEAM-0002"));
 
         // Assert
-        verify(codigoVirtualRepository).saveAll(codigosCaptor.capture());
+        verify(codigoVirtualRepository).saveAllAndFlush(codigosCaptor.capture());
         List<CodigoVirtual> guardados = codigosCaptor.getValue();
 
         assertEquals(2, guardados.size());
@@ -136,7 +136,7 @@ class CodigoVirtualServiceTest {
         // Assert
         InOrder inOrder = inOrder(productoRepository, codigoVirtualRepository);
         inOrder.verify(productoRepository).findById(1L);
-        inOrder.verify(codigoVirtualRepository).saveAll(anyList());
+        inOrder.verify(codigoVirtualRepository).saveAllAndFlush(anyList());
     }
 
     @Test
@@ -150,7 +150,7 @@ class CodigoVirtualServiceTest {
         int resultado = codigoVirtualService.guardarCodigo(1L, "STEAM-0001");
 
         // Assert
-        verify(codigoVirtualRepository).saveAll(codigosCaptor.capture());
+        verify(codigoVirtualRepository).saveAllAndFlush(codigosCaptor.capture());
         assertEquals(1, resultado);
         assertEquals(1, codigosCaptor.getValue().size());
         assertEquals("STEAM-0001", codigosCaptor.getValue().get(0).getCodigo());

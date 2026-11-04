@@ -15,6 +15,7 @@ import com.ecommerce.FerreViky.repository.CategoriaRepository;
 import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
 import com.ecommerce.FerreViky.repository.ProductoRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
+import com.ecommerce.FerreViky.utils.SlugUtil;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -24,6 +25,7 @@ import org.mockito.InOrder;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -65,26 +67,6 @@ class ProductoServiceTest {
 
 
     @Test
-    @DisplayName("Al buscar por id un producto existente y activo este devuelve sus datos publicos con imagen y stock")
-    void obtenerProductoPorId_existeYActivo_devuelveProductoPublico() {
-        // Arrange
-        Producto p = generarProductoFake();
-        String url = "http://img.com/abc.png";
-        ProductoPublicoResponse esperado = esperadoPublico(p, url, 5);
-
-        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
-        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
-        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE)).thenReturn(5L);
-
-        // Act
-        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(p.getId());
-
-        // Assert
-        assertEquals(esperado, resultado);
-        verify(productoRepository).findById(p.getId());
-    }
-
-    @Test
     @DisplayName("Al buscar por id un producto que no existe este lanza ProductoNoEncontradoException")
     void obtenerProductoPorId_noExiste_lanzaProductoNoEncontrado() {
         //Arrange
@@ -106,26 +88,6 @@ class ProductoServiceTest {
         when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
         //Act + Assert
         assertThrows(ProductoNoEncontradoException.class, () -> productoService.obtenerProductoPorId(p.getId()));
-    }
-
-    @Test
-    @DisplayName("Al buscar por slug un producto existente y activo este devuelve sus datos publicos")
-    void obtenerProductoPorSlug_existeYActivo_devuelveProductoPublico() {
-        // Arrange
-        Producto p = generarProductoFake();
-        String url = "http://img.com/abc.png";
-        ProductoPublicoResponse esperado = esperadoPublico(p, url, 7);
-
-        when(productoRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
-        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
-        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), CodigoVirtual.EstadoCodigo.DISPONIBLE)).thenReturn(7L);
-
-        // Act
-        ProductoPublicoResponse resultado = productoService.obtenerProductoPorSlug(p.getSlug());
-
-        // Assert
-        assertEquals(esperado, resultado);
-        verify(productoRepository).findBySlug(p.getSlug());
     }
 
     @Test
@@ -316,15 +278,11 @@ class ProductoServiceTest {
     @Test
     @DisplayName("Al crear un producto sin categoria no se consulta el repositorio de categorias")
     void crearProducto_sinCategoria_noConsultaCategoriaRepository() {
-        // Arrange
         ProductoRequest request = generarRequestFake();
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
-        //Cuando alguien llame a esta funcion devuelve el producto que me mando jeje
+        when(productoRepository.saveAndFlush(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Act
         productoService.crearProducto(request);
 
-        // Assert
         verifyNoInteractions(categoriaRepository);
     }
 
@@ -338,63 +296,40 @@ class ProductoServiceTest {
         // Act + Assert
         assertThrows(CategoriaNoEncontradaException.class,
                 () -> productoService.crearProducto(conCategoria));
-        verify(productoRepository, never()).save(any());
+        verify(productoRepository, never()).saveAndFlush(any());
         //Verifica que a este repositorio nadie haya hablado con el
     }
 
     @Test
-    @DisplayName("Al crear un producto con slug libre este se guarda con el slug base del nombre")
-    void crearProducto_slugLibre_guardaConSlugBase() {
-        // Arrange
-        ProductoRequest request = generarRequestFake();
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(false);
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("Al crear un producto el slug se genera con el nombre y el sku normalizado")
+    void crearProducto_generaSlugConNombreYSku() {
+        ProductoRequest request = generarRequestFake(b -> b.sku = "  steam-mx-200 ");
+        when(productoRepository.saveAndFlush(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        // Act
         productoService.crearProducto(request);
 
-        // Assert
-        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class); //Argumento real con el que se llamo al metodo Mock
-        //Util cuando no somos nosotros quien creamos eso
-        verify(productoRepository).save(captor.capture()); //Se llamo SAVE y encima me quedo lo que recibio
-        assertEquals("steam-gift-card-200-mxn", captor.getValue().getSlug());
+        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
+        verify(productoRepository).saveAndFlush(captor.capture());
+        assertEquals("STEAM-MX-200", captor.getValue().getSku());
+        assertEquals(SlugUtil.slugify(request.nombre() + " STEAM-MX-200"), captor.getValue().getSlug());
     }
 
     @Test
-    @DisplayName("Al crear un producto cuyo slug ya existe se le agrega el sufijo 2")
-    void crearProducto_slugOcupado_agregaSufijo2() {
-        // Arrange
-        ProductoRequest request = generarRequestFake();
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(true);
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-2")).thenReturn(false);
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("Al crear un producto con sku existente lanza SkuDuplicadoException")
+    void crearProducto_skuExiste_lanzaSkuDuplicado() {
+        when(productoRepository.existsBySku("STEAM-MX-200")).thenReturn(true);
 
-        // Act
-        productoService.crearProducto(request);
-
-        // Assert
-        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
-        verify(productoRepository).save(captor.capture());
-        assertEquals("steam-gift-card-200-mxn-2", captor.getValue().getSlug());
+        assertThrows(SkuDuplicadoException.class, () -> productoService.crearProducto(generarRequestFake()));
+        verify(productoRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    @DisplayName("Al crear un producto cuyo slug y sufijo 2 ya existen se le agrega el sufijo 3")
-    void crearProducto_slugBaseYSufijo2Ocupados_agregaSufijo3() {
-        // Arrange
-        ProductoRequest request = generarRequestFake();
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn")).thenReturn(true);
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-2")).thenReturn(true);
-        when(productoRepository.existsBySlug("steam-gift-card-200-mxn-3")).thenReturn(false);
-        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+    @DisplayName("Al crear un producto si la BD rechaza por integridad lanza SkuDuplicadoException")
+    void crearProducto_dataIntegrity_lanzaSkuDuplicado() {
+        when(productoRepository.saveAndFlush(any(Producto.class)))
+                .thenThrow(new DataIntegrityViolationException("dup"));
 
-        // Act
-        productoService.crearProducto(request);
-
-        // Assert
-        ArgumentCaptor<Producto> captor = ArgumentCaptor.forClass(Producto.class);
-        verify(productoRepository).save(captor.capture());
-        assertEquals("steam-gift-card-200-mxn-3", captor.getValue().getSlug());
+        assertThrows(SkuDuplicadoException.class, () -> productoService.crearProducto(generarRequestFake()));
     }
 
     //  editarProducto 
@@ -453,7 +388,39 @@ class ProductoServiceTest {
         assertEquals(nueva, p.getCategoria());
         verify(productoRepository).flush();
     }
+    @Test
+    @DisplayName("Al buscar por id un producto existente y activo este devuelve sus datos publicos con imagen y stock")
+    void obtenerProductoPorId_existeYActivo_devuelveProductoPublico() {
+        Producto p = generarProductoFake();
+        String url = "http://img.com/abc.png";
+        ProductoPublicoResponse esperado = esperadoPublico(p, url, 5, b -> b.vistas = 1L);
 
+        when(productoRepository.findById(p.getId())).thenReturn(Optional.of(p));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE)).thenReturn(5L);
+
+        ProductoPublicoResponse resultado = productoService.obtenerProductoPorId(p.getId());
+
+        assertEquals(esperado, resultado);
+        verify(productoRepository).incrementarVistas(p.getId());
+    }
+
+    @Test
+    @DisplayName("Al buscar por slug un producto existente y activo este devuelve sus datos publicos")
+    void obtenerProductoPorSlug_existeYActivo_devuelveProductoPublico() {
+        Producto p = generarProductoFake();
+        String url = "http://img.com/abc.png";
+        ProductoPublicoResponse esperado = esperadoPublico(p, url, 7, b -> b.vistas = 1L);
+
+        when(productoRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
+        when(storageService.getPublicUrl(p.getImagenKey())).thenReturn(url);
+        when(codigoVirtualRepository.countByProductoIdAndEstado(p.getId(), EstadoCodigo.DISPONIBLE)).thenReturn(7L);
+
+        ProductoPublicoResponse resultado = productoService.obtenerProductoPorSlug(p.getSlug());
+
+        assertEquals(esperado, resultado);
+        verify(productoRepository).incrementarVistas(p.getId());
+    }
     //  borrarProducto 
     @Test
     @DisplayName("Al borrar un producto que no existe este lanza ProductoNoEncontradoException")
