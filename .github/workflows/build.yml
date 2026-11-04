@@ -94,7 +94,7 @@ jobs:
             --working-dir Postman \
             --env-var "baseUrl=http://localhost:8080" \
             --env-var "adminEmail=admin@admin.com" \
-            --env-var "adminPassword=Admin12345" \
+            --env-var "adminPassword=1234567890" \
             --reporters cli
 
       - name: Print app logs on failure
