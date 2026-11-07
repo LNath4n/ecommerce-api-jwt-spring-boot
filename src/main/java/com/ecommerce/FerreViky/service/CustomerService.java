@@ -1,22 +1,22 @@
 package com.ecommerce.FerreViky.service;
 
 
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.UpdateCustomerRequest;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.PublicCustomerResponse;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteModificadoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ImagenInvalidaException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
 import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
-import com.ecommerce.FerreViky.models.Cliente;
-import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.models.Customer;
+import com.ecommerce.FerreViky.repository.CustomerRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
+import com.ecommerce.FerreViky.mapper.customer.CustomerMapper;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
@@ -27,10 +27,10 @@ import java.util.Locale;
 @Service
 public class CustomerService {
 
-    private final ClienteMappers customerMapper;
+    private final CustomerMapper customerMapper;
     private final PasswordEncoder passwordEncoder;
     private final StorageService storageService;
-    private final ClienteRepository customerRepository;
+    private final CustomerRepository customerRepository;
     private static final Duration PROFILE_PHOTO_URL_VALIDITY = Duration.ofMinutes(15);
 
     /**
@@ -43,8 +43,8 @@ public class CustomerService {
      * @return the customer's public profile details
      * @throws ClienteNoEncontradoException if no record is associated with the given customer
      */
-    public ClientePublico getCustomer(Cliente customer) {
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+    public PublicCustomerResponse getCustomer(Customer customer) {
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(customer.getEmail()));
 
@@ -71,25 +71,25 @@ public class CustomerService {
      * @throws EmailYaExisteException if another customer already uses the new email address
      */
     @Transactional
-    public ClientePublico updateCustomer(
-            Cliente customer,
-            ClienteEditarRequest request) {
+    public PublicCustomerResponse updateCustomer(
+            Customer customer,
+            UpdateCustomerRequest request) {
 
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(customer.getEmail()));
 
-        boolean closeSessions = Boolean.TRUE.equals(request.cerrarSesiones());
+        boolean closeSessions = Boolean.TRUE.equals(request.closeSessions());
 
         // Updates the password only when a change is requested. / Actualiza la contraseña únicamente si se solicita el cambio.
-        if (request.passwordNueva() != null) {
-            if (request.passwordVieja() == null
+        if (request.newPassword() != null) {
+            if (request.currentPassword() == null
                     || !passwordEncoder.matches(
-                    request.passwordVieja(), customerRecord.getPassword())) {
+                    request.currentPassword(), customerRecord.getPassword())) {
                 throw new ContrasenaInvalida();
             }
 
-            customerRecord.setPassword(passwordEncoder.encode(request.passwordNueva()));
+            customerRecord.setPassword(passwordEncoder.encode(request.newPassword()));
         }
 
         // Prevents assigning an email address already used by another customer. / Evita asignar un correo que ya pertenezca a otro cliente.
@@ -107,12 +107,12 @@ public class CustomerService {
         }
 
         // Updates the personal details included in the request. / Actualiza los datos personales enviados en la solicitud.
-        if (request.nombre() != null && !request.nombre().isBlank()) {
-            customerRecord.setNombre(request.nombre());
+        if (request.name() != null && !request.name().isBlank()) {
+            customerRecord.setName(request.name());
         }
 
-        if (request.telefono() != null) {
-            customerRecord.setTelefono(request.telefono());
+        if (request.phone() != null) {
+            customerRecord.setPhone(request.phone());
         }
 
         // Invalidates previously issued tokens only when requested. / Invalida todos los tokens emitidos antes (solo si se pidió).
@@ -133,38 +133,38 @@ public class CustomerService {
      * Deactivates a customer's account without deleting the record.
      *
      * <p>Finds the corresponding record and sets its status to
-     * {@code activo = false}. The change is persisted when the transaction
+     * {@code active = false}. The change is persisted when the transaction
      * completes successfully.</p>
      *
      * @param customer customer whose account is being deactivated
      * @throws ClienteNoEncontradoException if no record is associated with the given customer
      */
     @Transactional
-    public void deactivateCustomer(Cliente customer) {
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+    public void deactivateCustomer(Customer customer) {
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(customer.getEmail()));
 
-        customerRecord.setActivo(false);
+        customerRecord.setActive(false);
     }
 
     /**
      * Activates a customer's account without changing other account data.
      *
      * <p>Finds the corresponding record and sets its status to
-     * {@code activo = true}. The change is persisted when the transaction
+     * {@code active = true}. The change is persisted when the transaction
      * completes successfully.</p>
      *
      * @param customer customer whose account is being activated
      * @throws ClienteNoEncontradoException if no record is associated with the given customer
      */
     @Transactional
-    public void activateCustomer(Cliente customer) {
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+    public void activateCustomer(Customer customer) {
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
                         new ClienteNoEncontradoException(customer.getEmail()));
 
-        customerRecord.setActivo(true);
+        customerRecord.setActive(true);
     }
 
 
@@ -184,12 +184,12 @@ public class CustomerService {
      * @throws IOException if the file cannot be read
      */
     @Transactional
-    public ClientePublico uploadCustomerPhoto(Cliente customer, MultipartFile file) throws IOException {
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+    public PublicCustomerResponse uploadCustomerPhoto(Customer customer, MultipartFile file) throws IOException {
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() -> new ClienteNoEncontradoException(customer.getEmail()));
 
-        String previousImageKey = customerRecord.getImagenKey();
-        customerRecord.setImagenKey(storageService.upload(file, StorageService.StorageFolder.PROFILES));
+        String previousImageKey = customerRecord.getImageKey();
+        customerRecord.setImageKey(storageService.upload(file, StorageService.StorageFolder.PROFILES));
 
         storageService.deleteAfterCommit(previousImageKey);
 
@@ -208,12 +208,12 @@ public class CustomerService {
      * @throws ClienteNoEncontradoException if no record is associated with the given customer
      */
     @Transactional
-    public ClientePublico removeCustomerPhoto(Cliente customer) {
-        Cliente customerRecord = customerRepository.findById(customer.getId())
+    public PublicCustomerResponse removeCustomerPhoto(Customer customer) {
+        Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() -> new ClienteNoEncontradoException(customer.getEmail()));
 
-        String imageKey = customerRecord.getImagenKey();
-        customerRecord.setImagenKey(null);
+        String imageKey = customerRecord.getImageKey();
+        customerRecord.setImageKey(null);
         storageService.deleteAfterCommit(imageKey);   // Deletes from S3 only after the database transaction commits. / Borra de S3 solo si la BD confirma.
 
         return toPublicResponse(customerRecord);
@@ -225,7 +225,7 @@ public class CustomerService {
      *
      * <p>The photo is stored in a private bucket folder, so a signed read URL
      * valid for {@link #PROFILE_PHOTO_URL_VALIDITY} is generated. If the customer has no photo,
-     * the DTO's {@code fotoUrl} field is {@code null}.</p>
+     * the DTO's {@code photoUrl} field is {@code null}.</p>
      *
      * <p>The URL expires and should not be stored. Generate a new one each time
      * the profile is retrieved.</p>
@@ -233,9 +233,9 @@ public class CustomerService {
      * @param customerRecord customer entity to convert
      * @return the customer's public details with the signed photo URL, or {@code null} if there is no photo
      */
-    private ClientePublico toPublicResponse(Cliente customerRecord) {
-        String photoUrl = storageService.getPresignedUrl(customerRecord.getImagenKey(), PROFILE_PHOTO_URL_VALIDITY);
-        return customerMapper.devolverClientePublico(customerRecord, photoUrl);
+    private PublicCustomerResponse toPublicResponse(Customer customerRecord) {
+        String photoUrl = storageService.getPresignedUrl(customerRecord.getImageKey(), PROFILE_PHOTO_URL_VALIDITY);
+        return customerMapper.toPublicCustomerResponse(customerRecord, photoUrl);
     }
 
 

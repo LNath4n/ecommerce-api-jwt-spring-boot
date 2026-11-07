@@ -1,8 +1,8 @@
 
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
 import com.ecommerce.FerreViky.dto.validation.NoNulls.NoNullChars;
 import com.ecommerce.FerreViky.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -32,7 +32,7 @@ public class ProductController {
     @GetMapping
     @Operation(summary = "List products", description = "Returns active catalog products in paginated form, including their available code stock")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Product list retrieved successfully")})
-    public Page<ProductoPublicoResponse> getAllProducts(
+    public Page<PublicProductResponse> getAllProducts(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size,
             @RequestParam(defaultValue = "none") String orden
@@ -46,7 +46,7 @@ public class ProductController {
             @ApiResponse(responseCode = "200", description = "Product found"),
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    public ResponseEntity<ProductoPublicoResponse> getProductById(@PathVariable Long id) {
+    public ResponseEntity<PublicProductResponse> getProductById(@PathVariable Long id) {
         return ResponseEntity.ok(productService.getProductById(id));
     }
 
@@ -60,7 +60,7 @@ public class ProductController {
     @GetMapping("/categories")
     @Operation(summary = "List categories", description = "Returns all categories without pagination, with only their ID and name")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Category list retrieved successfully")})
-    public List<CategoriaOpcionResponse> getCategories() {
+    public List<CategoryOptionResponse> getCategories() {
         return productService.getCategories();
     }
 
@@ -70,14 +70,14 @@ public class ProductController {
             @ApiResponse(responseCode = "200", description = "Product found"),
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    public ResponseEntity<ProductoPublicoResponse> getProductBySlug(@NoNullChars @PathVariable String slug) {
+    public ResponseEntity<PublicProductResponse> getProductBySlug(@NoNullChars @PathVariable String slug) {
         return ResponseEntity.ok(productService.getProductBySlug(slug));
     }
 
     @GetMapping("/search")
     @Operation(summary = "Search products", description = "Searches by free text in the name, SKU, platform, and description. Platform and category are optional filters")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Search results retrieved successfully")})
-    public Page<ProductoPublicoResponse> searchProducts(
+    public Page<PublicProductResponse> searchProducts(
             @RequestParam(required = false) @NoNullChars String q,
             @RequestParam(required = false) @NoNullChars String plataforma,
             @RequestParam(required = false) Long categoriaId,
@@ -90,21 +90,21 @@ public class ProductController {
     @GetMapping("/top/views")
     @Operation(summary = "List most viewed products", description = "Returns the products with the highest number of views")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Product list retrieved successfully")})
-    public List<ProductoPublicoResponse> getMostViewedProducts() {
+    public List<PublicProductResponse> getMostViewedProducts() {
         return productService.getTopViewedProducts();
     }
 
     @GetMapping("/top/rated")
     @Operation(summary = "List highest-rated products", description = "Returns the products with the highest ratings")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Product list retrieved successfully")})
-    public List<ProductoPublicoResponse> getTopRatedProducts() {
+    public List<PublicProductResponse> getTopRatedProducts() {
         return productService.getTopRatedProducts();
     }
 
     @GetMapping("/top/reviewed")
     @Operation(summary = "List most-reviewed products", description = "Returns the products with the highest number of reviews")
     @ApiResponses({@ApiResponse(responseCode = "200", description = "Product list retrieved successfully")})
-    public List<ProductoPublicoResponse> getMostReviewedProducts() {
+    public List<PublicProductResponse> getMostReviewedProducts() {
         return productService.getTopReviewedProducts();
     }
 
@@ -112,11 +112,11 @@ public class ProductController {
         int safePage = Math.max(0, Math.min(page, 10_000));
         int safeSize = Math.max(1, Math.min(size, 100));
         Sort sort = switch (orden) {
-            case "calificacion" -> Sort.by(Sort.Order.desc("promedioCalificacion"), Sort.Order.desc("totalResenas"));
-            case "vistas"       -> Sort.by(Sort.Order.desc("vistas"));
-            case "resenas"      -> Sort.by(Sort.Order.desc("totalResenas"));
-            case "precio_asc"   -> Sort.by(Sort.Order.asc("precioVenta"));
-            case "precio_desc"  -> Sort.by(Sort.Order.desc("precioVenta"));
+            case "calificacion" -> Sort.by(Sort.Order.desc("averageRating"), Sort.Order.desc("totalReviews"));
+            case "vistas"       -> Sort.by(Sort.Order.desc("views"));
+            case "resenas"      -> Sort.by(Sort.Order.desc("totalReviews"));
+            case "precio_asc"   -> Sort.by(Sort.Order.asc("salePrice"));
+            case "precio_desc"  -> Sort.by(Sort.Order.desc("salePrice"));
             default             -> Sort.unsorted();
         };
         return PageRequest.of(safePage, safeSize, sort);

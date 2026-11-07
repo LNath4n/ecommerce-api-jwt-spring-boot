@@ -1,23 +1,23 @@
 package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.cache.cacheEvict.EvictTopProductos;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.AdminProductResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.ProductRequest;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoConDependenciasException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoModificadoException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.SkuDuplicadoException;
-import com.ecommerce.FerreViky.mapper.producto.ProductoMappers;
-import com.ecommerce.FerreViky.models.Categoria;
-import com.ecommerce.FerreViky.models.CodigoVirtual.EstadoCodigo;
-import com.ecommerce.FerreViky.models.Producto;
-import com.ecommerce.FerreViky.repository.CarritoProductoRepository;
-import com.ecommerce.FerreViky.repository.CategoriaRepository;
-import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
-import com.ecommerce.FerreViky.repository.ProductoRepository;
+import com.ecommerce.FerreViky.mapper.product.ProductMapper;
+import com.ecommerce.FerreViky.models.Category;
+import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
+import com.ecommerce.FerreViky.models.Product;
+import com.ecommerce.FerreViky.repository.CartItemRepository;
+import com.ecommerce.FerreViky.repository.CategoryRepository;
+import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
+import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import com.ecommerce.FerreViky.utils.SlugUtil;
@@ -47,18 +47,18 @@ import java.util.stream.Collectors;
  * administration, and image management.
  * <p>
  * A product's stock is the number of virtual codes in the
- * {@link EstadoCodigo#DISPONIBLE} state.
+ * {@link CodeStatus#AVAILABLE} state.
  */
 @Service
 @AllArgsConstructor
 public class ProductService {
 
-    private static final int MIN_RESENAS_TOP_CALIFICADOS = 3;
+    private static final int MIN_REVIEWS_FOR_TOP_RATED = 3;
 
-    private final ProductoRepository productoRepository;
-    private final CategoriaRepository categoriaRepository;
-    private final CodigoVirtualRepository codigoVirtualRepository;
-    private final CarritoProductoRepository carritoProductoRepository;
+    private final ProductRepository productRepository;
+    private final CategoryRepository categoryRepository;
+    private final VirtualCodeRepository virtualCodeRepository;
+    private final CartItemRepository cartProductRepository;
     private final StorageService storageService;
 
     /**
@@ -67,8 +67,8 @@ public class ProductService {
      * @param pageable pagination and sorting settings
      * @return a page of active products with their public details
      */
-    public Page<ProductoPublicoResponse> getAllProducts(Pageable pageable) {
-        return toPublicPage(productoRepository.findByActivoTrue(pageable));
+    public Page<PublicProductResponse> getAllProducts(Pageable pageable) {
+        return toPublicPage(productRepository.findByActiveTrue(pageable));
     }
 
     /**
@@ -78,11 +78,11 @@ public class ProductService {
      * @return the product's public details
      * @throws ProductoNoEncontradoException if the product does not exist or is inactive
      */
-    public ProductoPublicoResponse getProductById(Long id) {
-        Producto producto = productoRepository.findById(id)
-                .filter(Producto::getActivo)
+    public PublicProductResponse getProductById(Long id) {
+        Product product = productRepository.findById(id)
+                .filter(Product::getActive)
                 .orElseThrow(() -> new ProductoNoEncontradoException(id));
-        return recordViewAndConvert(producto);
+        return recordViewAndConvert(product);
     }
 
     /**
@@ -92,11 +92,11 @@ public class ProductService {
      * @return the product's public details
      * @throws ProductoNoEncontradoException if the product does not exist or is inactive
      */
-    public ProductoPublicoResponse getProductBySlug(String slug) {
-        Producto producto = productoRepository.findBySlug(slug)
-                .filter(Producto::getActivo)
+    public PublicProductResponse getProductBySlug(String slug) {
+        Product product = productRepository.findBySlug(slug)
+                .filter(Product::getActive)
                 .orElseThrow(() -> new ProductoNoEncontradoException(slug));
-        return recordViewAndConvert(producto);
+        return recordViewAndConvert(product);
     }
 
     /**
@@ -106,19 +106,19 @@ public class ProductService {
      * <p>Criteria are combined using {@link Specification}. Filters with a
      * {@code null} value are omitted from the search.</p>
      *
-     * @param texto free text to search for
-     * @param plataforma platform to filter by
-     * @param categoriaId category ID to filter by
+     * @param text free text to search for
+     * @param platform platform to filter by
+     * @param categoryId category ID to filter by
      * @param pageable pagination and sorting settings
      * @return a page of active products matching the criteria
      */
-    public Page<ProductoPublicoResponse> searchProducts(String texto, String plataforma, Long categoriaId, Pageable pageable) {
-        Specification<Producto> spec = ProductoSpecification.soloActivos()
-                .and(ProductoSpecification.buscarPorTexto(texto))
-                .and(ProductoSpecification.conPlataforma(plataforma))
-                .and(ProductoSpecification.conCategoria(categoriaId));
+    public Page<PublicProductResponse> searchProducts(String text, String platform, Long categoryId, Pageable pageable) {
+        Specification<Product> spec = ProductoSpecification.activeOnly()
+                .and(ProductoSpecification.byText(text))
+                .and(ProductoSpecification.withPlatform(platform))
+                .and(ProductoSpecification.withCategory(categoryId));
 
-        return toPublicPage(productoRepository.findAll(spec, pageable));
+        return toPublicPage(productRepository.findAll(spec, pageable));
     }
 
     /**
@@ -127,7 +127,7 @@ public class ProductService {
      * @return a list of unique platforms
      */
     public List<String> getPlatforms() {
-        return productoRepository.findPlataformasDistintas();
+        return productRepository.findDistinctPlatforms();
     }
 
     /**
@@ -135,9 +135,9 @@ public class ProductService {
      *
      * @return categories sorted by name
      */
-    public List<CategoriaOpcionResponse> getCategories() {
-        return categoriaRepository.findAll(Sort.by("nombre")).stream()
-                .map(c -> new CategoriaOpcionResponse(c.getId(), c.getNombre()))
+    public List<CategoryOptionResponse> getCategories() {
+        return categoryRepository.findAll(Sort.by("name")).stream()
+                .map(c -> new CategoryOptionResponse(c.getId(), c.getName()))
                 .toList();
     }
 
@@ -149,23 +149,23 @@ public class ProductService {
      * @return public product details ordered by view count
      */
     @Cacheable(value = "topVistas", unless = "#result == null or #result.isEmpty()")
-    public List<ProductoPublicoResponse> getTopViewedProducts() {
-        return toPublicResponses(productoRepository.findTop10ByActivoTrueOrderByVistasDesc());
+    public List<PublicProductResponse> getTopViewedProducts() {
+        return toPublicResponses(productRepository.findTop10ByActiveTrueOrderByViewsDesc());
     }
 
     /**
      * Retrieves the ten highest-rated active products with at least
-     * {@value #MIN_RESENAS_TOP_CALIFICADOS} reviews.
+     * {@value #MIN_REVIEWS_FOR_TOP_RATED} reviews.
      * <p>
      * The result is cached.
      *
      * @return public product details ordered by rating and review count
      */
     @Cacheable(value = "topCalificados", unless = "#result == null or #result.isEmpty()")
-    public List<ProductoPublicoResponse> getTopRatedProducts() {
-        return toPublicResponses(productoRepository
-                .findTop10ByActivoTrueAndTotalResenasGreaterThanEqualOrderByPromedioCalificacionDescTotalResenasDesc(
-                        MIN_RESENAS_TOP_CALIFICADOS));
+    public List<PublicProductResponse> getTopRatedProducts() {
+        return toPublicResponses(productRepository
+                .findTop10ByActiveTrueAndTotalReviewsGreaterThanEqualOrderByAverageRatingDescTotalReviewsDesc(
+                        MIN_REVIEWS_FOR_TOP_RATED));
     }
 
     /**
@@ -176,8 +176,8 @@ public class ProductService {
      * @return public product details ordered by review count
      */
     @Cacheable(value = "topResenados", unless = "#result == null or #result.isEmpty()")
-    public List<ProductoPublicoResponse> getTopReviewedProducts() {
-        return toPublicResponses(productoRepository.findTop10ByActivoTrueOrderByTotalResenasDesc());
+    public List<PublicProductResponse> getTopReviewedProducts() {
+        return toPublicResponses(productRepository.findTop10ByActiveTrueOrderByTotalReviewsDesc());
     }
 
     /**
@@ -189,7 +189,7 @@ public class ProductService {
      * @return the product's admin details
      * @throws ProductoNoEncontradoException if the product does not exist
      */
-    public ProductoAdminResponse getAdminProductById(Long id) {
+    public AdminProductResponse getAdminProductById(Long id) {
         return toAdminResponse(findProductById(id));
     }
 
@@ -210,20 +210,20 @@ public class ProductService {
      * @throws CategoriaNoEncontradaException if the specified category does not exist
      */
     @Transactional
-    public ProductoPublicoResponse createProduct(ProductoRequest request) {
+    public PublicProductResponse createProduct(ProductRequest request) {
         String sku = normalizeSku(request.sku());
 
-        if (productoRepository.existsBySku(sku)) {
+        if (productRepository.existsBySku(sku)) {
             throw new SkuDuplicadoException(sku);
         }
 
-        Categoria categoria = resolveCategory(request.categoriaId());
-        Producto nuevo = ProductoMappers.toEntity(request, categoria);
-        nuevo.setSku(sku);
-        nuevo.setSlug(SlugUtil.slugify(request.nombre() + " " + sku));
+        Category category = resolveCategory(request.categoryId());
+        Product newProduct = ProductMapper.toEntity(request, category);
+        newProduct.setSku(sku);
+        newProduct.setSlug(SlugUtil.slugify(request.name() + " " + sku));
 
         try {
-            return toPublicResponse(productoRepository.saveAndFlush(nuevo));
+            return toPublicResponse(productRepository.saveAndFlush(newProduct));
         } catch (DataIntegrityViolationException e) {
             throw new SkuDuplicadoException(sku);
         }
@@ -238,7 +238,7 @@ public class ProductService {
      * the operation.</p>
      *
      * @param request updated product details
-     * @param idProducto ID of the product to update
+     * @param productId ID of the product to update
      * @return the updated product's public details
      * @throws ProductoNoEncontradoException if the product does not exist
      * @throws SkuDuplicadoException if another product already uses the SKU
@@ -247,28 +247,28 @@ public class ProductService {
      */
     @EvictTopProductos
     @Transactional
-    public ProductoPublicoResponse updateProduct(ProductoRequest request, Long idProducto) {
-        Producto producto = findProductById(idProducto);
+    public PublicProductResponse updateProduct(ProductRequest request, Long productId) {
+        Product product = findProductById(productId);
         String sku = normalizeSku(request.sku());
 
-        if (productoRepository.existsBySkuAndIdNot(sku, idProducto)) {
+        if (productRepository.existsBySkuAndIdNot(sku, productId)) {
             throw new SkuDuplicadoException(sku);
         }
 
-        Categoria categoria = resolveCategory(request.categoriaId());
+        Category category = resolveCategory(request.categoryId());
 
-        ProductoMappers.actualizarEntidad(producto, request, categoria);
-        producto.setSku(sku);
+        ProductMapper.updateEntity(product, request, category);
+        product.setSku(sku);
 
         try {
-            productoRepository.flush();
+            productRepository.flush();
         } catch (DataIntegrityViolationException e) {
             throw new SkuDuplicadoException(sku);
         } catch (ObjectOptimisticLockingFailureException e) {
-            throw new ProductoModificadoException(idProducto);
+            throw new ProductoModificadoException(productId);
         }
 
-        return toPublicResponse(producto);
+        return toPublicResponse(product);
     }
 
     /**
@@ -281,30 +281,30 @@ public class ProductService {
      *
      * <p>The image is deleted from the bucket only after the transaction commits.</p>
      *
-     * @param idProducto ID of the product to delete
+     * @param productId ID of the product to delete
      * @throws ProductoNoEncontradoException if the product does not exist
      * @throws ProductoConDependenciasException if the product has codes, orders, or other references
      */
     @EvictTopProductos
     @Transactional
-    public void deleteProduct(Long idProducto) {
-        Producto producto = findProductById(idProducto);
+    public void deleteProduct(Long productId) {
+        Product product = findProductById(productId);
 
-        if (codigoVirtualRepository.existsByProductoId(idProducto)) {
-            throw new ProductoConDependenciasException(idProducto);
+        if (virtualCodeRepository.existsByProductId(productId)) {
+            throw new ProductoConDependenciasException(productId);
         }
 
-        String imagenKey = producto.getImagenKey();
+        String imageKey = product.getImageKey();
 
         try {
-            carritoProductoRepository.eliminarPorProductoId(idProducto);
-            productoRepository.delete(producto);
-            productoRepository.flush();
+            cartProductRepository.deleteAllByProductId(productId);
+            productRepository.delete(product);
+            productRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new ProductoConDependenciasException(idProducto);
+            throw new ProductoConDependenciasException(productId);
         }
 
-        storageService.deleteAfterCommit(imagenKey);
+        storageService.deleteAfterCommit(imageKey);
     }
 
     /**
@@ -315,13 +315,13 @@ public class ProductService {
      * when the product has dependencies. The change is persisted when the
      * transaction commits.</p>
      *
-     * @param idProducto ID of the product to deactivate
+     * @param productId ID of the product to deactivate
      * @throws ProductoNoEncontradoException if the product does not exist
      */
     @EvictTopProductos
     @Transactional
-    public void deactivateProduct(Long idProducto) {
-        findProductById(idProducto).setActivo(false);
+    public void deactivateProduct(Long productId) {
+        findProductById(productId).setActive(false);
     }
 
     /**
@@ -330,21 +330,21 @@ public class ProductService {
      * <p>Uploads the new image to the product folder and stores its key. The
      * previous image is deleted from the bucket only after the transaction commits.</p>
      *
-     * @param idProducto product ID
+     * @param productId product ID
      * @param file image to upload
      * @return the product's admin details with the updated image
      * @throws ProductoNoEncontradoException if the product does not exist
      * @throws IOException if the file cannot be read
      */
     @Transactional
-    public ProductoAdminResponse uploadProductImage(Long idProducto, MultipartFile file) throws IOException {
-        Producto producto = findProductById(idProducto);
+    public AdminProductResponse uploadProductImage(Long productId, MultipartFile file) throws IOException {
+        Product product = findProductById(productId);
 
-        String keyAnterior = producto.getImagenKey();
-        producto.setImagenKey(storageService.upload(file, StorageService.StorageFolder.PRODUCTS));
+        String previousImageKey = product.getImageKey();
+        product.setImageKey(storageService.upload(file, StorageService.StorageFolder.PRODUCTS));
 
-        storageService.deleteAfterCommit(keyAnterior);
-        return toAdminResponse(producto);
+        storageService.deleteAfterCommit(previousImageKey);
+        return toAdminResponse(product);
     }
 
     /**
@@ -353,19 +353,19 @@ public class ProductService {
      * <p>Sets the key to {@code null} and deletes the file from the bucket only
      * after the transaction commits. If the product has no image, nothing happens.</p>
      *
-     * @param idProducto product ID
+     * @param productId product ID
      * @return the product's admin details without an image
      * @throws ProductoNoEncontradoException if the product does not exist
      */
     @Transactional
-    public ProductoAdminResponse removeProductImage(Long idProducto) {
-        Producto producto = findProductById(idProducto);
+    public AdminProductResponse removeProductImage(Long productId) {
+        Product product = findProductById(productId);
 
-        String key = producto.getImagenKey();
-        producto.setImagenKey(null);
+        String key = product.getImageKey();
+        product.setImageKey(null);
         storageService.deleteAfterCommit(key);
 
-        return toAdminResponse(producto);
+        return toAdminResponse(product);
     }
 
     /**
@@ -375,24 +375,24 @@ public class ProductService {
      * @return the product
      * @throws ProductoNoEncontradoException if the product does not exist
      */
-    private Producto findProductById(Long id) {
-        return productoRepository.findById(id)
+    private Product findProductById(Long id) {
+        return productRepository.findById(id)
                 .orElseThrow(() -> new ProductoNoEncontradoException(id));
     }
 
     /**
      * Resolves a category by its ID.
      *
-     * @param categoriaId category ID, or {@code null} if the product has no category
+     * @param categoryId category ID, or {@code null} if the product has no category
      * @return the category, or {@code null} if the ID is {@code null}
      * @throws CategoriaNoEncontradaException if the ID is not {@code null} and no category exists
      */
-    private Categoria resolveCategory(Long categoriaId) {
-        if (categoriaId == null) {
+    private Category resolveCategory(Long categoryId) {
+        if (categoryId == null) {
             return null;
         }
-        return categoriaRepository.findById(categoriaId)
-                .orElseThrow(() -> new CategoriaNoEncontradaException(categoriaId));
+        return categoryRepository.findById(categoryId)
+                .orElseThrow(() -> new CategoriaNoEncontradaException(categoryId));
     }
 
     /**
@@ -411,75 +411,75 @@ public class ProductService {
      * <p>The view count is incremented in the database and in the entity so the
      * response contains the updated value.</p>
      *
-     * @param producto product whose view is being recorded
+     * @param product product whose view is being recorded
      * @return the product's public details with the updated view count
      */
-    private ProductoPublicoResponse recordViewAndConvert(Producto producto) {
-        productoRepository.incrementarVistas(producto.getId());
-        producto.setVistas(producto.getVistas() + 1);
-        return toPublicResponse(producto);
+    private PublicProductResponse recordViewAndConvert(Product product) {
+        productRepository.incrementViews(product.getId());
+        product.setViews(product.getViews() + 1);
+        return toPublicResponse(product);
     }
 
     /**
      * Calculates the stock for a single product.
      *
-     * @param producto product whose stock is being checked
+     * @param product product whose stock is being checked
      * @return number of available codes
      */
-    private int getProductStock(Producto producto) {
-        return (int) codigoVirtualRepository
-                .countByProductoIdAndEstado(producto.getId(), EstadoCodigo.DISPONIBLE);
+    private int getProductStock(Product product) {
+        return (int) virtualCodeRepository
+                .countByProductIdAndStatus(product.getId(), CodeStatus.AVAILABLE);
     }
 
     /**
      * Calculates the stock for multiple products in a single query.
      *
-     * @param productos products whose stock is being checked
+     * @param products products whose stock is being checked
      * @return a map of product IDs to available stock; products with no available
      *         codes are omitted, and the map is empty if no products are provided
      */
-    private Map<Long, Integer> getStockByProductId(Collection<Producto> productos) {
-        if (productos.isEmpty()) {
+    private Map<Long, Integer> getStockByProductId(Collection<Product> products) {
+        if (products.isEmpty()) {
             return Map.of();
         }
-        List<Long> ids = productos.stream().map(Producto::getId).toList();
+        List<Long> ids = products.stream().map(Product::getId).toList();
         Map<Long, Integer> stock = new HashMap<>();
-        codigoVirtualRepository.contarPorProducto(ids, EstadoCodigo.DISPONIBLE)
-                .forEach(s -> stock.put(s.getProductoId(), s.getTotal().intValue()));
+        virtualCodeRepository.findStockByProductIdsAndStatus(ids, CodeStatus.AVAILABLE)
+                .forEach(s -> stock.put(s.getProductId(), s.getTotal().intValue()));
         return stock;
     }
 
     /**
      * Converts a product to its public representation and retrieves its stock.
      *
-     * @param producto entity to convert
+     * @param product entity to convert
      * @return public details with the image URL and current stock
      */
-    private ProductoPublicoResponse toPublicResponse(Producto producto) {
-        return toPublicResponse(producto, getProductStock(producto));
+    private PublicProductResponse toPublicResponse(Product product) {
+        return toPublicResponse(product, getProductStock(product));
     }
 
     /**
      * Converts a product to its public representation using the provided stock.
      *
-     * @param producto entity to convert
+     * @param product entity to convert
      * @param stock the product's available stock
      * @return public details with the image URL and specified stock
      */
-    private ProductoPublicoResponse toPublicResponse(Producto producto, int stock) {
-        return ProductoMappers.toPublicoResponse(
-                producto, storageService.getPublicUrl(producto.getImagenKey()), stock);
+    private PublicProductResponse toPublicResponse(Product product, int stock) {
+        return ProductMapper.toPublicResponse(
+                product, storageService.getPublicUrl(product.getImageKey()), stock);
     }
 
     /**
      * Converts a product to its admin representation.
      *
-     * @param producto entity to convert
+     * @param product entity to convert
      * @return admin details with the image URL and current stock
      */
-    private ProductoAdminResponse toAdminResponse(Producto producto) {
-        return ProductoMappers.toAdminResponse(
-                producto, storageService.getPublicUrl(producto.getImagenKey()), getProductStock(producto));
+    private AdminProductResponse toAdminResponse(Product product) {
+        return ProductMapper.toAdminResponse(
+                product, storageService.getPublicUrl(product.getImageKey()), getProductStock(product));
     }
 
     /**
@@ -488,12 +488,12 @@ public class ProductService {
      * <p>The stock for the entire page is retrieved in a single query. Products
      * with no available codes are reported with stock {@code 0}.</p>
      *
-     * @param pagina page of entities to convert
+     * @param page page of entities to convert
      * @return a page containing each product's public details
      */
-    private Page<ProductoPublicoResponse> toPublicPage(Page<Producto> pagina) {
-        Map<Long, Integer> stock = getStockByProductId(pagina.getContent());
-        return pagina.map(p -> toPublicResponse(p, stock.getOrDefault(p.getId(), 0)));
+    private Page<PublicProductResponse> toPublicPage(Page<Product> page) {
+        Map<Long, Integer> stock = getStockByProductId(page.getContent());
+        return page.map(p -> toPublicResponse(p, stock.getOrDefault(p.getId(), 0)));
     }
 
     /**
@@ -506,13 +506,13 @@ public class ProductService {
      * because these results are cached, and the unmodifiable list returned by
      * {@code .toList()} may be incompatible with the configured serializer.</p>
      *
-     * @param productos entities to convert
+     * @param products entities to convert
      * @return a mutable list of public responses, or an empty list if there are no products
      */
-    private List<ProductoPublicoResponse> toPublicResponses(List<Producto> productos) {
-        Map<Long, Integer> stock = getStockByProductId(productos);
+    private List<PublicProductResponse> toPublicResponses(List<Product> products) {
+        Map<Long, Integer> stock = getStockByProductId(products);
 
-        return productos.stream()
+        return products.stream()
                 .map(p -> toPublicResponse(p, stock.getOrDefault(p.getId(), 0)))
                 .collect(Collectors.toCollection(ArrayList::new));
     }

@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.UpdateCartItemQuantityRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.AddCartItemRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.CartResponse;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadExcedidaException;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CantidadNoValida;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CarritoDeClienteNoEncontrado;
@@ -10,15 +10,15 @@ import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.CarritoNoEnc
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ConflictoConcurrenteException;
 import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ProductoNoEnCarritoException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
-import com.ecommerce.FerreViky.mapper.carrito.CarritoMappers;
-import com.ecommerce.FerreViky.models.Carrito;
-import com.ecommerce.FerreViky.models.Cliente;
-import com.ecommerce.FerreViky.models.CodigoVirtual.EstadoCodigo;
-import com.ecommerce.FerreViky.models.Producto;
-import com.ecommerce.FerreViky.models.ProductoEnCarrito;
-import com.ecommerce.FerreViky.repository.CarritoRepository;
-import com.ecommerce.FerreViky.repository.CodigoVirtualRepository;
-import com.ecommerce.FerreViky.repository.ProductoRepository;
+import com.ecommerce.FerreViky.mapper.cart.CartMapper;
+import com.ecommerce.FerreViky.models.Cart;
+import com.ecommerce.FerreViky.models.Customer;
+import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
+import com.ecommerce.FerreViky.models.Product;
+import com.ecommerce.FerreViky.models.ItemInCart;
+import com.ecommerce.FerreViky.repository.CartRepository;
+import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
+import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -34,7 +34,7 @@ import java.util.Optional;
  * retrieving a customer's cart.
  * <p>
  * A product's stock is the number of virtual codes in the
- * {@link EstadoCodigo#DISPONIBLE} state.
+ * {@link CodeStatus#AVAILABLE} state.
  */
 @Service
 @AllArgsConstructor
@@ -43,16 +43,16 @@ public class CartService {
     private static final String CONCURRENT_CART_UPDATE_MESSAGE =
             "Another operation is updating your cart. Please try again.";
 
-    private final CarritoRepository carritoRepository;
-    private final ProductoRepository productoRepository;
-    private final CodigoVirtualRepository codigoVirtualRepository;
+    private final CartRepository cartRepository;
+    private final ProductRepository productRepository;
+    private final VirtualCodeRepository virtualCodeRepository;
     private final StorageService storageService;
 
     /**
      * Adds a product to the customer's cart, or increases its quantity if it is
      * already there.
      *
-     * <p>If the product is already in the cart, {@code addRequest.cantidad()} is
+     * <p>If the product is already in the cart, {@code addRequest.quantity()} is
      * added to its current quantity; otherwise, it is added as a new item. In
      * either case, stock is checked against the resulting total quantity.</p>
      *
@@ -60,7 +60,7 @@ public class CartService {
      * concurrent requests from the same customer. The customer is provided by
      * {@code @AuthenticationPrincipal}, so no additional lookup is needed.</p>
      *
-     * @param addRequest {@code idProducto} and {@code cantidad} to add
+     * @param addRequest {@code productId} and {@code quantity} to add
      * @param customer authenticated customer who owns the cart
      * @throws ProductoNoEncontradoException if the product does not exist or is inactive
      * @throws CantidadNoValida if the quantity is less than or equal to 0
@@ -68,29 +68,29 @@ public class CartService {
      * @throws ConflictoConcurrenteException if another operation updates the cart concurrently
      */
     @Transactional
-    public void addOrUpdateCartItem(AgregarCarrito addRequest, Cliente customer) {
-        Producto product = getActiveProduct(addRequest.idProducto(), addRequest.cantidad());
-        Carrito cart = getOrCreateLockedCart(customer);
+    public void addOrUpdateCartItem(AddCartItemRequest addRequest, Customer customer) {
+        Product product = getActiveProduct(addRequest.productId(), addRequest.quantity());
+        Cart cart = getOrCreateLockedCart(customer);
 
-        Optional<ProductoEnCarrito> existingItem = findCartItem(cart, product.getId());
+        Optional<ItemInCart> existingItem = findCartItem(cart, product.getId());
 
-        int currentQuantity = existingItem.map(ProductoEnCarrito::getCantidad).orElse(0);
-        int newQuantity = Math.addExact(currentQuantity, addRequest.cantidad());
+        int currentQuantity = existingItem.map(ItemInCart::getQuantity).orElse(0);
+        int newQuantity = Math.addExact(currentQuantity, addRequest.quantity());
 
-        validateStockForAddition(product, currentQuantity, addRequest.cantidad());
+        validateStockForAddition(product, currentQuantity, addRequest.quantity());
 
         if (existingItem.isPresent()) {
-            existingItem.get().setCantidad(newQuantity);
+            existingItem.get().setQuantity(newQuantity);
         } else {
-            ProductoEnCarrito newCartItem = new ProductoEnCarrito();
-            newCartItem.setCarrito(cart);
-            newCartItem.setProducto(product);
-            newCartItem.setCantidad(newQuantity);
-            cart.getProductos().add(newCartItem);
+            ItemInCart newCartItem = new ItemInCart();
+            newCartItem.setCart(cart);
+            newCartItem.setProduct(product);
+            newCartItem.setQuantity(newQuantity);
+            cart.getItems().add(newCartItem);
         }
 
         try {
-            carritoRepository.saveAndFlush(cart);
+            cartRepository.saveAndFlush(cart);
         } catch (DataIntegrityViolationException e) {
             throw new ConflictoConcurrenteException(CONCURRENT_CART_UPDATE_MESSAGE);
         }
@@ -111,20 +111,20 @@ public class CartService {
      * @throws CantidadExcedidaException if the quantity exceeds available stock
      */
     @Transactional
-    public void updateCartItemQuantity(ActualizarCantidad quantityRequest, Cliente customer) {
-        Carrito cart = getLockedCartForUpdate(customer);
+    public void updateCartItemQuantity(UpdateCartItemQuantityRequest quantityRequest, Customer customer) {
+        Cart cart = getLockedCartForUpdate(customer);
 
-        ProductoEnCarrito cartItem = findCartItem(cart, quantityRequest.idProducto())
-                .orElseThrow(() -> new ProductoNoEnCarritoException(quantityRequest.idProducto()));
+        ItemInCart cartItem = findCartItem(cart, quantityRequest.productId())
+                .orElseThrow(() -> new ProductoNoEnCarritoException(quantityRequest.productId()));
 
-        if (quantityRequest.cantidad() == 0) {
-            cart.getProductos().remove(cartItem);
+        if (quantityRequest.quantity() == 0) {
+            cart.getItems().remove(cartItem);
         } else {
-            validateExactStock(cartItem.getProducto(), quantityRequest.cantidad());
-            cartItem.setCantidad(quantityRequest.cantidad());
+            validateExactStock(cartItem.getProduct(), quantityRequest.quantity());
+            cartItem.setQuantity(quantityRequest.quantity());
         }
 
-        carritoRepository.save(cart);
+        cartRepository.save(cart);
     }
 
     /**
@@ -140,13 +140,13 @@ public class CartService {
      * @throws ProductoNoEnCarritoException if the product is not in the cart
      */
     @Transactional
-    public void removeProductFromCart(Long productId, Cliente customer) {
-        Carrito cart = getLockedCartForUpdate(customer);
+    public void removeProductFromCart(Long productId, Customer customer) {
+        Cart cart = getLockedCartForUpdate(customer);
 
-        ProductoEnCarrito cartItem = findCartItem(cart, productId)
+        ItemInCart cartItem = findCartItem(cart, productId)
                 .orElseThrow(() -> new ProductoNoEnCarritoException(productId));
 
-        cart.getProductos().remove(cartItem);
+        cart.getItems().remove(cartItem);
     }
 
     /**
@@ -156,12 +156,12 @@ public class CartService {
      * read-only transaction.</p>
      *
      * @param customer authenticated customer
-     * @return a {@link CarritoResponseDTO} containing the cart and its products
+     * @return a {@link CartResponse} containing the cart and its products
      * @throws CarritoNoEncontrado if the customer has no cart
      */
     @Transactional(readOnly = true)
-    public CarritoResponseDTO getCartByCustomer(Cliente customer) {
-        Carrito cart = carritoRepository.findByClienteConProductos(customer)
+    public CartResponse getCartByCustomer(Customer customer) {
+        Cart cart = cartRepository.findByCustomerWithItems(customer)
                 .orElseThrow(() -> new CarritoNoEncontrado(customer.getId()));
 
         return toResponse(cart);
@@ -170,17 +170,17 @@ public class CartService {
     /**
      * Returns a customer's cart by their ID.
      *
-     * <p>Intended for admin queries that do not have the {@link Cliente} entity.
+     * <p>Intended for admin queries that do not have the {@link Customer} entity.
      * The read-only transaction keeps the JPA session open while the response is
      * being built.</p>
      *
      * @param customerId customer ID
-     * @return a {@link CarritoResponseDTO} containing the cart and its products
+     * @return a {@link CartResponse} containing the cart and its products
      * @throws CarritoNoEncontrado if the customer has no cart
      */
     @Transactional(readOnly = true)
-    public CarritoResponseDTO getCartByCustomerId(Long customerId) {
-        Carrito cart = carritoRepository.findByClienteId(customerId)
+    public CartResponse getCartByCustomerId(Long customerId) {
+        Cart cart = cartRepository.findByCustomerId(customerId)
                 .orElseThrow(() -> new CarritoNoEncontrado(customerId));
 
         return toResponse(cart);
@@ -198,15 +198,15 @@ public class CartService {
      * @return the locked cart, either existing or newly created
      * @throws ConflictoConcurrenteException if another request creates the cart first
      */
-    private Carrito getOrCreateLockedCart(Cliente customer) {
-        return carritoRepository.findByClienteParaActualizar(customer)
+    private Cart getOrCreateLockedCart(Customer customer) {
+        return cartRepository.findByCustomerForUpdate(customer)
                 .orElseGet(() -> {
-                    Carrito newCart = new Carrito();
-                    newCart.setCliente(customer);
-                    newCart.setFechaCreacion(LocalDateTime.now());
-                    newCart.setProductos(new ArrayList<>());
+                    Cart newCart = new Cart();
+                    newCart.setCustomer(customer);
+                    newCart.setCreatedAt(LocalDateTime.now());
+                    newCart.setItems(new ArrayList<>());
                     try {
-                        return carritoRepository.saveAndFlush(newCart);
+                        return cartRepository.saveAndFlush(newCart);
                     } catch (DataIntegrityViolationException e) {
                         throw new ConflictoConcurrenteException(CONCURRENT_CART_UPDATE_MESSAGE);
                     }
@@ -220,8 +220,8 @@ public class CartService {
      * @return the locked cart
      * @throws CarritoDeClienteNoEncontrado if the customer has no cart
      */
-    private Carrito getLockedCartForUpdate(Cliente customer) {
-        return carritoRepository.findByClienteParaActualizar(customer)
+    private Cart getLockedCartForUpdate(Customer customer) {
+        return cartRepository.findByCustomerForUpdate(customer)
                 .orElseThrow(() -> new CarritoDeClienteNoEncontrado(customer.getId()));
     }
 
@@ -232,9 +232,9 @@ public class CartService {
      * @param productId product ID
      * @return the cart item, or empty if the product is not in the cart
      */
-    private Optional<ProductoEnCarrito> findCartItem(Carrito cart, Long productId) {
-        return cart.getProductos().stream()
-                .filter(cartItem -> cartItem.getProducto().getId().equals(productId))
+    private Optional<ItemInCart> findCartItem(Cart cart, Long productId) {
+        return cart.getItems().stream()
+                .filter(cartItem -> cartItem.getProduct().getId().equals(productId))
                 .findFirst();
     }
 
@@ -242,7 +242,7 @@ public class CartService {
      * Finds a product and checks that it exists, is active, and has a positive
      * requested quantity.
      *
-     * <p>Stock is checked separately by {@link #validateStockForAddition(Producto, long, long)}
+     * <p>Stock is checked separately by {@link #validateStockForAddition(Product, long, long)}
      * because adding to an existing line requires checking the resulting total.</p>
      *
      * @param productId product ID
@@ -251,9 +251,9 @@ public class CartService {
      * @throws ProductoNoEncontradoException if the product does not exist or is inactive
      * @throws CantidadNoValida if the quantity is less than or equal to 0
      */
-    private Producto getActiveProduct(Long productId, int requestedQuantity) {
-        Producto product = productoRepository.findById(productId)
-                .filter(Producto::getActivo)
+    private Product getActiveProduct(Long productId, int requestedQuantity) {
+        Product product = productRepository.findById(productId)
+                .filter(Product::getActive)
                 .orElseThrow(() -> new ProductoNoEncontradoException(productId));
 
         if (requestedQuantity <= 0)
@@ -267,7 +267,7 @@ public class CartService {
      * that may already be in the cart.
      *
      * <p>Stock is the number of virtual codes in the
-     * {@link EstadoCodigo#DISPONIBLE} state. It is checked against
+     * {@link CodeStatus#AVAILABLE} state. It is checked against
      * {@code currentQuantity + requestedQuantity}.</p>
      *
      * @param product product whose stock is being checked
@@ -275,13 +275,13 @@ public class CartService {
      * @param requestedQuantity units to add
      * @throws CantidadExcedidaException if the resulting total exceeds available stock
      */
-    private void validateStockForAddition(Producto product, long currentQuantity, long requestedQuantity) {
-        long availableStock = codigoVirtualRepository
-                .countByProductoIdAndEstado(product.getId(), EstadoCodigo.DISPONIBLE);
+    private void validateStockForAddition(Product product, long currentQuantity, long requestedQuantity) {
+        long availableStock = virtualCodeRepository
+                .countByProductIdAndStatus(product.getId(), CodeStatus.AVAILABLE);
 
         if (currentQuantity + requestedQuantity > availableStock)
             throw new CantidadExcedidaException(
-                    product.getNombre(), availableStock, currentQuantity, requestedQuantity);
+                    product.getName(), availableStock, currentQuantity, requestedQuantity);
     }
 
     /**
@@ -292,13 +292,13 @@ public class CartService {
      * @param desiredQuantity total quantity requested by the customer
      * @throws CantidadExcedidaException if the desired quantity exceeds available stock
      */
-    private void validateExactStock(Producto product, long desiredQuantity) {
-        long availableStock = codigoVirtualRepository
-                .countByProductoIdAndEstado(product.getId(), EstadoCodigo.DISPONIBLE);
+    private void validateExactStock(Product product, long desiredQuantity) {
+        long availableStock = virtualCodeRepository
+                .countByProductIdAndStatus(product.getId(), CodeStatus.AVAILABLE);
 
         if (desiredQuantity > availableStock)
             throw new CantidadExcedidaException(
-                    product.getNombre(), availableStock, desiredQuantity);
+                    product.getName(), availableStock, desiredQuantity);
     }
 
     /**
@@ -312,9 +312,9 @@ public class CartService {
      * @throws CarritoDeClienteNoEncontrado if the customer has no cart
      */
     @Transactional
-    public void clearCart(Cliente customer) {
-        Carrito cart = getLockedCartForUpdate(customer);
-        cart.getProductos().clear();
+    public void clearCart(Customer customer) {
+        Cart cart = getLockedCartForUpdate(customer);
+        cart.getItems().clear();
     }
 
     /**
@@ -322,10 +322,10 @@ public class CartService {
      * product.
      *
      * @param cart cart to convert
-     * @return cart DTO with {@code imagenUrl} for each item
+     * @return cart DTO with {@code imageUrl} for each item
      */
-    private CarritoResponseDTO toResponse(Carrito cart) {
-        return CarritoMappers.toCarritoResponseDTO(
-                cart, product -> storageService.getPublicUrl(product.getImagenKey()));
+    private CartResponse toResponse(Cart cart) {
+        return CartMapper.toCartResponse(
+                cart, product -> storageService.getPublicUrl(product.getImageKey()));
     }
 }

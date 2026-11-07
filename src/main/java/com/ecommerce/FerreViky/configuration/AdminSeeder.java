@@ -1,8 +1,7 @@
-package com.ecommerce.FerreViky.config;
+package com.ecommerce.FerreViky.configuration;
 
-import com.ecommerce.FerreViky.models.Cliente;
-import com.ecommerce.FerreViky.models.Rol;
-import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.models.Customer;
+import com.ecommerce.FerreViky.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Profile;
@@ -14,20 +13,20 @@ import org.springframework.stereotype.Component;
 @RequiredArgsConstructor
 public class AdminSeeder implements CommandLineRunner {
 
-    private final ClienteRepository clienteRepository;
+    private final CustomerRepository customerRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
     public void run(String... args) {
         String email = "admin@admin.com";
 
-        if (clienteRepository.existsByEmail(email)) return;
+        if (customerRepository.existsByEmail(email)) return;
 
-        clienteRepository.save(Cliente.builder()
+        customerRepository.save(Customer.builder()
                 .email(email)
                 .password(passwordEncoder.encode("1234567890"))
-                .rol(Rol.ADMIN)
-                .nombre("Admin")
+                .role(Customer.Role.ADMIN)
+                .name("Admin")
                 .build());
     }
 }

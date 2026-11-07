@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClienteEditarRequest;
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.ClientePublico;
-import com.ecommerce.FerreViky.models.Cliente;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.UpdateCustomerRequest;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.PublicCustomerResponse;
+import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -44,7 +44,7 @@ public class CustomerController {
                     responseCode = "200",
                     description = "Customer retrieved successfully",
                     content = @Content(
-                            schema = @Schema(implementation = ClientePublico.class)
+                            schema = @Schema(implementation = PublicCustomerResponse.class)
                     )
             ),
             @ApiResponse(
@@ -59,8 +59,8 @@ public class CustomerController {
             )
     })
     @GetMapping
-    public ResponseEntity<ClientePublico> getCustomer(
-            @AuthenticationPrincipal Cliente customer) {
+    public ResponseEntity<PublicCustomerResponse> getCustomer(
+            @AuthenticationPrincipal Customer customer) {
 
         return ResponseEntity.ok(customerService.getCustomer(customer));
     }
@@ -75,7 +75,7 @@ public class CustomerController {
                     responseCode = "200",
                     description = "Customer updated successfully",
                     content = @Content(
-                            schema = @Schema(implementation = ClientePublico.class)
+                            schema = @Schema(implementation = PublicCustomerResponse.class)
                     )
             ),
             @ApiResponse(
@@ -100,9 +100,9 @@ public class CustomerController {
             )
     })
     @PutMapping
-    public ResponseEntity<ClientePublico> updateCustomer(
-            @AuthenticationPrincipal Cliente customer,
-            @Valid @RequestBody ClienteEditarRequest request) {
+    public ResponseEntity<PublicCustomerResponse> updateCustomer(
+            @AuthenticationPrincipal Customer customer,
+            @Valid @RequestBody UpdateCustomerRequest request) {
 
         return ResponseEntity.ok(
                 customerService.updateCustomer(customer, request)
@@ -137,7 +137,7 @@ public class CustomerController {
     })
     @DeleteMapping
     public ResponseEntity<String> deactivateCustomer(
-            @AuthenticationPrincipal Cliente customer) {
+            @AuthenticationPrincipal Customer customer) {
 
         customerService.deactivateCustomer(customer);
         return ResponseEntity.ok("Customer deactivated successfully");
@@ -156,8 +156,8 @@ public class CustomerController {
             @ApiResponse(responseCode = "413", description = "The image exceeds the maximum allowed size")
     })
     @PostMapping(value = "/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ClientePublico> uploadProfilePhoto(
-            @AuthenticationPrincipal Cliente customer,
+    public ResponseEntity<PublicCustomerResponse> uploadProfilePhoto(
+            @AuthenticationPrincipal Customer customer,
             @RequestParam("file") MultipartFile file) throws IOException {
 
         return ResponseEntity.ok(customerService.uploadCustomerPhoto(customer, file));
@@ -172,7 +172,7 @@ public class CustomerController {
             @ApiResponse(responseCode = "404", description = "Customer does not exist")
     })
     @DeleteMapping("/photo")
-    public ResponseEntity<ClientePublico> removeProfilePhoto(@AuthenticationPrincipal Cliente customer) {
+    public ResponseEntity<PublicCustomerResponse> removeProfilePhoto(@AuthenticationPrincipal Customer customer) {
         return ResponseEntity.ok(customerService.removeCustomerPhoto(customer));
     }
 

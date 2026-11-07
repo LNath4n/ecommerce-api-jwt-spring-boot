@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.jwt;
 
-import com.ecommerce.FerreViky.models.Cliente;
+import com.ecommerce.FerreViky.models.Customer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -42,19 +42,18 @@ public class JwtService {
     }
 
     /**
-     * Genera un token JWT para el cliente sin claims adicionales.
+     * Generates a JWT for a customer without additional claims.
      *
-     * @param cliente cliente autenticado cuyo username (email) se usa como subject
-     * @return token JWT firmado
+     * @param customer authenticated customer whose email is used as the subject
+     * @return signed JWT
      */
-    public String getToken(Cliente cliente) {
+    public String getToken(Customer customer) {
         Map<String, Object> extraClaims = new HashMap<>();
-        //String nombre = (cliente.getNombre() != null && !cliente.getNombre().isBlank()) ? cliente.getNombre() : cliente.getUsername();
-        //extraClaims.put("nombre", nombre); Se volvio algo inutil ya que se regresa en el Endpoint de clietne
-        extraClaims.put("role", cliente.getRol().name()); // "ADMIN" o "USER"
-        extraClaims.put("uid", cliente.getId()); //Alguien no puede ahora entrar a su correo viejo
-        extraClaims.put("tv", cliente.getTokenVersion()); // Si cambiamos contrasena saca a todos
-        return getToken(extraClaims, cliente);
+        // The name is returned by the profile endpoint, so it is not duplicated in the JWT. / El nombre se devuelve en el endpoint del perfil y no se duplica en el JWT.
+        extraClaims.put("role", customer.getRole().name()); // "ADMIN" or "USER" / "ADMIN" o "USER"
+        extraClaims.put("uid", customer.getId()); // Prevents access with an old email address. / Evita el acceso con un correo anterior.
+        extraClaims.put("tv", customer.getTokenVersion()); // Invalidates prior tokens after a password change. / Invalida los tokens anteriores al cambiar la contraseña.
+        return getToken(extraClaims, customer);
     }
 
     /**
@@ -69,13 +68,13 @@ public class JwtService {
      * </ul>
      *
      * @param extraClaims claims adicionales a incluir en el payload del token
-     * @param cliente     cliente cuyo username se usa como subject
+     * @param customer     cliente cuyo username se usa como subject
      * @return token JWT compacto y firmado con HMAC-SHA256
      */
-    public String getToken(Map<String, Object> extraClaims, Cliente cliente) {
+    public String getToken(Map<String, Object> extraClaims, Customer customer) {
         return Jwts.builder()
                 .setClaims(extraClaims) //Datos extra
-                .setSubject(cliente.getUsername()) //sub = email
+                .setSubject(customer.getUsername()) //sub = email
                 .setIssuedAt(new Date(System.currentTimeMillis())) // iat = cuando se creo
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24)) //exp = cuando vence
                 .signWith(getKey(), SignatureAlgorithm.HS256) // firma
@@ -104,11 +103,11 @@ public class JwtService {
         Long uid = getClaim(token, c -> c.get("uid", Long.class));
         Integer tv = getClaim(token, c -> c.get("tv", Integer.class));
 
-        if (!(userDetails instanceof Cliente cliente)) return false;
+        if (!(userDetails instanceof Customer customer)) return false;
 
         return username.equals(userDetails.getUsername())
-                && uid != null && uid.equals(cliente.getId())
-                && tv != null && tv == cliente.getTokenVersion()
+                && uid != null && uid.equals(customer.getId())
+                && tv != null && tv == customer.getTokenVersion()
                 && !isTokenExpired(token)
                 && userDetails.isEnabled();
     }

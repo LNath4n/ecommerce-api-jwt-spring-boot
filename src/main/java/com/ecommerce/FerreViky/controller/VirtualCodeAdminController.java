@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.codigoVirtual.CodigoVirtualDTO.CargarCodigosRequest;
-import com.ecommerce.FerreViky.dto.dtos.codigoVirtual.CodigoVirtualDTO.CodigosCargadosResponse;
+import com.ecommerce.FerreViky.dto.dtos.virtualCode.VirtualCodeDTO.UploadProductCodesRequest;
+import com.ecommerce.FerreViky.dto.dtos.virtualCode.VirtualCodeDTO.UploadProductCodesResponse;
 import com.ecommerce.FerreViky.service.VirtualCodeService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -29,11 +29,11 @@ public class VirtualCodeAdminController {
             @ApiResponse(responseCode = "404", description = "Product not found"),
             @ApiResponse(responseCode = "409", description = "One or more codes already exist")
     })
-    public ResponseEntity<CodigosCargadosResponse> uploadProductCodes(
+    public ResponseEntity<UploadProductCodesResponse> uploadProductCodes(
             @Parameter(description = "Product ID", example = "1") @PathVariable Long productId,
-            @Validated @RequestBody CargarCodigosRequest request) {
-        int savedCount = virtualCodeService.addCodesToProduct(productId, request.codigos());
+            @Validated @RequestBody UploadProductCodesRequest request) {
+        int savedCount = virtualCodeService.addCodesToProduct(productId, request.codes());
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(new CodigosCargadosResponse(savedCount));
+                .body(new UploadProductCodesResponse(savedCount));
     }
 }

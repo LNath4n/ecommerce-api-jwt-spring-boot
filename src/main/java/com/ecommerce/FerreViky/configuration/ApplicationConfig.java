@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.configuration;
 
-import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,7 +11,6 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
@@ -29,7 +28,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 @RequiredArgsConstructor
 public class ApplicationConfig {
 
-    private final ClienteRepository clienteRepository;
+    private final CustomerRepository customerRepository;
 
     /**
      * Expone el {@link AuthenticationManager} por defecto de Spring Security.
@@ -86,7 +85,7 @@ public class ApplicationConfig {
      * username.
      * <p>
      * En esta aplicación el "username" es en realidad el email del cliente. Se
-     * busca el {@code Cliente} correspondiente en {@link ClienteRepository} y, si
+     * busca el {@code Cliente} correspondiente en {@link CustomerRepository} y, si
      * no existe ninguno con ese email, se lanza {@link UsernameNotFoundException}
      * para que Spring Security rechace la autenticación.
      *
@@ -95,7 +94,7 @@ public class ApplicationConfig {
      */
     @Bean
     public UserDetailsService userDetailsService(){
-        return email -> clienteRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException("Not Found"));
+        return email -> customerRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException("Not Found"));
     }
 
 }

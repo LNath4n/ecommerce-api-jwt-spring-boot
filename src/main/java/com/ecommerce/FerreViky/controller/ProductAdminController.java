@@ -1,8 +1,8 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoAdminResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.AdminProductResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.ProductRequest;
 import com.ecommerce.FerreViky.service.ProductService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -33,12 +33,12 @@ public class ProductAdminController {
             @ApiResponse(responseCode = "404", description = "Category not found"),
             @ApiResponse(responseCode = "409", description = "A product with this SKU already exists")
     })
-    public ResponseEntity<ProductoPublicoResponse> createProduct(@Validated @RequestBody ProductoRequest productoAdminRequest) {
-        return  ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(productoAdminRequest));
+    public ResponseEntity<PublicProductResponse> createProduct(@Validated @RequestBody ProductRequest productRequest) {
+        return  ResponseEntity.status(HttpStatus.CREATED).body(productService.createProduct(productRequest));
     }
 
     @DeleteMapping("/{id}")
-    @Operation(summary = "Delete product", description = "Deletes a product and its image from the bucket. If it has associated codes or orders, it cannot be deleted; deactivate it by setting activo = false.")
+    @Operation(summary = "Delete product", description = "Deletes a product and its image from the bucket. If it has associated codes or orders, it cannot be deleted; deactivate it by setting active = false.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product deleted successfully"),
             @ApiResponse(responseCode = "404", description = "Product not found"),
@@ -63,17 +63,17 @@ public class ProductAdminController {
     }
 
     @PutMapping("/{id}")
-    @Operation(summary = "Update product", description = "Replaces the product data with the request data (PUT semantics). Null fields are saved as null, except 'activo', which retains its value if omitted. The image is not modified.")
+    @Operation(summary = "Update product", description = "Replaces the product data with the request data (PUT semantics). Null fields are saved as null, except 'active', which retains its value if omitted. The image is not modified.")
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product updated successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid product data"),
             @ApiResponse(responseCode = "404", description = "Product or category not found"),
             @ApiResponse(responseCode = "409", description = "A product with this SKU already exists")
     })
-    public ResponseEntity<ProductoPublicoResponse> updateProduct(
-            @Validated @RequestBody ProductoRequest productoAdminRequest,
+    public ResponseEntity<PublicProductResponse> updateProduct(
+            @Validated @RequestBody ProductRequest productRequest,
             @Parameter(description = "ID of the product to update", example = "1") @PathVariable Long id) {
-        return ResponseEntity.ok(productService.updateProduct(productoAdminRequest, id));
+        return ResponseEntity.ok(productService.updateProduct(productRequest, id));
     }
 
     @GetMapping("/{id}")
@@ -82,7 +82,7 @@ public class ProductAdminController {
             @ApiResponse(responseCode = "200", description = "Product found"),
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    public ResponseEntity<ProductoAdminResponse> getProduct(
+    public ResponseEntity<AdminProductResponse> getProduct(
             @Parameter(description = "ID of the product to retrieve", example = "1") @PathVariable Long id) {
         return ResponseEntity.ok(productService.getAdminProductById(id));
     }
@@ -96,7 +96,7 @@ public class ProductAdminController {
             @ApiResponse(responseCode = "404", description = "Product not found"),
             @ApiResponse(responseCode = "413", description = "The image exceeds the maximum allowed size")
     })
-    public ResponseEntity<ProductoAdminResponse> uploadProductImage(
+    public ResponseEntity<AdminProductResponse> uploadProductImage(
             @Parameter(description = "Product ID", example = "1") @PathVariable Long id,
             @RequestParam("file") MultipartFile file) throws IOException {
         return ResponseEntity.ok(productService.uploadProductImage(id, file));
@@ -109,7 +109,7 @@ public class ProductAdminController {
             @ApiResponse(responseCode = "200", description = "Image deleted; returns the product without imageUrl"),
             @ApiResponse(responseCode = "404", description = "Product not found")
     })
-    public ResponseEntity<ProductoAdminResponse> removeProductImage(
+    public ResponseEntity<AdminProductResponse> removeProductImage(
             @Parameter(description = "Product ID", example = "1") @PathVariable Long id) {
         return ResponseEntity.ok(productService.removeProductImage(id));
     }

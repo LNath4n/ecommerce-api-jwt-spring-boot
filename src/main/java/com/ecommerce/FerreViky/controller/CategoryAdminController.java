@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.categoria.CategoriaDTO.CategoriaRequest;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
+import com.ecommerce.FerreViky.dto.dtos.category.CategoryDTO.CategoryRequest;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionResponse;
 import com.ecommerce.FerreViky.service.CategoryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -27,7 +27,7 @@ public class CategoryAdminController {
             @ApiResponse(responseCode = "400", description = "Invalid category data"),
             @ApiResponse(responseCode = "409", description = "A category with this name already exists")
     })
-    public ResponseEntity<CategoriaOpcionResponse> createCategory(@Validated @RequestBody CategoriaRequest request) {
+    public ResponseEntity<CategoryOptionResponse> createCategory(@Validated @RequestBody CategoryRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(categoryService.createCategory(request));
     }
 
@@ -39,9 +39,9 @@ public class CategoryAdminController {
             @ApiResponse(responseCode = "404", description = "Category not found"),
             @ApiResponse(responseCode = "409", description = "A category with this name already exists")
     })
-    public ResponseEntity<CategoriaOpcionResponse> updateCategory(
+    public ResponseEntity<CategoryOptionResponse> updateCategory(
             @Parameter(description = "ID of the category to update", example = "1") @PathVariable Long id,
-            @Validated @RequestBody CategoriaRequest request) {
+            @Validated @RequestBody CategoryRequest request) {
         return ResponseEntity.ok(categoryService.updateCategory(id, request));
     }
 

@@ -1,13 +1,13 @@
 package com.ecommerce.FerreViky.utils;
 
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoProductoDTO;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoPublicoResponse;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.ProductoRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.UpdateCartItemQuantityRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.AddCartItemRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.CartItemResponse;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.CartResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.ProductRequest;
 import com.ecommerce.FerreViky.models.*;
-import com.ecommerce.FerreViky.repository.CodigoVirtualRepository.StockProducto;
+import com.ecommerce.FerreViky.repository.VirtualCodeRepository.ProductStock;
 import net.datafaker.Faker;
 
 import java.math.BigDecimal;
@@ -31,18 +31,18 @@ public final class Fakes {
     
     // Cliente
     
-    public static Cliente generarClienteFake() {
+    public static Customer generarClienteFake() {
         return generarClienteFake(cli -> {});
     }
 
-    public static Cliente generarClienteFake(Consumer<Cliente> cambios) {
-        Cliente c = new Cliente();
+    public static Customer generarClienteFake(Consumer<Customer> cambios) {
+        Customer c = new Customer();
         c.setId(faker.number().numberBetween(1L, 100_000L));
         c.setEmail(faker.internet().safeEmailAddress());
-        c.setActivo(true);
-        c.setNombre("Nathan");
+        c.setActive(true);
+        c.setName("Nathan");
         c.setPassword("UnSaludo");
-        c.setTelefono("5551234567");
+        c.setPhone("5551234567");
 
         cambios.accept(c);
         return c;
@@ -51,89 +51,89 @@ public final class Fakes {
     
     // Producto
     
-    public static Producto generarProductoFake() {
+    public static Product generarProductoFake() {
         return generarProductoFake(p -> {});
     }
 
-    public static Producto generarProductoFake(Consumer<Producto> cambios) {
-        Producto p = new Producto();
-        Categoria c = new Categoria();
+    public static Product generarProductoFake(Consumer<Product> cambios) {
+        Product p = new Product();
+        Category c = new Category();
         c.setId(faker.number().numberBetween(1L, 100_000L));
-        c.setNombre("VideoJuegos");
+        c.setName("VideoJuegos");
 
         p.setId(faker.number().numberBetween(1L, 100_000L));
         p.setSku("STEAM-MX-200");
-        p.setNombre("Steam Gift Card $200 MXN");
+        p.setName("Steam Gift Card $200 MXN");
         p.setSlug("steam-gift-card-200-mxn");
-        p.setDescripcion("Tarjeta de regalo para la tienda de Steam");
-        p.setPlataforma("Steam");
-        p.setTipo(Producto.TipoProducto.GIFT_CARD);
+        p.setDescription("Tarjeta de regalo para la tienda de Steam");
+        p.setPlatform("Steam");
+        p.setType(Product.ProductType.GIFT_CARD);
         p.setRegion("MX");
-        p.setValorNominal(new BigDecimal("200.00"));
-        p.setMoneda("MXN");
-        p.setPrecioVenta(new BigDecimal("210.00"));
-        p.setPrecioCosto(new BigDecimal("190.00"));
-        p.setInstruccionesCanje("Canjea el código en Steam > Canjear una tarjeta");
-        p.setImagenKey("productos/abc.png");
-        p.setActivo(true);
-        p.setFechaCreacion(LocalDateTime.now());
-        p.setCategoria(c);
+        p.setFaceValue(new BigDecimal("200.00"));
+        p.setCurrency("MXN");
+        p.setSalePrice(new BigDecimal("210.00"));
+        p.setCostPrice(new BigDecimal("190.00"));
+        p.setRedemptionInstructions("Canjea el código en Steam > Canjear una tarjeta");
+        p.setImageKey("productos/abc.png");
+        p.setActive(true);
+        p.setCreatedAt(LocalDateTime.now());
+        p.setCategory(c);
 
         cambios.accept(p);
         return p;
     }
 
     
-    // ProductoPublicoResponse esperado (record -> builder) (Inmutables xsd)
+    // PublicProductResponse esperado (record -> builder) (Inmutables xsd)
     
     public static class PublicoBuilder {
         public Long id;
         public String slug;
         public String sku;
-        public String nombre;
-        public String descripcion;
-        public String plataforma;
-        public Producto.TipoProducto tipo;
+        public String name;
+        public String description;
+        public String platform;
+        public Product.ProductType type;
         public String region;
-        public BigDecimal valorNominal;
-        public String moneda;
-        public BigDecimal precioVenta;
-        public String instruccionesCanje;
-        public String imagenUrl;
+        public BigDecimal faceValue;
+        public String currency;
+        public BigDecimal salePrice;
+        public String redemptionInstructions;
+        public String imageUrl;
         public Integer stock;
 
-        public Long vistas = 0L;
-        public Double promedioCalificacion = 0.0;
-        public Long totalResenas = 0L;
+        public Long views = 0L;
+        public Double averageRating = 0.0;
+        public Long totalReviews = 0L;
 
-        public ProductoPublicoResponse build() {
-            return new ProductoPublicoResponse(id, slug, sku, nombre, descripcion, plataforma, tipo,
-                    region, valorNominal, moneda, precioVenta, instruccionesCanje, imagenUrl, stock,
-                    vistas, promedioCalificacion, totalResenas);
+        public PublicProductResponse build() {
+            return new PublicProductResponse(id, slug, sku, name, description, platform, type,
+                    region, faceValue, currency, salePrice, redemptionInstructions, imageUrl, stock,
+                    views, averageRating, totalReviews);
         }
     }
 
-    public static ProductoPublicoResponse esperadoPublico(Producto p, String imagenUrl, int stock) {
-        return esperadoPublico(p, imagenUrl, stock, b -> {});
+    public static PublicProductResponse esperadoPublico(Product p, String imageUrl, int stock) {
+        return esperadoPublico(p, imageUrl, stock, b -> {});
     }
 
-    public static ProductoPublicoResponse esperadoPublico(
-            Producto p, String imagenUrl, int stock, Consumer<PublicoBuilder> cambios) {
+    public static PublicProductResponse esperadoPublico(
+            Product p, String imageUrl, int stock, Consumer<PublicoBuilder> cambios) {
 
         PublicoBuilder b = new PublicoBuilder();
         b.id = p.getId();
         b.slug = p.getSlug();
         b.sku = p.getSku();
-        b.nombre = p.getNombre();
-        b.descripcion = p.getDescripcion();
-        b.plataforma = p.getPlataforma();
-        b.tipo = p.getTipo();
+        b.name = p.getName();
+        b.description = p.getDescription();
+        b.platform = p.getPlatform();
+        b.type = p.getType();
         b.region = p.getRegion();
-        b.valorNominal = p.getValorNominal();
-        b.moneda = p.getMoneda();
-        b.precioVenta = p.getPrecioVenta();
-        b.instruccionesCanje = p.getInstruccionesCanje();
-        b.imagenUrl = imagenUrl;
+        b.faceValue = p.getFaceValue();
+        b.currency = p.getCurrency();
+        b.salePrice = p.getSalePrice();
+        b.redemptionInstructions = p.getRedemptionInstructions();
+        b.imageUrl = imageUrl;
         b.stock = stock;
 
         cambios.accept(b);
@@ -141,46 +141,46 @@ public final class Fakes {
     }
 
     
-    // ProductoRequest (record -> builder con valores por defecto)
+    // ProductRequest (record -> builder con valores por defecto)
     
     public static class RequestBuilder {
         public String sku = "STEAM-MX-200";
-        public String nombre = "Steam Gift Card $200 MXN";
-        public String descripcion = "Tarjeta de regalo para la tienda de Steam";
-        public String plataforma = "Steam";
-        public Producto.TipoProducto tipo = Producto.TipoProducto.GIFT_CARD;
+        public String name = "Steam Gift Card $200 MXN";
+        public String description = "Tarjeta de regalo para la tienda de Steam";
+        public String platform = "Steam";
+        public Product.ProductType type = Product.ProductType.GIFT_CARD;
         public String region = "MX";
-        public BigDecimal valorNominal = new BigDecimal("200.00");
-        public String moneda = "MXN";
-        public BigDecimal precioVenta = new BigDecimal("210.00");
-        public BigDecimal precioCosto = new BigDecimal("190.00");
-        public String instruccionesCanje = "Canjea el código en Steam > Canjear una tarjeta";
-        public Boolean activo = true;
-        public Long categoriaId = null;   // sin categoria por defecto
+        public BigDecimal faceValue = new BigDecimal("200.00");
+        public String currency = "MXN";
+        public BigDecimal salePrice = new BigDecimal("210.00");
+        public BigDecimal costPrice = new BigDecimal("190.00");
+        public String redemptionInstructions = "Canjea el código en Steam > Canjear una tarjeta";
+        public Boolean active = true;
+        public Long categoryId = null;   // sin categoria por defecto
 
-        public ProductoRequest build() {
-            return new ProductoRequest(sku, nombre, descripcion, plataforma, tipo, region,
-                    valorNominal, moneda, precioVenta, precioCosto, instruccionesCanje,
-                    activo, categoriaId);
+        public ProductRequest build() {
+            return new ProductRequest(sku, name, description, platform, type, region,
+                    faceValue, currency, salePrice, costPrice, redemptionInstructions,
+                    active, categoryId);
         }
     }
 
-    public static ProductoRequest generarRequestFake() {
+    public static ProductRequest generarRequestFake() {
         return generarRequestFake(b -> {});
     }
 
-    public static ProductoRequest generarRequestFake(Consumer<RequestBuilder> cambios) {
+    public static ProductRequest generarRequestFake(Consumer<RequestBuilder> cambios) {
         RequestBuilder b = new RequestBuilder();
         cambios.accept(b);
         return b.build();
     }
 
     
-    // Proyeccion de stock (contarPorProducto)
+    // Stock projection (findStockByProductIdsAndStatus)
     
-    public static StockProducto stockFake(Long productoId, Long total) {
-        return new StockProducto() {
-            public Long getProductoId() { return productoId; }
+    public static ProductStock stockFake(Long productId, Long total) {
+        return new ProductStock() {
+            public Long getProductId() { return productId; }
             public Long getTotal() { return total; }
         };
     }
@@ -188,90 +188,90 @@ public final class Fakes {
     
     // Carrito y lineas
     
-    public static Carrito generarCarritoFake() {
+    public static Cart generarCarritoFake() {
         return generarCarritoFake(car -> {});
     }
 
 
-    public static Carrito generarCarritoFake(Consumer<Carrito> cambios) {
-        Carrito car = new Carrito();
+    public static Cart generarCarritoFake(Consumer<Cart> cambios) {
+        Cart car = new Cart();
         car.setId(faker.number().numberBetween(1L, 100_000L));
-        car.setCliente(generarClienteFake());
-        car.setProductos(new ArrayList<>());   // si queda null, el stream y el add truenan
-        car.setFechaCreacion(LocalDateTime.now());
+        car.setCustomer(generarClienteFake());
+        car.setItems(new ArrayList<>());   // si queda null, el stream y el add truenan
+        car.setCreatedAt(LocalDateTime.now());
 
         cambios.accept(car);
         return car;
     }
 
     // Linea del carrito: la enlaza en ambos sentidos y la agrega al carrito
-    public static ProductoEnCarrito agregarItem(Carrito carrito, Producto producto, int cantidad) {
-        ProductoEnCarrito item = new ProductoEnCarrito();
+    public static ItemInCart agregarItem(Cart cart, Product product, int cantidad) {
+        ItemInCart item = new ItemInCart();
         item.setId(faker.number().numberBetween(1L, 100_000L));
-        item.setCarrito(carrito);
-        item.setProducto(producto);
-        item.setCantidad(cantidad);
-        carrito.getProductos().add(item);
+        item.setCart(cart);
+        item.setProduct(product);
+        item.setQuantity(cantidad);
+        cart.getItems().add(item);
         return item;
     }
 
     
     // DTOs de entrada del carrito
     
-    public static AgregarCarrito agregarDto(Long idProducto, int cantidad) {
-        return new AgregarCarrito(idProducto, cantidad);
+    public static AddCartItemRequest agregarDto(Long idProducto, int cantidad) {
+        return new AddCartItemRequest(idProducto, cantidad);
     }
 
-    public static ActualizarCantidad actualizarDto(Long idProducto, int cantidad) {
-        return new ActualizarCantidad(idProducto, cantidad);
+    public static UpdateCartItemQuantityRequest actualizarDto(Long idProducto, int cantidad) {
+        return new UpdateCartItemQuantityRequest(idProducto, cantidad);
     }
 
     
-    // CarritoResponseDTO esperado (record -> builder)
+    // CartResponse esperado (record -> builder)
     
     public static class CarritoBuilder {
         public Long id;
-        public List<CarritoProductoDTO> productos;
-        public LocalDateTime fechaCreacion;
+        public List<CartItemResponse> items;
+        public LocalDateTime createdAt;
         public BigDecimal subtotal;
 
-        public CarritoResponseDTO build() {
-            return new CarritoResponseDTO(productos, fechaCreacion, subtotal);
+        public CartResponse build() {
+            return new CartResponse(items, createdAt, subtotal);
         }
     }
 
     // Linea esperada: sale del producto y la cantidad; la url la decides tu
-    public static CarritoProductoDTO esperadaLinea(Producto p, int cantidad, String imagenUrl) {
-        return new CarritoProductoDTO(
-                p.getId(), p.getSlug(), p.getNombre(), p.getSku(), p.getPlataforma(),
-                cantidad, p.getPrecioVenta(), imagenUrl);
+    public static CartItemResponse esperadaLinea(Product p, int cantidad, String imageUrl) {
+        return new CartItemResponse(
+                p.getId(), p.getSlug(), p.getName(), p.getSku(), p.getPlatform(),
+                cantidad, p.getSalePrice(), imageUrl);
     }
 
     /**
      * Carrito esperado: una linea por cada item del carrito (mismo orden) y
-     * subtotal = suma de precioVenta * cantidad.
+     * subtotal = suma de salePrice * cantidad.
      *
      * @param urlDe como resolver la url de cada producto (debe coincidir con tus mocks de storageService)
      */
-    public static CarritoResponseDTO esperadoCarrito(Carrito car, Function<Producto, String> urlDe) {
+    public static CartResponse esperadoCarrito(Cart car, Function<Product, String> urlDe) {
         return esperadoCarrito(car, urlDe, b -> {});
     }
 
-    public static CarritoResponseDTO esperadoCarrito(
-            Carrito car, Function<Producto, String> urlDe, Consumer<CarritoBuilder> cambios) {
+    public static CartResponse esperadoCarrito(
+            Cart car, Function<Product, String> urlDe, Consumer<CarritoBuilder> cambios) {
 
-        List<CarritoProductoDTO> lineas = new ArrayList<>();
+        List<CartItemResponse> lineas = new ArrayList<>();
         BigDecimal subtotal = BigDecimal.ZERO;
-        for (ProductoEnCarrito cp : car.getProductos()) {
-            Producto p = cp.getProducto();
-            lineas.add(esperadaLinea(p, cp.getCantidad(), urlDe.apply(p)));
-            subtotal = subtotal.add(p.getPrecioVenta().multiply(BigDecimal.valueOf(cp.getCantidad())));
+        for (ItemInCart cp : car.getItems()) {
+            Product p = cp.getProduct();
+            lineas.add(esperadaLinea(p, cp.getQuantity(), urlDe.apply(p)));
+            subtotal = subtotal.add(p.getSalePrice().multiply(BigDecimal.valueOf(cp.getQuantity())));
         }
 
         CarritoBuilder b = new CarritoBuilder();
         b.id = car.getId();
-        b.productos = lineas;
-        b.fechaCreacion = car.getFechaCreacion();
+        b.items = lineas;
+        b.createdAt = car.getCreatedAt();
         b.subtotal = subtotal;
 
         cambios.accept(b);
@@ -279,16 +279,16 @@ public final class Fakes {
     }
 
     // CodigoVirtual
-    public static CodigoVirtual generarCodigoFake(Producto producto, String texto) {
-        return generarCodigoFake(producto, texto, cv -> {});
+    public static VirtualCode generarCodigoFake(Product product, String texto) {
+        return generarCodigoFake(product, texto, cv -> {});
     }
 
-    public static CodigoVirtual generarCodigoFake(Producto producto, String texto, Consumer<CodigoVirtual> cambios) {
-        CodigoVirtual cv = new CodigoVirtual();
+    public static VirtualCode generarCodigoFake(Product product, String texto, Consumer<VirtualCode> cambios) {
+        VirtualCode cv = new VirtualCode();
         cv.setId(faker.number().numberBetween(1L, 100_000L));
-        cv.setProducto(producto);
-        cv.setCodigo(texto);
-        cv.setEstado(CodigoVirtual.EstadoCodigo.DISPONIBLE);
+        cv.setProduct(product);
+        cv.setCode(texto);
+        cv.setStatus(VirtualCode.CodeStatus.AVAILABLE);
         cambios.accept(cv);
         return cv;
     }

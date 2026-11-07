@@ -1,9 +1,9 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.AgregarCarrito;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.ActualizarCantidad;
-import com.ecommerce.FerreViky.dto.dtos.carrito.CarritoDTO.CarritoResponseDTO;
-import com.ecommerce.FerreViky.models.Cliente;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.AddCartItemRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.UpdateCartItemQuantityRequest;
+import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.CartResponse;
+import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -45,8 +45,8 @@ public class CartController {
     })
     @PostMapping
     public ResponseEntity<String> addToCart(
-            @Valid @RequestBody AgregarCarrito addRequest,
-            @AuthenticationPrincipal Cliente customer) {
+            @Valid @RequestBody AddCartItemRequest addRequest,
+            @AuthenticationPrincipal Customer customer) {
         cartService.addOrUpdateCartItem(addRequest, customer);
         return ResponseEntity.ok("Product added to cart");
     }
@@ -57,13 +57,13 @@ public class CartController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cart retrieved successfully",
-                    content = @Content(schema = @Schema(implementation = CarritoResponseDTO.class))),
+                    content = @Content(schema = @Schema(implementation = CartResponse.class))),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
             @ApiResponse(responseCode = "404", description = "The customer does not have a registered cart", content = @Content)
     })
     @GetMapping
-    public ResponseEntity<CarritoResponseDTO> getCart(
-            @AuthenticationPrincipal Cliente customer) {
+    public ResponseEntity<CartResponse> getCart(
+            @AuthenticationPrincipal Customer customer) {
         return ResponseEntity.ok(cartService.getCartByCustomer(customer));
     }
 
@@ -82,8 +82,8 @@ public class CartController {
     })
     @PutMapping
     public ResponseEntity<String> updateCart(
-            @Valid @RequestBody ActualizarCantidad quantityRequest,
-            @AuthenticationPrincipal Cliente customer) {
+            @Valid @RequestBody UpdateCartItemQuantityRequest quantityRequest,
+            @AuthenticationPrincipal Customer customer) {
         cartService.updateCartItemQuantity(quantityRequest, customer);
         return ResponseEntity.ok("Cart updated with the requested quantities");
     }
@@ -101,7 +101,7 @@ public class CartController {
     })
     @DeleteMapping
     public ResponseEntity<String> clearCart(
-            @AuthenticationPrincipal Cliente customer) {
+            @AuthenticationPrincipal Customer customer) {
         cartService.clearCart(customer);
         return ResponseEntity.ok("The entire cart was cleared");
     }
@@ -120,7 +120,7 @@ public class CartController {
     @DeleteMapping("/{productId}")
     public ResponseEntity<String> removeCartItem(
             @PathVariable Long productId,
-            @AuthenticationPrincipal Cliente customer) {
+            @AuthenticationPrincipal Customer customer) {
         cartService.removeProductFromCart(productId, customer);
         return ResponseEntity.ok("Product with ID " + productId + " removed");
     }

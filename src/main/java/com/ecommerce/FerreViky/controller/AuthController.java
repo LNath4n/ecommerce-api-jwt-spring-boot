@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.controller;
 
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.CustomerLoginRequest;
 import com.ecommerce.FerreViky.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -14,8 +14,6 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import static org.springframework.data.redis.connection.ReactiveStreamCommands.AddStreamRecord.body;
 
 @RestController
 @RequestMapping("/auth")
@@ -40,7 +38,7 @@ public class AuthController {
             @ApiResponse(responseCode = "401", description = "Incorrect credentials", content = @Content)
     })
     @PostMapping("/login")
-    public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginClienteDto dto) {
+    public ResponseEntity<AuthResponse> login(@Valid @RequestBody CustomerLoginRequest dto) {
         return ResponseEntity.ok(authService.login(dto));
     }
 
@@ -59,7 +57,7 @@ public class AuthController {
             @ApiResponse(responseCode = "500", description = "Internal error while creating the customer's cart", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<AuthResponse> registerCustomer(@Valid @RequestBody LoginClienteDto dto) {
+    public ResponseEntity<AuthResponse> registerCustomer(@Valid @RequestBody CustomerLoginRequest dto) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerCustomer(dto));
     }
 }

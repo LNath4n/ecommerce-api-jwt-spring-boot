@@ -1,13 +1,13 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.dtos.categoria.CategoriaDTO.CategoriaRequest;
-import com.ecommerce.FerreViky.dto.dtos.producto.ProductoDTO.CategoriaOpcionResponse;
+import com.ecommerce.FerreViky.dto.dtos.category.CategoryDTO.CategoryRequest;
+import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionResponse;
 import com.ecommerce.FerreViky.exceptions.categorias.CategoriasExceptions.CategoriaConProductosException;
 import com.ecommerce.FerreViky.exceptions.categorias.CategoriasExceptions.CategoriaDuplicadaException;
 import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
-import com.ecommerce.FerreViky.models.Categoria;
-import com.ecommerce.FerreViky.repository.CategoriaRepository;
-import com.ecommerce.FerreViky.repository.ProductoRepository;
+import com.ecommerce.FerreViky.models.Category;
+import com.ecommerce.FerreViky.repository.CategoryRepository;
+import com.ecommerce.FerreViky.repository.ProductRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -17,8 +17,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class CategoryService {
 
-    private final CategoriaRepository categoriaRepository;
-    private final ProductoRepository productoRepository;
+    private final CategoryRepository categoryRepository;
+    private final ProductRepository productRepository;
 
     /**
      * Creates a new category.
@@ -32,20 +32,20 @@ public class CategoryService {
      * @throws CategoriaDuplicadaException if a category with that name already exists
      */
     @Transactional
-    public CategoriaOpcionResponse createCategory(CategoriaRequest request) {
-        String nombre = request.nombre().trim();
+    public CategoryOptionResponse createCategory(CategoryRequest request) {
+        String name = request.name().trim();
 
-        if (categoriaRepository.existsByNombreIgnoreCase(nombre)) {
-            throw new CategoriaDuplicadaException(nombre);
+        if (categoryRepository.existsByNameIgnoreCase(name)) {
+            throw new CategoriaDuplicadaException(name);
         }
 
-        Categoria nueva = new Categoria();
-        nueva.setNombre(nombre);
+        Category newCategory = new Category();
+        newCategory.setName(name);
 
         try {
-            return toResponse(categoriaRepository.saveAndFlush(nueva));
+            return toResponse(categoryRepository.saveAndFlush(newCategory));
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaDuplicadaException(nombre); // Race condition / Carrera
+            throw new CategoriaDuplicadaException(name);
         }
     }
 
@@ -59,25 +59,25 @@ public class CategoryService {
      * @throws CategoriaDuplicadaException if another category already uses that name
      */
     @Transactional
-    public CategoriaOpcionResponse updateCategory(Long id, CategoriaRequest request) {
-        Categoria categoria = categoriaRepository.findById(id)
+    public CategoryOptionResponse updateCategory(Long id, CategoryRequest request) {
+        Category category = categoryRepository.findById(id)
                 .orElseThrow(() -> new CategoriaNoEncontradaException(id));
 
-        String nombre = request.nombre().trim();
+        String name = request.name().trim();
 
-        if (categoriaRepository.existsByNombreIgnoreCaseAndIdNot(nombre, id)) {
-            throw new CategoriaDuplicadaException(nombre);
+        if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
+            throw new CategoriaDuplicadaException(name);
         }
 
-        categoria.setNombre(nombre);
+        category.setName(name);
 
         try {
-            categoriaRepository.flush();
+            categoryRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaDuplicadaException(nombre);
+            throw new CategoriaDuplicadaException(name);
         }
 
-        return toResponse(categoria);
+        return toResponse(category);
     }
 
     /**
@@ -92,13 +92,13 @@ public class CategoryService {
      */
     @Transactional
     public void deleteCategory(Long id) {
-        if (productoRepository.existsByCategoriaId(id)) {
+        if (productRepository.existsByCategoryId(id)) {
             throw new CategoriaConProductosException(id);
         }
 
         try {
-            int filas = categoriaRepository.borrarPorId(id);
-            if (filas == 0) {
+            int deletedRows = categoryRepository.deleteCategoryById(id);
+            if (deletedRows == 0) {
                 throw new CategoriaNoEncontradaException(id);
             }
         } catch (DataIntegrityViolationException e) {
@@ -106,7 +106,7 @@ public class CategoryService {
         }
     }
 
-    private CategoriaOpcionResponse toResponse(Categoria c) {
-        return new CategoriaOpcionResponse(c.getId(), c.getNombre());
+    private CategoryOptionResponse toResponse(Category category) {
+        return new CategoryOptionResponse(category.getId(), category.getName());
     }
 }
