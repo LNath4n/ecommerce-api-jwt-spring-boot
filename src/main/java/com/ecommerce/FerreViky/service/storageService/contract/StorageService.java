@@ -6,15 +6,15 @@ import java.io.IOException;
 import java.time.Duration;
 
 public interface StorageService {
-    enum Carpeta {
-        PRODUCTOS("images/"), PERFILES("profiles/");
-        private final String prefijo;
-        Carpeta(String p) { this.prefijo = p; }
-        public String prefijo() { return prefijo; }
+    enum StorageFolder {
+        PRODUCTS("images/"), PROFILES("profiles/");
+        private final String prefix;
+        StorageFolder(String prefix) { this.prefix = prefix; }
+        public String prefix() { return prefix; }
     }
 
-    String upload(MultipartFile file, Carpeta carpeta) throws IOException;
+    String upload(MultipartFile file, StorageFolder folder) throws IOException;
     String getPublicUrl(String key);
-    String getPresignedUrl(String key, Duration validez);
+    String getPresignedUrl(String key, Duration validity);
     void deleteAfterCommit(String key);
 }

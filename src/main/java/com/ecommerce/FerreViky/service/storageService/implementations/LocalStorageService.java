@@ -23,40 +23,40 @@ public class LocalStorageService extends AbstractStorageService {
     private final Path root;
     private final String baseUrl;
 
-    public LocalStorageService(ImagenValidator v,
+    public LocalStorageService(ImagenValidator validator,
                                @Value("${app.storage.local-dir}") String dir,
                                @Value("${app.storage.base-url}") String baseUrl) {
-        super(v);
+        super(validator);
         this.root = Path.of(dir).toAbsolutePath().normalize();
         this.baseUrl = baseUrl;
     }
 
     @Override
-    protected void guardar(String key, byte[] data, String ext, Carpeta carpeta) throws IOException {
-        Path destino = resolver(key);
-        Files.createDirectories(destino.getParent());
-        Files.write(destino, data); // sobrescribe si existe
+    protected void storeObject(String key, byte[] data, String extension, StorageFolder folder) throws IOException {
+        Path destination = resolvePath(key);
+        Files.createDirectories(destination.getParent());
+        Files.write(destination, data); // Overwrites the file if it exists. / Sobrescribe el archivo si existe.
     }
 
-    // En dev no hay presigned: ambas carpetas se sirven por /uploads/**
+    // Dev does not use presigned URLs; both folders are served from /uploads/**. / En dev no hay URL prefirmada; ambas carpetas se sirven desde /uploads/**.
     @Override public String getPublicUrl(String key) {
         return (key == null || key.isBlank()) ? null : baseUrl + "/uploads/" + key;
     }
-    @Override public String getPresignedUrl(String key, Duration validez) { return getPublicUrl(key); }
+    @Override public String getPresignedUrl(String key, Duration validity) { return getPublicUrl(key); }
 
     @Override
-    protected void borrarSeguro(String key) {
+    protected void deleteSafely(String key) {
         try {
-            Files.deleteIfExists(resolver(key));
+            Files.deleteIfExists(resolvePath(key));
         } catch (Exception e) {
-            log.warn("No se pudo borrar {} del disco: {}", key, e.getMessage());
+            log.warn("Could not delete {} from disk: {}", key, e.getMessage());
         }
     }
 
-    private Path resolver(String key) {
-        Path p = root.resolve(key).normalize();
-        if (!p.startsWith(root)) throw new IllegalArgumentException("Key inválida");
-        return p;
+    private Path resolvePath(String key) {
+        Path resolvedPath = root.resolve(key).normalize();
+        if (!resolvedPath.startsWith(root)) throw new IllegalArgumentException("Invalid storage key");
+        return resolvedPath;
     }
 }
 

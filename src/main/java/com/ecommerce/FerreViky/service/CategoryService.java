@@ -15,24 +15,24 @@ import org.springframework.stereotype.Service;
 
 @AllArgsConstructor
 @Service
-public class CategoriaService {
+public class CategoryService {
 
     private final CategoriaRepository categoriaRepository;
     private final ProductoRepository productoRepository;
 
     /**
-     * Crea una categoría nueva.
+     * Creates a new category.
      *
-     * <p>El nombre se recorta y se valida que no exista otra categoría con el
-     * mismo nombre (sin distinguir mayúsculas). La restricción {@code unique}
-     * de la base de datos cubre el caso de concurrencia.</p>
+     * <p>The name is trimmed and checked against existing categories, ignoring
+     * capitalization. The database's {@code unique} constraint prevents duplicates
+     * when requests run concurrently.</p>
      *
-     * @param request datos de la categoría a crear
-     * @return la categoría creada en formato resumido
-     * @throws CategoriaDuplicadaException si ya existe una categoría con ese nombre
+     * @param request category details
+     * @return the created category in summary format
+     * @throws CategoriaDuplicadaException if a category with that name already exists
      */
     @Transactional
-    public CategoriaOpcionResponse crearCategoria(CategoriaRequest request) {
+    public CategoriaOpcionResponse createCategory(CategoriaRequest request) {
         String nombre = request.nombre().trim();
 
         if (categoriaRepository.existsByNombreIgnoreCase(nombre)) {
@@ -45,21 +45,21 @@ public class CategoriaService {
         try {
             return toResponse(categoriaRepository.saveAndFlush(nueva));
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaDuplicadaException(nombre); // carrera
+            throw new CategoriaDuplicadaException(nombre); // Race condition / Carrera
         }
     }
 
     /**
-     * Edita el nombre de una categoría existente.
+     * Updates the name of an existing category.
      *
-     * @param id      identificador de la categoría
-     * @param request nuevos datos de la categoría
-     * @return la categoría actualizada en formato resumido
-     * @throws CategoriaNoEncontradaException si no existe una categoría con ese id
-     * @throws CategoriaDuplicadaException    si otra categoría ya usa ese nombre
+     * @param id category ID
+     * @param request updated category details
+     * @return the updated category in summary format
+     * @throws CategoriaNoEncontradaException if the category does not exist
+     * @throws CategoriaDuplicadaException if another category already uses that name
      */
     @Transactional
-    public CategoriaOpcionResponse editarCategoria(Long id, CategoriaRequest request) {
+    public CategoriaOpcionResponse updateCategory(Long id, CategoriaRequest request) {
         Categoria categoria = categoriaRepository.findById(id)
                 .orElseThrow(() -> new CategoriaNoEncontradaException(id));
 
@@ -81,17 +81,17 @@ public class CategoriaService {
     }
 
     /**
-     * Elimina una categoría.
+     * Deletes a category.
      *
-     * <p>Si tiene productos asociados no se puede borrar; hay que reasignar o
-     * quitar la categoría de esos productos primero.</p>
+     * <p>A category with associated products cannot be deleted; reassign those
+     * products or remove their category first.</p>
      *
-     * @param id identificador de la categoría
-     * @throws CategoriaNoEncontradaException  si no existe una categoría con ese id
-     * @throws CategoriaConProductosException  si tiene productos asociados
+     * @param id category ID
+     * @throws CategoriaNoEncontradaException if the category does not exist
+     * @throws CategoriaConProductosException if the category has associated products
      */
     @Transactional
-    public void borrarCategoria(Long id) {
+    public void deleteCategory(Long id) {
         if (productoRepository.existsByCategoriaId(id)) {
             throw new CategoriaConProductosException(id);
         }

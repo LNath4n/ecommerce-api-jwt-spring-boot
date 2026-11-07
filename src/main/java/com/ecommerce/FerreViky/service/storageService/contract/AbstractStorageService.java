@@ -13,11 +13,11 @@ public abstract class AbstractStorageService implements StorageService {
     protected AbstractStorageService(ImagenValidator validator) { this.validator = validator; }
 
     @Override
-    public String upload(MultipartFile file, Carpeta carpeta) throws IOException {
-        ImagenValidator.ImagenLimpia img = validator.validarYSanitizar(file);
-        String key = carpeta.prefijo() + UUID.randomUUID() + img.ext();
-        guardar(key, img.data(), img.ext(), carpeta);
-        borrarSiHaceRollback(key);
+    public String upload(MultipartFile file, StorageFolder folder) throws IOException {
+        ImagenValidator.ImagenLimpia sanitizedImage = validator.validarYSanitizar(file);
+        String key = folder.prefix() + UUID.randomUUID() + sanitizedImage.ext();
+        storeObject(key, sanitizedImage.data(), sanitizedImage.ext(), folder);
+        deleteOnRollback(key);
         return key;
     }
 
@@ -27,22 +27,22 @@ public abstract class AbstractStorageService implements StorageService {
         if (key == null || key.isBlank()) return;
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override public void afterCommit() { borrarSeguro(key); }
+                @Override public void afterCommit() { deleteSafely(key); }
             });
         } else {
-            borrarSeguro(key);
+            deleteSafely(key);
         }
     }
 
-    private void borrarSiHaceRollback(String key) {
+    private void deleteOnRollback(String key) {
         if (!TransactionSynchronizationManager.isSynchronizationActive()) return;
         TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
             @Override public void afterCompletion(int status) {
-                if (status == STATUS_ROLLED_BACK) borrarSeguro(key);
+                if (status == STATUS_ROLLED_BACK) deleteSafely(key);
             }
         });
     }
 
-    protected abstract void guardar(String key, byte[] data, String ext, Carpeta carpeta) throws IOException;
-    protected abstract void borrarSeguro(String key); // nunca lanza excepción
+    protected abstract void storeObject(String key, byte[] data, String extension, StorageFolder folder) throws IOException;
+    protected abstract void deleteSafely(String key); // Never throws. / Nunca lanza una excepción.
 }

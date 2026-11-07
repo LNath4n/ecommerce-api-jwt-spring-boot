@@ -21,23 +21,23 @@ import static org.springframework.data.redis.connection.ReactiveStreamCommands.A
 @RequestMapping("/auth")
 @AllArgsConstructor
 @CrossOrigin("*")
-@Tag(name = "Clientes", description = "Operaciones de autenticación y registro de clientes")
+@Tag(name = "Customers", description = "Customer authentication and registration operations")
 public class AuthController {
 
     private final AuthService authService;
 
     @Operation(
-            summary = "Iniciar sesión",
-            description = "Autentica al cliente con email y contraseña. Devuelve un JWT válido para usar en endpoints protegidos."
+            summary = "Log in",
+            description = "Authenticates the customer with their email and password. Returns a JWT for use with protected endpoints."
     )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "200",
-                    description = "Autenticación exitosa. Se retorna el token JWT.",
+                    description = "Authentication successful. Returns the JWT.",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))
             ),
-            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos (validación fallida)", content = @Content),
-            @ApiResponse(responseCode = "401", description = "Credenciales incorrectas", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid input data (validation failed)", content = @Content),
+            @ApiResponse(responseCode = "401", description = "Incorrect credentials", content = @Content)
     })
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginClienteDto dto) {
@@ -45,21 +45,21 @@ public class AuthController {
     }
 
     @Operation(
-            summary = "Registrar nuevo cliente",
-            description = "Crea una cuenta nueva para el cliente y le asigna un carrito vacío automáticamente. Devuelve un JWT listo para usar."
+            summary = "Register a new customer",
+            description = "Creates a new customer account and automatically assigns an empty cart. Returns a JWT ready to use."
     )
     @ApiResponses({
             @ApiResponse(
                     responseCode = "201",
-                    description = "Cliente registrado exitosamente.",
+                    description = "Customer registered successfully.",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))
             ),
-            @ApiResponse(responseCode = "400", description = "Datos de entrada inválidos (validación fallida)", content = @Content),
-            @ApiResponse(responseCode = "409", description = "El email ya está registrado", content = @Content),
-            @ApiResponse(responseCode = "500", description = "Error interno al crear el carrito del cliente", content = @Content)
+            @ApiResponse(responseCode = "400", description = "Invalid input data (validation failed)", content = @Content),
+            @ApiResponse(responseCode = "409", description = "The email is already registered", content = @Content),
+            @ApiResponse(responseCode = "500", description = "Internal error while creating the customer's cart", content = @Content)
     })
     @PostMapping
-    public ResponseEntity<AuthResponse> crearCliente(@Valid @RequestBody LoginClienteDto dto) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authService.guardarCliente(dto));
+    public ResponseEntity<AuthResponse> registerCustomer(@Valid @RequestBody LoginClienteDto dto) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.registerCustomer(dto));
     }
 }
