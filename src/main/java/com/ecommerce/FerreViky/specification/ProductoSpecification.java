@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.specification;
 
-import com.ecommerce.FerreViky.models.Producto;
+import com.ecommerce.FerreViky.models.Product;
 import jakarta.persistence.criteria.Predicate;
 import org.springframework.data.jpa.domain.Specification;
 
@@ -9,45 +9,45 @@ import java.util.List;
 
 public class ProductoSpecification {
 
-    /** Solo productos activos (visibles en la tienda). */
-    public static Specification<Producto> soloActivos() {
-        return (root, query, cb) -> cb.isTrue(root.get("activo"));
+    /** Matches active products visible in the storefront. */
+    public static Specification<Product> activeOnly() {
+        return (root, query, cb) -> cb.isTrue(root.get("active"));
     }
 
     /**
-     * Cada palabra del texto debe aparecer en al menos uno de los campos.
+     * Each word in the text must appear in at least one field.
      */
-    public static Specification<Producto> buscarPorTexto(String texto) {
+    public static Specification<Product> byText(String text) {
         return (root, query, cb) -> {
-            if (texto == null || texto.isBlank()) {
-                return cb.conjunction(); // sin filtro
+            if (text == null || text.isBlank()) {
+                return cb.conjunction(); // No filter. / Sin filtro.
             }
 
-            List<Predicate> porPalabra = new ArrayList<>();
-            for (String palabra : texto.trim().toLowerCase().split("\\s+")) {
-                String patron = "%" + palabra + "%";
-                porPalabra.add(cb.or(
-                        cb.like(cb.lower(root.get("nombre")), patron),
-                        cb.like(cb.lower(root.get("sku")), patron),
-                        cb.like(cb.lower(root.get("plataforma")), patron),
-                        cb.like(cb.lower(root.get("descripcion")), patron)
+            List<Predicate> wordPredicates = new ArrayList<>();
+            for (String word : text.trim().toLowerCase().split("\\s+")) {
+                String pattern = "%" + word + "%";
+                wordPredicates.add(cb.or(
+                        cb.like(cb.lower(root.get("name")), pattern),
+                        cb.like(cb.lower(root.get("sku")), pattern),
+                        cb.like(cb.lower(root.get("platform")), pattern),
+                        cb.like(cb.lower(root.get("description")), pattern)
                 ));
             }
-            return cb.and(porPalabra.toArray(new Predicate[0]));
+            return cb.and(wordPredicates.toArray(new Predicate[0]));
         };
     }
 
-    public static Specification<Producto> conPlataforma(String plataforma) {
+    public static Specification<Product> withPlatform(String platform) {
         return (root, query, cb) ->
-                (plataforma == null || plataforma.isBlank())
+                (platform == null || platform.isBlank())
                         ? cb.conjunction()
-                        : cb.equal(root.get("plataforma"), plataforma);
+                        : cb.equal(root.get("platform"), platform);
     }
 
-    public static Specification<Producto> conCategoria(Long categoriaId) {
+    public static Specification<Product> withCategory(Long categoryId) {
         return (root, query, cb) ->
-                categoriaId == null
+                categoryId == null
                         ? cb.conjunction()
-                        : cb.equal(root.get("categoria").get("id"), categoriaId);
+                        : cb.equal(root.get("category").get("id"), categoryId);
     }
 }

@@ -21,19 +21,19 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import java.util.List;
 
 /**
- * Configuración central de Spring Security para la aplicación.
- * <p>
- * Define la cadena de filtros de seguridad con las siguientes reglas:
+ * Central Spring Security configuration for the application.
+ *
+ * <p>Defines the security filter chain with these rules:</p>
  * <ul>
- *   <li>CSRF deshabilitado — la API es stateless y usa JWT, por lo que no aplica protección CSRF.</li>
- *   <li>Sesiones deshabilitadas — {@link SessionCreationPolicy#STATELESS} para que Spring Security
- *       no cree ni use sesiones HTTP.</li>
- *   <li>Rutas públicas: {@code /auth/**} (login y registro) y {@code /productos/**} (catálogo).</li>
- *   <li>Cualquier otra ruta requiere autenticación JWT válida.</li>
- *   <li>El {@link JwtAuthenticationFilter} se ejecuta antes del filtro estándar de Spring Security
- *       para inyectar la autenticación desde el token antes de que se evalúen las reglas de acceso.</li>
- *   <li>Los orígenes CORS permitidos se leen de {@code app.cors.allowed-origins}, definido por perfil
- *       (dev / prod).</li>
+ *   <li>CSRF is disabled because the API is stateless and uses JWT authentication.</li>
+ *   <li>Sessions are disabled with {@link SessionCreationPolicy#STATELESS}.</li>
+ *   <li>Public routes are {@code /auth/**} (login and registration) and
+ *       {@code /products/**} (the catalog).</li>
+ *   <li>All other routes require a valid JWT.</li>
+ *   <li>{@link JwtAuthenticationFilter} runs before Spring Security's standard
+ *       filter to authenticate the request from its token.</li>
+ *   <li>Allowed CORS origins come from {@code app.cors.allowed-origins}, configured
+ *       by profile (dev / prod).</li>
  * </ul>
  */
 @Configuration
@@ -45,15 +45,15 @@ public class SecurityConfig {
     private final AuthenticationProvider authenticationProvider;
 
     /**
-     * Define y construye la cadena de filtros de seguridad HTTP.
-     * <p>
-     * El orden de filtros resultante es:
-     * {@code JwtAuthenticationFilter → UsernamePasswordAuthenticationFilter → ...resto de la cadena}
+     * Builds the HTTP security filter chain.
      *
-     * @param http                    builder de configuración de seguridad HTTP de Spring
-     * @param corsConfigurationSource configuración CORS según el perfil activo
-     * @return {@link SecurityFilterChain} configurada y lista para registrarse en el contexto
-     * @throws Exception si la configuración de Spring Security falla al construir la cadena
+     * <p>The resulting filter order is
+     * {@code JwtAuthenticationFilter → UsernamePasswordAuthenticationFilter → ...rest of the chain}.</p>
+     *
+     * @param http the Spring HTTP security configuration builder
+     * @param corsConfigurationSource CORS configuration for the active profile
+     * @return the configured {@link SecurityFilterChain}
+     * @throws Exception if Spring Security fails to build the chain
      */
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http,
@@ -68,7 +68,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/productos/**").permitAll()
+                        .requestMatchers("/products/**").permitAll()
                         .requestMatchers("/health/**").permitAll()
                         .requestMatchers("/admin/**").hasAuthority("ADMIN") //Podria ponerlo en el EndPoint pero sera mejor aqui
                         .anyRequest().authenticated()
@@ -82,8 +82,8 @@ public class SecurityConfig {
     }
 
     /**
-     * Configuración CORS. Los orígenes permitidos vienen de {@code app.cors.allowed-origins}
-     * (separados por coma si son varios), definido en application-dev / application-prod.
+     * Configures CORS using {@code app.cors.allowed-origins}, a comma-separated
+     * list defined in {@code application-dev} or {@code application-prod}.
      */
     @Bean
     public CorsConfigurationSource corsConfigurationSource(

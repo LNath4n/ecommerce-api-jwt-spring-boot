@@ -1,17 +1,16 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.AuthResponse;
-import com.ecommerce.FerreViky.dto.dtos.cliente.ClienteDTO.LoginClienteDto;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ErrorAlCrearCarritoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.AuthResponse;
+import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.CustomerLoginRequest;
+import com.ecommerce.FerreViky.exceptions.cart.CartExceptions.CartCreationException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerNotFoundException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.EmailAlreadyExistsException;
 import com.ecommerce.FerreViky.jwt.JwtService;
-import com.ecommerce.FerreViky.mapper.cliente.ClienteMappers;
-import com.ecommerce.FerreViky.models.Carrito;
-import com.ecommerce.FerreViky.models.Cliente;
-import com.ecommerce.FerreViky.repository.CarritoRepository;
-import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.mapper.customer.CustomerMapper;
+import com.ecommerce.FerreViky.models.Cart;
+import com.ecommerce.FerreViky.models.Customer;
+import com.ecommerce.FerreViky.repository.CartRepository;
+import com.ecommerce.FerreViky.repository.CustomerRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,124 +23,124 @@ import java.time.LocalDateTime;
 import java.util.Locale;
 
 /**
- * Servicio de autenticación de clientes: inicio de sesión y registro.
+ * Customer authentication service for sign-in and registration.
  * <p>
- * Ambas operaciones devuelven un JWT listo para usarse en las siguientes peticiones.
+ * Both operations return a JWT for use in subsequent requests.
  */
 @Service
 @AllArgsConstructor
 public class AuthService {
 
-    private final ClienteRepository clienteRepository;
-    private final CarritoRepository carritoRepository;
-    private final ClienteMappers clienteMappers;
+    private final CustomerRepository customerRepository;
+    private final CartRepository cartRepository;
+    private final CustomerMapper customerMapper;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
 
     /**
-     * Autentica al cliente con sus credenciales y genera un token JWT.
+     * Authenticates a customer with their credentials and generates a JWT.
      * <p>
-     * La validación la hace el {@link AuthenticationManager}, que lanza una excepción
-     * si las credenciales son incorrectas. El email se normaliza antes de autenticar.
+     * The {@link AuthenticationManager} validates the credentials and throws an
+     * exception if they are invalid. The email is normalized before authentication.
      *
-     * @param dto email y contraseña del cliente
-     * @return {@link AuthResponse} con el JWT generado
-     * @throws org.springframework.security.core.AuthenticationException si las credenciales son inválidas
-     * @throws ClienteNoEncontradoException                            si el cliente no existe tras autenticar
+     * @param dto customer's email and password
+     * @return an {@link AuthResponse} containing the generated JWT
+     * @throws org.springframework.security.core.AuthenticationException if the credentials are invalid
+     * @throws CustomerNotFoundException if the customer cannot be found after authentication
      */
-    public AuthResponse login(LoginClienteDto dto) {
-        String email = normalizarEmail(dto.email());
+    public AuthResponse login(CustomerLoginRequest dto) {
+        String email = normalizeEmail(dto.email());
 
         authenticationManager.authenticate(
                 new UsernamePasswordAuthenticationToken(email, dto.password())
         );
 
-        Cliente cliente = clienteRepository.findByEmail(email)
-                .orElseThrow(()-> new ClienteNoEncontradoException(dto.email()));
+        Customer customer = customerRepository.findByEmail(email)
+                .orElseThrow(()-> new CustomerNotFoundException(dto.email()));
 
-        return new AuthResponse(jwtService.getToken(cliente));
+        return new AuthResponse(jwtService.getToken(customer));
     }
 
     /**
-     * Registra un nuevo cliente y crea su carrito vacío en la misma transacción.
+     * Registers a new customer and creates an empty cart in the same transaction.
      * <p>
-     * Pasos:
+     * The process:
      * <ol>
-     *   <li>Verifica que el email no esté registrado.</li>
-     *   <li>Persiste el cliente con la contraseña encriptada.</li>
-     *   <li>Crea y persiste su {@link Carrito}.</li>
-     *   <li>Genera un JWT para que pueda operar sin iniciar sesión de nuevo.</li>
+     *   <li>Checks that the email is not already registered.</li>
+     *   <li>Saves the customer with an encoded password.</li>
+     *   <li>Creates and saves their {@link Cart}.</li>
+     *   <li>Generates a JWT so they can use the API without signing in again.</li>
      * </ol>
-     * Si cualquier paso falla, la transacción completa se revierte.
+     * If any step fails, the entire transaction is rolled back.
      *
-     * @param dto email y contraseña del nuevo cliente
-     * @return {@link AuthResponse} con el JWT del cliente recién registrado
-     * @throws EmailYaExisteException       si el email ya está registrado
-     * @throws ErrorAlCrearCarritoException si falla la creación del carrito
+     * @param dto new customer's email and password
+     * @return an {@link AuthResponse} containing the new customer's JWT
+     * @throws EmailAlreadyExistsException if the email is already registered
+     * @throws CartCreationException if cart creation fails
      */
     @Transactional
-    public AuthResponse guardarCliente(LoginClienteDto dto) {
-        String email = normalizarEmail(dto.email());
+    public AuthResponse registerCustomer(CustomerLoginRequest dto) {
+        String email = normalizeEmail(dto.email());
 
-        if (clienteRepository.existsByEmail(email)) {
-            throw new EmailYaExisteException(email);
+        if (customerRepository.existsByEmail(email)) {
+            throw new EmailAlreadyExistsException(email);
         }
 
-        Cliente cliente = persistirCliente(dto, email);
-        crearCarrito(cliente);
+        Customer customer = persistCustomer(dto, email);
+        createCart(customer);
 
-        return new AuthResponse(jwtService.getToken(cliente));
+        return new AuthResponse(jwtService.getToken(customer));
     }
 
     /**
-     * Construye y guarda el cliente con la contraseña encriptada.
+     * Builds and saves a customer with an encoded password.
      * <p>
-     * Si dos registros con el mismo email llegan a la vez, el segundo en guardar
-     * choca con la restricción de unicidad y se reporta como email ya existente.
+     * If two registrations with the same email arrive concurrently, the second
+     * one fails the unique constraint and is reported as a duplicate email.
      *
-     * @param dto   datos del cliente
-     * @param email email ya normalizado
-     * @return el cliente persistido
-     * @throws EmailYaExisteException si la base de datos rechaza el email por duplicado
+     * @param dto customer details
+     * @param email normalized email
+     * @return the saved customer
+     * @throws EmailAlreadyExistsException if the database rejects the email as a duplicate
      */
-    private Cliente persistirCliente(LoginClienteDto dto, String email) {
-        Cliente cliente = clienteMappers.DtoLoginACliente(dto);
-        cliente.setEmail(email);
-        cliente.setPassword(passwordEncoder.encode(dto.password()));
+    private Customer persistCustomer(CustomerLoginRequest dto, String email) {
+        Customer customer = customerMapper.fromLoginRequest(dto);
+        customer.setEmail(email);
+        customer.setPassword(passwordEncoder.encode(dto.password()));
 
         try {
-            return clienteRepository.saveAndFlush(cliente);
+            return customerRepository.saveAndFlush(customer);
         } catch (DataIntegrityViolationException e) {
-            throw new EmailYaExisteException(email);
+            throw new EmailAlreadyExistsException(email);
         }
     }
 
     /**
-     * Crea y guarda un carrito vacío asociado al cliente.
+     * Creates and saves an empty cart for the customer.
      *
-     * @param cliente cliente dueño del carrito
-     * @throws ErrorAlCrearCarritoException si ocurre un error al persistirlo
+     * @param customer customer who owns the cart
+     * @throws CartCreationException if saving the cart fails
      */
-    private void crearCarrito(Cliente cliente) {
-        Carrito carrito = new Carrito();
-        carrito.setCliente(cliente);
-        carrito.setFechaCreacion(LocalDateTime.now());
+    private void createCart(Customer customer) {
+        Cart cart = new Cart();
+        cart.setCustomer(customer);
+        cart.setCreatedAt(LocalDateTime.now());
 
         try {
-            carritoRepository.saveAndFlush(carrito);
+            cartRepository.saveAndFlush(cart);
         } catch (Exception e) {
-            throw new ErrorAlCrearCarritoException(cliente.getId(), e);
+            throw new CartCreationException(customer.getId(), e);
         }
     }
 
     /**
-     * Quita espacios y pasa el email a minúsculas para comparar de forma consistente.
+     * Trims whitespace and converts the email to lowercase for consistent comparisons.
      *
-     * @param email email recibido, puede ser {@code null}
-     * @return el email normalizado, o {@code null} si era {@code null}
+     * @param email input email, which may be {@code null}
+     * @return the normalized email, or {@code null} if the input was {@code null}
      */
-    private String normalizarEmail(String email) {
+    private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase(Locale.ROOT);
     }
 }

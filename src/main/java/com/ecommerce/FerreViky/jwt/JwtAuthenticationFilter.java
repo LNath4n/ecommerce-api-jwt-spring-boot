@@ -21,43 +21,42 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Filtro de autenticación JWT que se ejecuta una sola vez por petición HTTP.
- * <p>
- * Se registra antes de {@link org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter}
- * en la cadena de filtros de Spring Security. Su responsabilidad es:
+ * JWT authentication filter that runs once per HTTP request.
+ *
+ * <p>Registered before
+ * {@link org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter}
+ * in Spring Security's filter chain. It:</p>
  * <ol>
- *   <li>Extraer el token JWT del header {@code Authorization: Bearer <token>}.</li>
- *   <li>Validar el token y obtener el username (email) del cliente.</li>
- *   <li>Cargar el {@link UserDetails} y, si el token es válido, inyectar la autenticación
- *       en el {@link SecurityContextHolder} para que los endpoints protegidos puedan acceder
- *       al principal via {@code @AuthenticationPrincipal}.</li>
+ *   <li>Extracts the JWT from the {@code Authorization: Bearer <token>} header.</li>
+ *   <li>Validates the token and retrieves the customer's username (email).</li>
+ *   <li>Loads {@link UserDetails} and, for a valid token, sets authentication in
+ *       the {@link SecurityContextHolder} so protected endpoints can access the
+ *       principal through {@code @AuthenticationPrincipal}.</li>
  * </ol>
- * Si el header no existe o el token no es válido, la petición continúa sin autenticación
- * y Spring Security la rechazará si el endpoint lo requiere.
+ * If the header is missing or the token is invalid, the request continues
+ * unauthenticated and Spring Security rejects it if authentication is required.
  */
 @Component
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta una vez por cada request antes del controller
 
     private static final List<String> PUBLIC_PATHS = List.of(
-            "/auth", "/productos", "/health", "/error"
+            "/auth", "/products", "/health", "/error"
     );
 
     private final JwtService jwtService;
     private final UserDetailsService userDetailsService;
 
     /**
-     * Indica si el filtro debe omitirse para la petición actual.
-     * <p>
-     * Se omite en las peticiones {@code OPTIONS} (preflight de CORS) y en las rutas públicas
-     * definidas en {@link #PUBLIC_PATHS}, de modo que un Bearer inválido o expirado
-     * no afecte a endpoints que no requieren autenticación.
-     * <p>
-     * Esta lista debe mantenerse sincronizada con los {@code permitAll()} del
-     * {@code SecurityFilterChain}.
+     * Determines whether the filter should be skipped for the current request.
      *
-     * @param request petición HTTP entrante
-     * @return {@code true} si el filtro no debe ejecutarse para esta petición
+     * <p>Skips {@code OPTIONS} requests (CORS preflight) and the public routes in
+     * {@link #PUBLIC_PATHS}, so an invalid or expired bearer token does not affect
+     * endpoints that do not require authentication. Keep this list synchronized
+     * with {@code permitAll()} in the {@code SecurityFilterChain}.</p>
+     *
+     * @param request incoming HTTP request
+     * @return {@code true} if the filter should be skipped
      */
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -67,12 +66,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta
     }
 
     /**
-     * Lógica principal del filtro. Extrae y valida el JWT; si es válido, establece
-     * la autenticación en el contexto de seguridad para el resto de la cadena.
+     * Extracts and validates the JWT, then sets authentication in the security
+     * context for the rest of the filter chain when the token is valid.
      *
-     * @param request     petición HTTP entrante
-     * @param response    respuesta HTTP
-     * @param filterChain cadena de filtros a la que se le pasa el control al terminar
+     * @param request incoming HTTP request
+     * @param response HTTP response
+     * @param filterChain filter chain to continue after processing
      */
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -118,13 +117,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta
     }
 
     /**
-     * Extrae el token JWT crudo del header {@code Authorization}.
-     * <p>
-     * Solo acepta el esquema {@code Bearer}: si el header tiene otro formato o está ausente,
-     * retorna {@code null} y el filtro deja pasar la petición sin autenticar.
+     * Extracts the raw JWT from the {@code Authorization} header.
      *
-     * @param request petición HTTP de la que se extrae el header
-     * @return el token JWT sin el prefijo {@code "Bearer "}, o {@code null} si no aplica
+     * <p>Accepts only the {@code Bearer} scheme. If the header is absent or has
+     * another format, returns {@code null} and the filter continues without
+     * authenticating the request.</p>
+     *
+     * @param request HTTP request containing the header
+     * @return the JWT without the {@code "Bearer "} prefix, or {@code null} if not applicable
      */
     private String getTokenFromRequest(HttpServletRequest request) {
         final String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);

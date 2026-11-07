@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.jwt;
 
-import com.ecommerce.FerreViky.models.Cliente;
+import com.ecommerce.FerreViky.models.Customer;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
@@ -17,11 +17,11 @@ import java.util.Map;
 import java.util.function.Function;
 
 /**
- * Servicio encargado de generar, parsear y validar tokens JWT.
- * <p>
- * Usa HMAC-SHA256 con una clave secreta configurada en {@code application.properties}
- * bajo la propiedad {@code jwt.secret-key} (Base64-encoded).
- * Los tokens tienen una vigencia de 24 minutos desde su emisión.
+ * Service for issuing, parsing, and validating JWTs.
+ *
+ * <p>Uses HMAC-SHA256 with a Base64-encoded secret configured in
+ * {@code application.properties} under {@code jwt.secret-key}. Tokens expire
+ * 24 minutes after issuance.</p>
  */
 @Service
 public class JwtService {
@@ -30,11 +30,9 @@ public class JwtService {
     private String SECRET_KEY;
 
     /**
-     * Construye la clave de firma HMAC a partir del secreto Base64 configurado.
-     * Se llama en cada operación de firma/parseo para no mantener la clave en memoria
-     * más tiempo del necesario.
+     * Builds the HMAC signing key from the configured Base64 secret.
      *
-     * @return {@link Key} lista para firmar o verificar con HMAC-SHA256
+     * @return a {@link Key} for signing or verifying with HMAC-SHA256
      */
     private Key getKey() {
         byte[] keyBytes = Decoders.BASE64.decode(SECRET_KEY);
@@ -42,40 +40,39 @@ public class JwtService {
     }
 
     /**
-     * Genera un token JWT para el cliente sin claims adicionales.
+     * Generates a JWT for a customer without additional claims.
      *
-     * @param cliente cliente autenticado cuyo username (email) se usa como subject
-     * @return token JWT firmado
+     * @param customer authenticated customer whose email is used as the subject
+     * @return signed JWT
      */
-    public String getToken(Cliente cliente) {
+    public String getToken(Customer customer) {
         Map<String, Object> extraClaims = new HashMap<>();
-        //String nombre = (cliente.getNombre() != null && !cliente.getNombre().isBlank()) ? cliente.getNombre() : cliente.getUsername();
-        //extraClaims.put("nombre", nombre); Se volvio algo inutil ya que se regresa en el Endpoint de clietne
-        extraClaims.put("role", cliente.getRol().name()); // "ADMIN" o "USER"
-        extraClaims.put("uid", cliente.getId()); //Alguien no puede ahora entrar a su correo viejo
-        extraClaims.put("tv", cliente.getTokenVersion()); // Si cambiamos contrasena saca a todos
-        return getToken(extraClaims, cliente);
+        // The name is returned by the profile endpoint, so it is not duplicated in the JWT. / El nombre se devuelve en el endpoint del perfil y no se duplica en el JWT.
+        extraClaims.put("role", customer.getRole().name()); // "ADMIN" or "USER" / "ADMIN" o "USER"
+        extraClaims.put("uid", customer.getId()); // Prevents access with an old email address. / Evita el acceso con un correo anterior.
+        extraClaims.put("tv", customer.getTokenVersion()); // Invalidates prior tokens after a password change. / Invalida los tokens anteriores al cambiar la contraseña.
+        return getToken(extraClaims, customer);
     }
 
     /**
-     * Genera un token JWT con claims personalizados adicionales.
-     * <p>
-     * El token incluye:
+     * Generates a JWT with additional custom claims.
+     *
+     * <p>The token includes:</p>
      * <ul>
-     *   <li>Los {@code extraClaims} proporcionados (pueden estar vacíos).</li>
-     *   <li>{@code sub}: username del cliente (email).</li>
-     *   <li>{@code iat}: timestamp de emisión.</li>
-     *   <li>{@code exp}: timestamp de expiración (24 minutos desde emisión).</li>
+     *   <li>The supplied {@code extraClaims} (which may be empty).</li>
+     *   <li>{@code sub}: the customer's username (email).</li>
+     *   <li>{@code iat}: the issuance timestamp.</li>
+     *   <li>{@code exp}: the expiration timestamp (24 minutes after issuance).</li>
      * </ul>
      *
-     * @param extraClaims claims adicionales a incluir en el payload del token
-     * @param cliente     cliente cuyo username se usa como subject
-     * @return token JWT compacto y firmado con HMAC-SHA256
+     * @param extraClaims additional claims to include in the token payload
+     * @param customer customer whose username is used as the subject
+     * @return a compact JWT signed with HMAC-SHA256
      */
-    public String getToken(Map<String, Object> extraClaims, Cliente cliente) {
+    public String getToken(Map<String, Object> extraClaims, Customer customer) {
         return Jwts.builder()
                 .setClaims(extraClaims) //Datos extra
-                .setSubject(cliente.getUsername()) //sub = email
+                .setSubject(customer.getUsername()) //sub = email
                 .setIssuedAt(new Date(System.currentTimeMillis())) // iat = cuando se creo
                 .setExpiration(new Date(System.currentTimeMillis() + 1000 * 60 * 24)) //exp = cuando vence
                 .signWith(getKey(), SignatureAlgorithm.HS256) // firma
@@ -83,42 +80,43 @@ public class JwtService {
     }
 
     /**
-     * Extrae el username (email del cliente) del claim {@code sub} del token.
+     * Extracts the username (customer email) from the token's {@code sub} claim.
      *
-     * @param token JWT del que se extrae el subject
-     * @return username contenido en el token
+     * @param token JWT containing the subject
+     * @return the username in the token
      */
     public String getUsernameFromToken(String token) {
         return getClaim(token, Claims::getSubject);
     }
 
     /**
-     * Valida que el token sea auténtico y no haya expirado para el usuario dado.
+     * Validates that the token is authentic and has not expired for the given user.
      *
-     * @param token       JWT a validar
-     * @param userDetails detalles del usuario cargado desde la BD
-     * @return {@code true} si el username del token coincide con el del usuario y el token no ha expirado
+     * @param token JWT to validate
+     * @param userDetails user loaded from the database
+     * @return {@code true} if the token username matches the user and the token is not expired
      */
     public boolean isTokenValid(String token, UserDetails userDetails) {
         final String username = getUsernameFromToken(token);
         Long uid = getClaim(token, c -> c.get("uid", Long.class));
         Integer tv = getClaim(token, c -> c.get("tv", Integer.class));
 
-        if (!(userDetails instanceof Cliente cliente)) return false;
+        if (!(userDetails instanceof Customer customer)) return false;
 
         return username.equals(userDetails.getUsername())
-                && uid != null && uid.equals(cliente.getId())
-                && tv != null && tv == cliente.getTokenVersion()
+                && uid != null && uid.equals(customer.getId())
+                && tv != null && tv == customer.getTokenVersion()
                 && !isTokenExpired(token)
                 && userDetails.isEnabled();
     }
 
     /**
-     * Parsea y retorna todos los claims del token, verificando la firma con la clave secreta.
-     * Lanza excepción si el token es inválido, está malformado o la firma no coincide.
+     * Parses all token claims and verifies the signature with the secret key.
+     * Throws an exception if the token is invalid, malformed, or has a
+     * mismatched signature.
      *
-     * @param token JWT a parsear
-     * @return {@link Claims} con el payload completo del token
+     * @param token JWT to parse
+     * @return {@link Claims} containing the full token payload
      */
     private Claims getAllClaims(String token) {
         return Jwts
@@ -130,14 +128,14 @@ public class JwtService {
     }
 
     /**
-     * Extrae un claim específico del token aplicando una función resolutora.
-     * <p>
-     * Ejemplo de uso: {@code getClaim(token, Claims::getSubject)} para obtener el username.
+     * Extracts a specific claim by applying a resolver function.
      *
-     * @param token          JWT del que se extraen los claims
-     * @param claimsResolver función que mapea los claims al valor deseado
-     * @param <T>            tipo del valor retornado
-     * @return el claim extraído y transformado
+     * <p>For example, use {@code getClaim(token, Claims::getSubject)} to get the username.</p>
+     *
+     * @param token JWT containing the claims
+     * @param claimsResolver function that maps the claims to the desired value
+     * @param <T> type of the returned value
+     * @return the extracted and transformed claim
      */
     public <T> T getClaim(String token, Function<Claims, T> claimsResolver) {
         final Claims claims = getAllClaims(token);
@@ -145,20 +143,20 @@ public class JwtService {
     }
 
     /**
-     * Obtiene la fecha de expiración del token.
+     * Gets the token's expiration date.
      *
-     * @param token JWT del que se extrae la expiración
-     * @return fecha de expiración del token
+     * @param token JWT containing the expiration
+     * @return the token's expiration date
      */
     private Date getExpiration(String token) {
         return getClaim(token, Claims::getExpiration);
     }
 
     /**
-     * Verifica si el token ya expiró comparando su fecha de expiración con la fecha actual.
+     * Checks whether the token has expired by comparing its expiration date with the current time.
      *
-     * @param token JWT a evaluar
-     * @return {@code true} si el token ya expiró
+     * @param token JWT to check
+     * @return {@code true} if the token has expired
      */
     private boolean isTokenExpired(String token) {
         return getExpiration(token).before(new Date());

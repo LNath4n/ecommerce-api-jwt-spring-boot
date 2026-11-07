@@ -15,14 +15,14 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 @CrossOrigin("*")
 @RequestMapping("/health")
-@Tag(name = "Health", description = "Consulta el estado de el API")
+@Tag(name = "Health", description = "Checks the API status")
 public class HealthController {
     @GetMapping
-    @Operation(summary = "Obtener versión", description = "Retorna la versión actual de la API")
+    @Operation(summary = "Get version", description = "Returns the current API version")
     @ApiResponses({
-            @ApiResponse(responseCode = "200", description = "Versión obtenida exitosamente")
+            @ApiResponse(responseCode = "200", description = "Version retrieved successfully")
     })
-    public ResponseEntity<String> obtenerVersion() {
-        return ResponseEntity.ok("Version 3.0 : Now using Postman and Redis in the project :)");
+    public ResponseEntity<String> getVersion() {
+        return ResponseEntity.ok("Version 3.1: The project now uses Postman and Redis :)");
     }
 }

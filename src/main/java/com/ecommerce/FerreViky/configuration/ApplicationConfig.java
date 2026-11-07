@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.configuration;
 
-import com.ecommerce.FerreViky.repository.ClienteRepository;
+import com.ecommerce.FerreViky.repository.CustomerRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,38 +11,36 @@ import org.springframework.security.config.annotation.authentication.configurati
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
-import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 
 /**
- * Configuración de los beans de autenticación usados por Spring Security.
- * <p>
- * Esta clase define toda la infraestructura necesaria para autenticar clientes
- * contra la base de datos: cómo se cargan los usuarios ({@link UserDetailsService}),
- * cómo se verifican sus contraseñas ({@link PasswordEncoder}) y cómo se combinan
- * ambos en un {@link AuthenticationProvider}. Estos beans son consumidos por
- * {@code SecurityConfig} para armar la cadena de filtros de seguridad, y por los
- * servicios de login que necesiten autenticar credenciales manualmente.
+ * Configuration for the authentication beans used by Spring Security.
+ *
+ * <p>This class defines the infrastructure required to authenticate customers
+ * against the database: loading users through {@link UserDetailsService},
+ * verifying passwords with {@link PasswordEncoder}, and combining both in an
+ * {@link AuthenticationProvider}. These beans are used by {@code SecurityConfig}
+ * to build the security filter chain and by login services that authenticate
+ * credentials manually.</p>
  */
 @Configuration
 @RequiredArgsConstructor
 public class ApplicationConfig {
 
-    private final ClienteRepository clienteRepository;
+    private final CustomerRepository customerRepository;
 
     /**
-     * Expone el {@link AuthenticationManager} por defecto de Spring Security.
-     * <p>
-     * Se delega en {@link AuthenticationConfiguration} para reutilizar el manager
-     * que Spring construye automáticamente a partir de los beans de autenticación
-     * ya definidos en este mismo archivo (como {@link #authenticationProvider()}).
-     * Este bean es el que se inyecta en servicios de login para autenticar
-     * credenciales con {@code authenticationManager.authenticate(...)}.
+     * Exposes Spring Security's default {@link AuthenticationManager}.
      *
-     * @param config configuración de autenticación gestionada internamente por Spring Security
-     * @return el {@link AuthenticationManager} listo para autenticar credenciales
-     * @throws Exception si Spring Security falla al construir el manager
+     * <p>Delegates to {@link AuthenticationConfiguration} to reuse the manager
+     * Spring builds from the authentication beans defined in this class, such
+     * as {@link #authenticationProvider()}. Login services use this bean to
+     * authenticate credentials with {@code authenticationManager.authenticate(...)}.</p>
+     *
+     * @param config authentication configuration managed by Spring Security
+     * @return the {@link AuthenticationManager} ready to authenticate credentials
+     * @throws Exception if Spring Security fails to build the manager
      */
     @Bean
     public AuthenticationManager authenticationManager (AuthenticationConfiguration config) throws Exception{
@@ -50,15 +48,14 @@ public class ApplicationConfig {
     }
 
     /**
-     * Define el proveedor de autenticación basado en acceso a base de datos (DAO).
-     * <p>
-     * Conecta el {@link UserDetailsService} (que carga el {@code Cliente} por email)
-     * con el {@link PasswordEncoder} (que verifica la contraseña con BCrypt). Es este
-     * provider el que Spring Security usa para validar las credenciales durante el
-     * login.
+     * Defines the database-backed authentication provider (DAO).
      *
-     * @return {@link AuthenticationProvider} configurado con el {@link UserDetailsService}
-     *         y el {@link PasswordEncoder} de la aplicación
+     * <p>Connects the {@link UserDetailsService}, which loads a {@code Customer}
+     * by email, with the {@link PasswordEncoder}, which verifies the password
+     * with BCrypt. Spring Security uses this provider to validate login credentials.</p>
+     *
+     * @return an {@link AuthenticationProvider} configured with the application's
+     *         {@link UserDetailsService} and {@link PasswordEncoder}
      */
     @Bean
     public AuthenticationProvider authenticationProvider(){
@@ -68,13 +65,12 @@ public class ApplicationConfig {
     }
 
     /**
-     * Codificador de contraseñas usado tanto al registrar clientes como al
-     * verificar sus credenciales en el login.
-     * <p>
-     * Usa BCrypt, que aplica un salt aleatorio distinto por contraseña y es el
-     * algoritmo recomendado por Spring Security para el hashing de contraseñas.
+     * Encodes passwords during customer registration and credential verification.
      *
-     * @return instancia de {@link BCryptPasswordEncoder}
+     * <p>BCrypt applies a unique random salt to each password and is Spring
+     * Security's recommended password-hashing algorithm.</p>
+     *
+     * @return a {@link BCryptPasswordEncoder} instance
      */
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -82,20 +78,19 @@ public class ApplicationConfig {
     }
 
     /**
-     * Define cómo Spring Security carga los datos de un usuario a partir de su
-     * username.
-     * <p>
-     * En esta aplicación el "username" es en realidad el email del cliente. Se
-     * busca el {@code Cliente} correspondiente en {@link ClienteRepository} y, si
-     * no existe ninguno con ese email, se lanza {@link UsernameNotFoundException}
-     * para que Spring Security rechace la autenticación.
+     * Defines how Spring Security loads a user from their username.
      *
-     * @return {@link UserDetailsService} que resuelve un {@link UserDetails}
-     *         (el {@code Cliente}) a partir del email
+     * <p>In this application, the username is the customer's email. The matching
+     * {@code Customer} is loaded through {@link CustomerRepository}; if no
+     * customer exists for that email, {@link UsernameNotFoundException} is
+     * thrown so Spring Security can reject authentication.</p>
+     *
+     * @return a {@link UserDetailsService} that resolves a {@link UserDetails}
+     *         ({@code Customer}) from an email address
      */
     @Bean
     public UserDetailsService userDetailsService(){
-        return email -> clienteRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException("Not Found"));
+        return email -> customerRepository.findByEmail(email).orElseThrow(()-> new UsernameNotFoundException("Not Found"));
     }
 
 }
