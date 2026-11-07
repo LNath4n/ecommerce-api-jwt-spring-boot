@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.jwt;
 
+import com.ecommerce.FerreViky.configuration.PublicPathsProperties;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -14,10 +15,12 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
@@ -40,20 +43,18 @@ import java.util.List;
 @RequiredArgsConstructor
 public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta una vez por cada request antes del controller
 
-    private static final List<String> PUBLIC_PATHS = List.of(
-            "/auth", "/products", "/health", "/error"
-    );
-
+    private final AntPathMatcher matcher = new AntPathMatcher();
     private final JwtService jwtService;
+    private final PublicPathsProperties publicPaths;
     private final UserDetailsService userDetailsService;
 
     /**
      * Determines whether the filter should be skipped for the current request.
      *
-     * <p>Skips {@code OPTIONS} requests (CORS preflight) and the public routes in
-     * {@link #PUBLIC_PATHS}, so an invalid or expired bearer token does not affect
-     * endpoints that do not require authentication. Keep this list synchronized
-     * with {@code permitAll()} in the {@code SecurityFilterChain}.</p>
+     * <p>Skips {@code OPTIONS} requests (CORS preflight) and the public routes defined in
+     * {@link PublicPathsProperties#all()}, so an invalid or expired bearer token does not
+     * affect endpoints that do not require authentication. These are the same routes used
+     * by {@code permitAll()} in the {@code SecurityFilterChain}, so both stay in sync.</p>
      *
      * @param request incoming HTTP request
      * @return {@code true} if the filter should be skipped
@@ -62,7 +63,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter { //Se ejecuta
     protected boolean shouldNotFilter(HttpServletRequest request) {
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) return true;
         String path = request.getServletPath();
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+        return Arrays.stream(publicPaths.all()).anyMatch(p -> matcher.match(p, path));
     }
 
     /**
