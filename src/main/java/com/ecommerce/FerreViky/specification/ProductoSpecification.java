@@ -15,7 +15,7 @@ public class ProductoSpecification {
     }
 
     /**
-     * Cada palabra del texto debe aparecer en al menos uno de los campos.
+     * Each word in the text must appear in at least one field.
      */
     public static Specification<Product> byText(String text) {
         return (root, query, cb) -> {

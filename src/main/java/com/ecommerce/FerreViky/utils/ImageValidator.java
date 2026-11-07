@@ -22,10 +22,10 @@ public class ImageValidator {
     private static final int MAX_LADO_PX = 4000;
     private static final long MAX_PIXELES = 16_000_000L;
 
-    /** Resultado: bytes de la imagen sin metadatos y su extensión (.jpg / .png). */
+    /** Sanitized image bytes and their extension (.jpg / .png). */
     public record ImagenLimpia(byte[] data, String ext) {}
 
-    /** Valida, decodifica UNA sola vez y devuelve los bytes sin metadatos (EXIF/GPS/XMP). */
+    /** Validates and decodes the image once, returning bytes without metadata (EXIF/GPS/XMP). */
     public ImagenLimpia validarYSanitizar(MultipartFile file) throws IOException {
         if (file == null || file.isEmpty())
             throw new InvalidImageException("An image must be provided");

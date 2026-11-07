@@ -7,9 +7,13 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CategoryRepository extends JpaRepository<Category, Long> {
+    // Checks whether a category name is already in use, ignoring case.
     boolean existsByNameIgnoreCase(String name);
+
+    // Checks whether another category uses the name.
     boolean existsByNameIgnoreCaseAndIdNot(String name, Long id);
 
+    // Deletes a category by ID and returns the number of rows deleted.
     @Modifying
     @Query("DELETE FROM Category c WHERE c.id = :id")
     int deleteCategoryById(@Param("id") Long id);

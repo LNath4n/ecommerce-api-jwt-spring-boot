@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 public interface CartItemRepository extends JpaRepository<ItemInCart, Long> {
+    // Deletes all cart items for a product.
     @Modifying
     @Query("DELETE FROM ItemInCart cartItem WHERE cartItem.product.id = :productId")
     void deleteAllByProductId(@Param("productId") Long productId);

@@ -102,7 +102,7 @@ public class CartService {
      * <p>Unlike {@link #addOrUpdateCartItem}, which adds to the current quantity,
      * this method <b>replaces</b> it. If the quantity is {@code 0}, the item is
      * removed from the cart (requires {@code orphanRemoval = true} on the
-     * {@code Carrito → ProductoEnCarrito} relationship).</p>
+     * {@code Cart → ItemInCart} relationship).</p>
      *
      * @param quantityRequest product ID and new quantity (≥ 0)
      * @param customer authenticated customer who owns the cart
@@ -131,7 +131,7 @@ public class CartService {
      * Completely removes a product from the cart, regardless of its quantity.
      *
      * <p>Requires {@code orphanRemoval = true} on the
-     * {@code Carrito → ProductoEnCarrito} relationship to delete the row from
+     * {@code Cart → ItemInCart} relationship to delete the row from
      * the database.</p>
      *
      * @param productId ID of the product to remove
@@ -305,7 +305,7 @@ public class CartService {
      * Removes all products from the customer's cart.
      *
      * <p>The cart itself is kept but left empty. This requires
-     * {@code orphanRemoval = true} on the {@code Carrito → ProductoEnCarrito}
+     * {@code orphanRemoval = true} on the {@code Cart → ItemInCart}
      * relationship to delete the rows.</p>
      *
      * @param customer authenticated customer who owns the cart

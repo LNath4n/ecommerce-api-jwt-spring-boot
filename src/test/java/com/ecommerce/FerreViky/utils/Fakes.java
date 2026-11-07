@@ -18,9 +18,9 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 /**
- * Datos falsos para pruebas. Vive en src/test/java.
- * Regla: aqui solo van datos, nunca mocks ni asserts.
- * Truco: cada fake acepta un Consumer para cambiar solo lo que sea "diferente".
+ * Test fixtures located under {@code src/test/java}.
+ * Only test data belongs here; do not add mocks or assertions.
+ * Each fake accepts a {@code Consumer} to customize only what differs.
  */
 public final class Fakes {
 
@@ -248,10 +248,10 @@ public final class Fakes {
     }
 
     /**
-     * Carrito esperado: una linea por cada item del carrito (mismo orden) y
-     * subtotal = suma de salePrice * cantidad.
+     * Builds an expected cart with one line per cart item in the same order and
+     * a subtotal equal to the sum of sale price multiplied by quantity.
      *
-     * @param urlDe como resolver la url de cada producto (debe coincidir con tus mocks de storageService)
+     * @param urlDe resolves each product URL and must match the storage service mocks
      */
     public static CartResponse esperadoCarrito(Cart car, Function<Product, String> urlDe) {
         return esperadoCarrito(car, urlDe, b -> {});

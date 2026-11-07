@@ -14,13 +14,18 @@ import java.util.List;
 
 public interface VirtualCodeRepository extends JpaRepository<VirtualCode, Long> {
 
+    // Counts codes for one product and status.
     long countByProductIdAndStatus(Long productId, CodeStatus status);
 
     interface ProductStock {
+        // Returns the product ID.
         Long getProductId();
+
+        // Returns the number of matching codes.
         Long getTotal();
     }
 
+    // Returns stock counts grouped by product.
     @Query("""
             SELECT c.product.id AS productId, COUNT(c) AS total
             FROM VirtualCode c
@@ -30,6 +35,7 @@ public interface VirtualCodeRepository extends JpaRepository<VirtualCode, Long> 
     List<ProductStock> findStockByProductIdsAndStatus(@Param("productIds") Collection<Long> productIds,
                                                       @Param("status") CodeStatus status);
 
+    // Loads matching codes with a write lock for reservation.
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT c FROM VirtualCode c
@@ -41,8 +47,10 @@ public interface VirtualCodeRepository extends JpaRepository<VirtualCode, Long> 
                                                         @Param("status") CodeStatus status,
                                                         Pageable pageable);
 
+    // Checks whether a product has any virtual codes.
     boolean existsByProductId(Long productId);
 
+    // Returns which of the supplied codes already exist.
     @Query("select c.code from VirtualCode c where c.code in :codes")
     List<String> findExistingCodes(@Param("codes") Collection<String> codes);
 }

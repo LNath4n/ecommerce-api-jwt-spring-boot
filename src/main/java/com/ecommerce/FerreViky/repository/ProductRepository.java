@@ -14,14 +14,25 @@ import java.util.Optional;
 
 public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpecificationExecutor<Product> {
 
+    // Finds a product by its SKU.
     Optional<Product> findBySku(String sku);
 
+    // Retrieves active products as a page.
     Page<Product> findByActiveTrue(Pageable pageable);
+
+    // Finds a product by its slug.
     Optional<Product> findBySlug(String slug);
+
+    // Checks whether a slug is already in use.
     boolean existsBySlug(String slug);
 
+    // Checks whether an SKU is already in use.
     boolean existsBySku(String sku);
+
+    // Checks whether another product uses the SKU.
     boolean existsBySkuAndIdNot(String sku, Long id);
+
+    // Lists distinct non-empty product platforms.
     @Query("""
             SELECT DISTINCT p.platform
             FROM Product p
@@ -30,18 +41,22 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
             """)
     List<String> findDistinctPlatforms();
 
+    // Increments a product's view count.
     @Modifying(clearAutomatically = true)
     @Transactional
     @Query("UPDATE Product p SET p.views = p.views + 1 WHERE p.id = :id")
     void incrementViews(@Param("id") Long id);
 
+    // Checks whether a category is assigned to any product.
     boolean existsByCategoryId(Long categoryId);
 
+    // Retrieves the ten most-viewed active products.
     List<Product> findTop10ByActiveTrueOrderByViewsDesc();
 
+    // Retrieves the ten active products with the most reviews.
     List<Product> findTop10ByActiveTrueOrderByTotalReviewsDesc();
 
-    // Highest-rated products with at least the specified number of reviews.
+    // Retrieves the highest-rated active products meeting the review threshold.
     List<Product> findTop10ByActiveTrueAndTotalReviewsGreaterThanEqualOrderByAverageRatingDescTotalReviewsDesc(
             long minimumReviews);
 }
