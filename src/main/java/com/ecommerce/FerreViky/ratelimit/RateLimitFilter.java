@@ -32,12 +32,17 @@ public class RateLimitFilter extends OncePerRequestFilter {
     @Value("${app.origin.secret:}")
     private String originSecret;
 
+    @Value("${app.ratelimit.enabled:true}")
+    private boolean enabled;
+
+
     private String clientIp(HttpServletRequest request) {
         if (viaCloudFront(request)) {
             String xff = request.getHeader("X-Forwarded-For");
             if (StringUtils.hasText(xff)) {
                 String[] partes = xff.split(",");
-                return partes[partes.length - 1].trim();   // la que añadió CloudFront
+                System.out.println("Hola desde (CloudFront): " + partes[partes.length - 1].trim());
+                return partes[partes.length - 1].trim();   // la que añadió CloudFront // the one added by CloudFront
             }
         }
         System.out.println("Hola desde : "+request.getRemoteAddr());
@@ -45,17 +50,19 @@ public class RateLimitFilter extends OncePerRequestFilter {
     }
 
     private boolean viaCloudFront(HttpServletRequest request) {
-        if (!StringUtils.hasText(originSecret)) return false;   // en local no aplica
+        if (!StringUtils.hasText(originSecret)) return false;   // en local no aplica // does not apply locally
         String recibido = request.getHeader("X-Origin-Verify");
-        //MessageDigest.isEqua es seguro contra ataques de tiempo que intenten adivinar el secreto
+        //MessageDigest.isEqua es seguro contra ataques de tiempo que intenten adivinar el secreto // MessageDigest.isEqual is safe against timing attacks that try to guess the secret
         return recibido != null && MessageDigest.isEqual(
                 recibido.getBytes(StandardCharsets.UTF_8),
                 originSecret.getBytes(StandardCharsets.UTF_8));
     }
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
-        // OPTIONS (preflight CORS) y /health (monitoreo / healthchecks) no consumen cuota
-        return "OPTIONS".equalsIgnoreCase(request.getMethod()) || "/health".equals(request.getServletPath());
+        return !enabled
+                || "OPTIONS".equalsIgnoreCase(request.getMethod())
+                || "/health".equals(request.getServletPath());
     }
 
     @Override
@@ -83,7 +90,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private RateLimitType typeFor(HttpServletRequest request) {
         String path = request.getServletPath();
-        //El orden importa por que admin y admin/image llevan admin
+        //El orden importa por que admin y admin/image llevan admin // Order matters because admin and admin/image both contain admin
         if (path.startsWith("/auth")) return RateLimitType.AUTH;
         if (path.equals("/customer/photo") || path.equals("/admin/products/image")) return RateLimitType.UPLOAD;
         if (path.startsWith("/admin")) return RateLimitType.ADMIN;
@@ -94,7 +101,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private String clientKey(HttpServletRequest request, RateLimitType type) {
 
         if (type == RateLimitType.AUTH) {
-            return "ip:" + clientIp(request); //No hay sesion entonces IP
+            return "ip:" + clientIp(request); //No hay sesion entonces IP // There is no session, so use the IP
         }
 
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
@@ -106,7 +113,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
                     return "user:" + username;
                 }
             } catch (JwtException ignored) {
-                // Token inválido: cae a la IP
+                // Token inválido: cae a la IP // Invalid token: falls back to the IP
             }
         }
 
