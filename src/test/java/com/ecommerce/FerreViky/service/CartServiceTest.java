@@ -5,8 +5,8 @@ import static com.ecommerce.FerreViky.utils.Fakes.*;
 import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.UpdateCartItemQuantityRequest;
 import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.AddCartItemRequest;
 import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.CartResponse;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.*;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
+import com.ecommerce.FerreViky.exceptions.cart.CartExceptions.*;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.*;
 import com.ecommerce.FerreViky.models.*;
 import com.ecommerce.FerreViky.repository.CartRepository;
 import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
@@ -38,7 +38,7 @@ class CartServiceTest {
 
     //  addOrUpdateCartItem
     @Test
-    @DisplayName("When adding a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When adding a product that does not exist, it throws ProductNotFoundException")
     void addOrUpdateCartItem_productNotFound_throwsProductNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -48,11 +48,11 @@ class CartServiceTest {
         when(productRepository.findById(9L)).thenReturn(Optional.empty());
 
         // Assert
-        assertThrows(ProductoNoEncontradoException.class,()-> cartService.addOrUpdateCartItem(dto,c));
+        assertThrows(ProductNotFoundException.class,()-> cartService.addOrUpdateCartItem(dto,c));
     }
 
     @Test
-    @DisplayName("When adding an inactive product, it throws ProductoNoEncontradoException")
+    @DisplayName("When adding an inactive product, it throws ProductNotFoundException")
     void addOrUpdateCartItem_inactiveProduct_throwsProductNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -63,11 +63,11 @@ class CartServiceTest {
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Assert
-        assertThrows(ProductoNoEncontradoException.class,()-> cartService.addOrUpdateCartItem(dto,c));
+        assertThrows(ProductNotFoundException.class,()-> cartService.addOrUpdateCartItem(dto,c));
     }
 
     @Test
-    @DisplayName("When adding a product with a zero or negative quantity, it throws CantidadNoValida")
+    @DisplayName("When adding a product with a zero or negative quantity, it throws InvalidQuantityException")
     void addOrUpdateCartItem_invalidQuantity_throwsInvalidQuantity() {
         // Arrange
         Customer c = generarClienteFake();
@@ -78,8 +78,8 @@ class CartServiceTest {
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Act + Assert
-        assertThrows(CantidadNoValida.class, () -> cartService.addOrUpdateCartItem(dtoCero, c));
-        assertThrows(CantidadNoValida.class, () -> cartService.addOrUpdateCartItem(dtoNegativo, c));
+        assertThrows(InvalidQuantityException.class, () -> cartService.addOrUpdateCartItem(dtoCero, c));
+        assertThrows(InvalidQuantityException.class, () -> cartService.addOrUpdateCartItem(dtoNegativo, c));
         verifyNoInteractions(cartRepository);
     }
     @Test
@@ -193,7 +193,7 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("When adding more than the available stock, it throws CantidadExcedidaException")
+    @DisplayName("When adding more than the available stock, it throws QuantityExceededException")
     void addOrUpdateCartItem_exceedsStock_throwsQuantityExceeded() {
         // Arrange
         Customer c = generarClienteFake();
@@ -208,7 +208,7 @@ class CartServiceTest {
                 .thenReturn(2L);
 
         // Act + Assert
-        assertThrows(CantidadExcedidaException.class, () -> cartService.addOrUpdateCartItem(dto, c));
+        assertThrows(QuantityExceededException.class, () -> cartService.addOrUpdateCartItem(dto, c));
         verify(cartRepository, never()).saveAndFlush(any());
     }
 
@@ -228,14 +228,14 @@ class CartServiceTest {
                 .thenReturn(5L);                          // stock is 5
 
         // Act + Assert
-        assertThrows(CantidadExcedidaException.class,
+        assertThrows(QuantityExceededException.class,
                 () -> cartService.addOrUpdateCartItem(dto, c));
         verify(cartRepository, never()).saveAndFlush(any());
     }
 
     //  updateCartItemQuantity
     @Test
-    @DisplayName("When updating the quantity for a customer without a cart, it throws CarritoDeClienteNoEncontrado")
+    @DisplayName("When updating the quantity for a customer without a cart, it throws CustomerCartNotFoundException")
     void updateCartItemQuantity_noCart_throwsCustomerCartNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -243,13 +243,13 @@ class CartServiceTest {
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CarritoDeClienteNoEncontrado.class,
+        assertThrows(CustomerCartNotFoundException.class,
                 () -> cartService.updateCartItemQuantity(dto, c));
         verify(cartRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("When updating the quantity of a product that is not in the cart, it throws ProductoNoEnCarritoException")
+    @DisplayName("When updating the quantity of a product that is not in the cart, it throws ProductNotInCartException")
     void updateCartItemQuantity_productNotInCart_throwsProductNotInCart() {
         // Arrange
         Customer c = generarClienteFake();
@@ -261,7 +261,7 @@ class CartServiceTest {
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
         // Act + Assert
-        assertThrows(ProductoNoEnCarritoException.class,
+        assertThrows(ProductNotInCartException.class,
                 () -> cartService.updateCartItemQuantity(dto, c));
         verify(cartRepository, never()).save(any());
     }
@@ -315,7 +315,7 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("When updating the quantity above the stock, it throws CantidadExcedidaException and keeps the previous quantity")
+    @DisplayName("When updating the quantity above the stock, it throws QuantityExceededException and keeps the previous quantity")
     void updateCartItemQuantity_exceedsStock_throwsQuantityExceeded() {
         // Arrange
         Customer c = generarClienteFake();
@@ -329,7 +329,7 @@ class CartServiceTest {
                 .thenReturn(5L);
 
         // Act + Assert
-        assertThrows(CantidadExcedidaException.class,
+        assertThrows(QuantityExceededException.class,
                 () -> cartService.updateCartItemQuantity(dto, c));
         assertEquals(2, linea.getQuantity());   // still has the previous quantity
         verify(cartRepository, never()).save(any());
@@ -359,19 +359,19 @@ class CartServiceTest {
 
     //  removeProductFromCart
     @Test
-    @DisplayName("When removing a product for a customer without a cart, it throws CarritoDeClienteNoEncontrado")
+    @DisplayName("When removing a product for a customer without a cart, it throws CustomerCartNotFoundException")
     void removeProductFromCart_noCart_throwsCustomerCartNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CarritoDeClienteNoEncontrado.class,
+        assertThrows(CustomerCartNotFoundException.class,
                 () -> cartService.removeProductFromCart(1L, c));
     }
 
     @Test
-    @DisplayName("When removing a product that is not in the cart, it throws ProductoNoEnCarritoException")
+    @DisplayName("When removing a product that is not in the cart, it throws ProductNotInCartException")
     void removeProductFromCart_productNotInCart_throwsProductNotInCart() {
         // Arrange
         Customer c = generarClienteFake();
@@ -382,7 +382,7 @@ class CartServiceTest {
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
         // Act + Assert
-        assertThrows(ProductoNoEnCarritoException.class,
+        assertThrows(ProductNotInCartException.class,
                 () -> cartService.removeProductFromCart(99L, c));
         assertEquals(1, cart.getItems().size());   // nothing was touched
     }
@@ -412,27 +412,27 @@ class CartServiceTest {
 
     //  getCartByCustomer
     @Test
-    @DisplayName("When getting the cart of a customer without a cart, it throws CarritoNoEncontrado")
+    @DisplayName("When getting the cart of a customer without a cart, it throws CartNotFoundException")
     void getCartByCustomer_notFound_throwsCartNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         when(cartRepository.findByCustomerWithItems(c)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CarritoNoEncontrado.class,
+        assertThrows(CartNotFoundException.class,
                 () -> cartService.getCartByCustomer(c));
     }
 
 
     //  getCartByCustomerId
     @Test
-    @DisplayName("When getting the cart by the id of a customer without a cart, it throws CarritoNoEncontrado")
+    @DisplayName("When getting the cart by the id of a customer without a cart, it throws CartNotFoundException")
     void getCartByCustomerId_notFound_throwsCartNotFound() {
         // Arrange
         when(cartRepository.findByCustomerId(5L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CarritoNoEncontrado.class,
+        assertThrows(CartNotFoundException.class,
                 () -> cartService.getCartByCustomerId(5L));
     }
 
@@ -441,7 +441,7 @@ class CartServiceTest {
 
     //  addOrUpdateCartItem (new)
     @Test
-    @DisplayName("When creating the cart and the database rejects it for integrity, it throws ConflictoConcurrenteException")
+    @DisplayName("When creating the cart and the database rejects it for integrity, it throws ConcurrentCartUpdateException")
     void addOrUpdateCartItem_dataIntegrityWhenCreatingCart_throwsConcurrentConflict() {
         // Arrange
         Customer c = generarClienteFake();
@@ -454,12 +454,12 @@ class CartServiceTest {
                 .thenThrow(new DataIntegrityViolationException("unique cart per customer"));
 
         // Act + Assert
-        assertThrows(ConflictoConcurrenteException.class,
+        assertThrows(ConcurrentCartUpdateException.class,
                 () -> cartService.addOrUpdateCartItem(dto, c));
     }
 
     @Test
-    @DisplayName("When saving the cart and the database rejects it for integrity, it throws ConflictoConcurrenteException")
+    @DisplayName("When saving the cart and the database rejects it for integrity, it throws ConcurrentCartUpdateException")
     void addOrUpdateCartItem_dataIntegrityWhenSaving_throwsConcurrentConflict() {
         // Arrange
         Customer c = generarClienteFake();
@@ -475,7 +475,7 @@ class CartServiceTest {
                 .thenThrow(new DataIntegrityViolationException("conflict"));
 
         // Act + Assert
-        assertThrows(ConflictoConcurrenteException.class,
+        assertThrows(ConcurrentCartUpdateException.class,
                 () -> cartService.addOrUpdateCartItem(dto, c));
     }
 
@@ -519,14 +519,14 @@ class CartServiceTest {
     }
 
     @Test
-    @DisplayName("When clearing the cart of a customer without a cart, it throws CarritoDeClienteNoEncontrado")
+    @DisplayName("When clearing the cart of a customer without a cart, it throws CustomerCartNotFoundException")
     void clearCart_noCart_throwsCustomerCartNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CarritoDeClienteNoEncontrado.class,
+        assertThrows(CustomerCartNotFoundException.class,
                 () -> cartService.clearCart(c));
     }
 

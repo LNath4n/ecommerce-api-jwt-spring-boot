@@ -2,11 +2,11 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.UpdateCustomerRequest;
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.PublicCustomerResponse;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteModificadoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ImagenInvalidaException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerModifiedException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.EmailAlreadyExistsException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.InvalidPasswordException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerNotFoundException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.InvalidImageException;
 import com.ecommerce.FerreViky.mapper.customer.CustomerMapper;
 import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.repository.CustomerRepository;
@@ -66,19 +66,19 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When the customer does not exist, getCustomer throws ClienteNoEncontradoException")
+    @DisplayName("When the customer does not exist, getCustomer throws CustomerNotFoundException")
     void getCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
         // Assert
-        assertThrows(ClienteNoEncontradoException.class,()-> customerService.getCustomer(c));
+        assertThrows(CustomerNotFoundException.class,()-> customerService.getCustomer(c));
     }
 
     //  updateCustomer
     @Test
-    @DisplayName("When updating a customer that does not exist, it throws ClienteNoEncontradoException")
+    @DisplayName("When updating a customer that does not exist, it throws CustomerNotFoundException")
     void updateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -86,11 +86,11 @@ class CustomerServiceTest {
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
         // Assert
-        assertThrows(ClienteNoEncontradoException.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
+        assertThrows(CustomerNotFoundException.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
     }
 
     @Test
-    @DisplayName("When updating a customer with a new password but no old password, it throws ContrasenaInvalida")
+    @DisplayName("When updating a customer with a new password but no old password, it throws InvalidPasswordException")
     void updateCustomer_newPasswordWithoutOldPassword_throwsInvalidPassword() {
         // Arrange
         Customer c = generarClienteFake();
@@ -98,11 +98,11 @@ class CustomerServiceTest {
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
         // Assert
-        assertThrows(ContrasenaInvalida.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
+        assertThrows(InvalidPasswordException.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
     }
 
     @Test
-    @DisplayName("When updating a customer with an old password that does not match the current one, it throws ContrasenaInvalida")
+    @DisplayName("When updating a customer with an old password that does not match the current one, it throws InvalidPasswordException")
     void updateCustomer_wrongOldPassword_throwsInvalidPassword() {
         // Arrange
         Customer c = generarClienteFake();
@@ -110,7 +110,7 @@ class CustomerServiceTest {
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
         // Assert
-        assertThrows(ContrasenaInvalida.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
+        assertThrows(InvalidPasswordException.class,()-> customerService.updateCustomer(c,clienteEditarRequest));
     }
 
 
@@ -139,7 +139,7 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When changing a customer's email to one that already exists, it throws EmailYaExisteException")
+    @DisplayName("When changing a customer's email to one that already exists, it throws EmailAlreadyExistsException")
     void updateCustomer_emailAlreadyExists_throwsEmailAlreadyExists() {
         // Arrange
         Customer customerAEditar = generarClienteFake();
@@ -150,7 +150,7 @@ class CustomerServiceTest {
         when(customerRepository.existsByEmail(customerYaExistente.getEmail())).thenReturn(true);
 
         // Act + Assert
-        assertThrows(EmailYaExisteException.class, ()-> customerService.updateCustomer(customerAEditar,request));
+        assertThrows(EmailAlreadyExistsException.class, ()-> customerService.updateCustomer(customerAEditar,request));
     }
 
     @Test
@@ -238,14 +238,14 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When deactivating a nonexistent account, it throws ClienteNoEncontradoException")
+    @DisplayName("When deactivating a nonexistent account, it throws CustomerNotFoundException")
     void deactivateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ClienteNoEncontradoException.class,()-> customerService.deactivateCustomer(c));
+        assertThrows(CustomerNotFoundException.class,()-> customerService.deactivateCustomer(c));
     }
 
     @Test
@@ -263,7 +263,7 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When activating a nonexistent account, it throws ClienteNoEncontradoException")
+    @DisplayName("When activating a nonexistent account, it throws CustomerNotFoundException")
     void activateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -271,7 +271,7 @@ class CustomerServiceTest {
 
         // Act + Assert
         assertThrows(
-                ClienteNoEncontradoException.class,
+                CustomerNotFoundException.class,
                 () -> customerService.activateCustomer(c)
         );
     }
@@ -291,7 +291,7 @@ class CustomerServiceTest {
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
         // Act + Assert
-        assertThrows(ContrasenaInvalida.class, () -> customerService.updateCustomer(c, request));
+        assertThrows(InvalidPasswordException.class, () -> customerService.updateCustomer(c, request));
         verify(passwordEncoder, never()).encode(any());
         assertEquals(passwordOriginal, c.getPassword());
     }
@@ -418,7 +418,7 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When updating a customer modified concurrently by another user, it throws ClienteModificadoException")
+    @DisplayName("When updating a customer modified concurrently by another user, it throws CustomerModifiedException")
     void updateCustomer_optimisticLock_throwsCustomerModified() {
         // Arrange
         Customer c = generarClienteFake();
@@ -429,7 +429,7 @@ class CustomerServiceTest {
                 .when(customerRepository).flush();
 
         // Act + Assert
-        assertThrows(ClienteModificadoException.class,
+        assertThrows(CustomerModifiedException.class,
                 () -> customerService.updateCustomer(c, request));
     }
 
@@ -458,7 +458,7 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When uploading a photo for a customer that does not exist, it throws ClienteNoEncontradoException without touching storage")
+    @DisplayName("When uploading a photo for a customer that does not exist, it throws CustomerNotFoundException without touching storage")
     void uploadCustomerPhoto_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
@@ -466,13 +466,13 @@ class CustomerServiceTest {
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ClienteNoEncontradoException.class,
+        assertThrows(CustomerNotFoundException.class,
                 () -> customerService.uploadCustomerPhoto(c, archivo));
         verifyNoInteractions(storageService);
     }
 
     @Test
-    @DisplayName("When the uploaded image is invalid, it throws ImagenInvalidaException and keeps the previous photo")
+    @DisplayName("When the uploaded image is invalid, it throws InvalidImageException and keeps the previous photo")
     void uploadCustomerPhoto_invalidImage_throwsInvalidImageAndKeepsPreviousPhoto() throws IOException {
         // Arrange
         Customer c = generarClienteFake(cli -> cli.setImageKey("perfiles/vieja.png"));
@@ -480,10 +480,10 @@ class CustomerServiceTest {
 
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
         when(storageService.upload(archivo, StorageService.StorageFolder.PROFILES))
-                .thenThrow(ImagenInvalidaException.class);
+                .thenThrow(InvalidImageException.class);
 
         // Act + Assert
-        assertThrows(ImagenInvalidaException.class,
+        assertThrows(InvalidImageException.class,
                 () -> customerService.uploadCustomerPhoto(c, archivo));
         assertEquals("perfiles/vieja.png", c.getImageKey());
         verify(storageService, never()).deleteAfterCommit(any());
@@ -510,14 +510,14 @@ class CustomerServiceTest {
     }
 
     @Test
-    @DisplayName("When removing the photo of a customer that does not exist, it throws ClienteNoEncontradoException without touching storage")
+    @DisplayName("When removing the photo of a customer that does not exist, it throws CustomerNotFoundException without touching storage")
     void removeCustomerPhoto_notFound_throwsCustomerNotFound() {
         // Arrange
         Customer c = generarClienteFake();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ClienteNoEncontradoException.class,
+        assertThrows(CustomerNotFoundException.class,
                 () -> customerService.removeCustomerPhoto(c));
         verifyNoInteractions(storageService);
     }

@@ -11,7 +11,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
      * Checks whether a customer with the given email already exists.
      *
      * <p>Used before saving a new customer to raise a clear domain exception
-     * ({@link com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException})
+     * ({@link com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.EmailAlreadyExistsException})
      * instead of relying on a generic JPA exception from the database's unique constraint.</p>
      *
      * @param email email address to check

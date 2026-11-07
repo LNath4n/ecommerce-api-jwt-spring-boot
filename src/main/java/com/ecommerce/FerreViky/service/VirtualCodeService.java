@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.exceptions.codigoVirtual.CodigosVirtualesExceptions.CodigosDuplicadosException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
+import com.ecommerce.FerreViky.exceptions.virtualcode.VirtualCodeExceptions.DuplicateCodesException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.ProductNotFoundException;
 import com.ecommerce.FerreViky.models.VirtualCode;
 import com.ecommerce.FerreViky.models.Product;
 import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
@@ -27,7 +27,7 @@ public class VirtualCodeService {
     @Transactional
     public int addCodesToProduct(Long productId, List<String> codes) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductoNoEncontradoException(productId));
+                .orElseThrow(() -> new ProductNotFoundException(productId));
 
         List<String> normalizedCodes = codes.stream()
                 .filter(Objects::nonNull)
@@ -42,7 +42,7 @@ public class VirtualCodeService {
 
         List<String> existingCodes = virtualCodeRepository.findExistingCodes(normalizedCodes);
         if (!existingCodes.isEmpty()) {
-            throw new CodigosDuplicadosException(existingCodes.size());
+            throw new DuplicateCodesException(existingCodes.size());
         }
 
         List<VirtualCode> newCodes = normalizedCodes.stream().map(code -> {
@@ -55,7 +55,7 @@ public class VirtualCodeService {
         try {
             virtualCodeRepository.saveAllAndFlush(newCodes);
         } catch (DataIntegrityViolationException e) {
-            throw new CodigosDuplicadosException(0); // Race condition / Carrera
+            throw new DuplicateCodesException(0); // Race condition / Carrera
         }
 
         return newCodes.size();

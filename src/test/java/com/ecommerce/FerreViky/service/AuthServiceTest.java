@@ -3,8 +3,8 @@ package com.ecommerce.FerreViky.service;
 import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.CustomerLoginRequest;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.*;
+import com.ecommerce.FerreViky.exceptions.cart.CartExceptions;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.*;
 import com.ecommerce.FerreViky.mapper.customer.CustomerMapper;
 import com.ecommerce.FerreViky.models.Cart;
 import com.ecommerce.FerreViky.models.Customer;
@@ -94,14 +94,14 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("When logging in with valid credentials but the customer is not in the repository, it throws ClienteNoEncontradoException and does not generate a token")
+    @DisplayName("When logging in with valid credentials but the customer is not in the repository, it throws CustomerNotFoundException and does not generate a token")
     void login_customerNotFound_throwsCustomerNotFound() {
         // Arrange
         CustomerLoginRequest dto = new CustomerLoginRequest("tilin@gmail.com", "secreto123");
         when(customerRepository.findByEmail(dto.email())).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ClienteNoEncontradoException.class, () -> authService.login(dto));
+        assertThrows(CustomerNotFoundException.class, () -> authService.login(dto));
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verifyNoInteractions(jwtService);
     }
@@ -146,7 +146,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("When registering a customer with an email that already exists, it throws EmailYaExisteException and saves nothing")
+    @DisplayName("When registering a customer with an email that already exists, it throws EmailAlreadyExistsException and saves nothing")
     void registerCustomer_emailAlreadyExists_throwsEmailAlreadyExists() {
         // Given
         CustomerLoginRequest dto = new CustomerLoginRequest("existente@mail.com", "cualquierpass");
@@ -154,7 +154,7 @@ class AuthServiceTest {
         when(customerRepository.existsByEmail(dto.email())).thenReturn(true);
 
         // When / Then
-        assertThrows(EmailYaExisteException.class,
+        assertThrows(EmailAlreadyExistsException.class,
                 () -> authService.registerCustomer(dto));
 
         verify(customerRepository).existsByEmail(dto.email());
@@ -164,7 +164,7 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("When registering a customer and saving the cart fails, it throws ErrorAlCrearCarritoException and does not generate a token")
+    @DisplayName("When registering a customer and saving the cart fails, it throws CartCreationException and does not generate a token")
     void registerCustomer_cartSaveFails_throwsCartCreationError() {
         // Given
         CustomerLoginRequest dto = new CustomerLoginRequest("nuevo@mail.com", "pass");
@@ -183,7 +183,7 @@ class AuthServiceTest {
                 .thenThrow(new RuntimeException("Error de BD"));
 
         // When / Then
-        assertThrows(CarritoExceptions.ErrorAlCrearCarritoException.class,
+        assertThrows(CartExceptions.CartCreationException.class,
                 () -> authService.registerCustomer(dto));
 
         // The token must never be generated if the cart failed
@@ -262,19 +262,19 @@ class AuthServiceTest {
     }
 
     @Test
-    @DisplayName("When registering an email that exists with different casing, it throws EmailYaExisteException")
+    @DisplayName("When registering an email that exists with different casing, it throws EmailAlreadyExistsException")
     void registerCustomer_existingEmailWithDifferentCase_throwsEmailAlreadyExists() {
         // Given
         CustomerLoginRequest dto = new CustomerLoginRequest("Existente@MAIL.com", "pass123");
         when(customerRepository.existsByEmail("existente@mail.com")).thenReturn(true);
 
         // When / Then
-        assertThrows(EmailYaExisteException.class, () -> authService.registerCustomer(dto));
+        assertThrows(EmailAlreadyExistsException.class, () -> authService.registerCustomer(dto));
         verifyNoInteractions(cartRepository, jwtService);
     }
 
     @Test
-    @DisplayName("When registering and the database rejects the email as a duplicate, it throws EmailYaExisteException without creating a cart or a token")
+    @DisplayName("When registering and the database rejects the email as a duplicate, it throws EmailAlreadyExistsException without creating a cart or a token")
     void registerCustomer_dataIntegrity_throwsEmailAlreadyExists() {
         // Given
         CustomerLoginRequest dto = new CustomerLoginRequest("nuevo@mail.com", "pass123");
@@ -287,7 +287,7 @@ class AuthServiceTest {
                 .thenThrow(new DataIntegrityViolationException("unique email"));
 
         // When / Then
-        assertThrows(EmailYaExisteException.class, () -> authService.registerCustomer(dto));
+        assertThrows(EmailAlreadyExistsException.class, () -> authService.registerCustomer(dto));
         verifyNoInteractions(cartRepository, jwtService);
     }
 

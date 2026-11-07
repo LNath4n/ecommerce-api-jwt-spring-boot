@@ -2,9 +2,9 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.AuthResponse;
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.CustomerLoginRequest;
-import com.ecommerce.FerreViky.exceptions.carrito.CarritoExceptions.ErrorAlCrearCarritoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
+import com.ecommerce.FerreViky.exceptions.cart.CartExceptions.CartCreationException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerNotFoundException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.EmailAlreadyExistsException;
 import com.ecommerce.FerreViky.jwt.JwtService;
 import com.ecommerce.FerreViky.mapper.customer.CustomerMapper;
 import com.ecommerce.FerreViky.models.Cart;
@@ -47,7 +47,7 @@ public class AuthService {
      * @param dto customer's email and password
      * @return an {@link AuthResponse} containing the generated JWT
      * @throws org.springframework.security.core.AuthenticationException if the credentials are invalid
-     * @throws ClienteNoEncontradoException if the customer cannot be found after authentication
+     * @throws CustomerNotFoundException if the customer cannot be found after authentication
      */
     public AuthResponse login(CustomerLoginRequest dto) {
         String email = normalizeEmail(dto.email());
@@ -57,7 +57,7 @@ public class AuthService {
         );
 
         Customer customer = customerRepository.findByEmail(email)
-                .orElseThrow(()-> new ClienteNoEncontradoException(dto.email()));
+                .orElseThrow(()-> new CustomerNotFoundException(dto.email()));
 
         return new AuthResponse(jwtService.getToken(customer));
     }
@@ -76,15 +76,15 @@ public class AuthService {
      *
      * @param dto new customer's email and password
      * @return an {@link AuthResponse} containing the new customer's JWT
-     * @throws EmailYaExisteException if the email is already registered
-     * @throws ErrorAlCrearCarritoException if cart creation fails
+     * @throws EmailAlreadyExistsException if the email is already registered
+     * @throws CartCreationException if cart creation fails
      */
     @Transactional
     public AuthResponse registerCustomer(CustomerLoginRequest dto) {
         String email = normalizeEmail(dto.email());
 
         if (customerRepository.existsByEmail(email)) {
-            throw new EmailYaExisteException(email);
+            throw new EmailAlreadyExistsException(email);
         }
 
         Customer customer = persistCustomer(dto, email);
@@ -102,7 +102,7 @@ public class AuthService {
      * @param dto customer details
      * @param email normalized email
      * @return the saved customer
-     * @throws EmailYaExisteException if the database rejects the email as a duplicate
+     * @throws EmailAlreadyExistsException if the database rejects the email as a duplicate
      */
     private Customer persistCustomer(CustomerLoginRequest dto, String email) {
         Customer customer = customerMapper.fromLoginRequest(dto);
@@ -112,7 +112,7 @@ public class AuthService {
         try {
             return customerRepository.saveAndFlush(customer);
         } catch (DataIntegrityViolationException e) {
-            throw new EmailYaExisteException(email);
+            throw new EmailAlreadyExistsException(email);
         }
     }
 
@@ -120,7 +120,7 @@ public class AuthService {
      * Creates and saves an empty cart for the customer.
      *
      * @param customer customer who owns the cart
-     * @throws ErrorAlCrearCarritoException if saving the cart fails
+     * @throws CartCreationException if saving the cart fails
      */
     private void createCart(Customer customer) {
         Cart cart = new Cart();
@@ -130,7 +130,7 @@ public class AuthService {
         try {
             cartRepository.saveAndFlush(cart);
         } catch (Exception e) {
-            throw new ErrorAlCrearCarritoException(customer.getId(), e);
+            throw new CartCreationException(customer.getId(), e);
         }
     }
 

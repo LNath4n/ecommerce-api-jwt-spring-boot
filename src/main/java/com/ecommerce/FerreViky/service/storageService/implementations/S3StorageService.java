@@ -1,13 +1,12 @@
 package com.ecommerce.FerreViky.service.storageService.implementations;
 
 import com.ecommerce.FerreViky.service.storageService.contract.AbstractStorageService;
-import com.ecommerce.FerreViky.utils.ImagenValidator;
+import com.ecommerce.FerreViky.utils.ImageValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
@@ -16,7 +15,6 @@ import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.time.Duration;
 
 @Service
@@ -27,7 +25,7 @@ public class S3StorageService extends AbstractStorageService {
     private final S3Presigner presigner;
     private final String bucket;
 
-    public S3StorageService(ImagenValidator validator, S3Client s3, S3Presigner presigner,
+    public S3StorageService(ImageValidator validator, S3Client s3, S3Presigner presigner,
                             @Value("${app.s3.bucket}") String bucket) {
         super(validator);
         this.s3 = s3; this.presigner = presigner; this.bucket = bucket;

@@ -1,19 +1,16 @@
 package com.ecommerce.FerreViky.service.storageService.implementations;
 
 import com.ecommerce.FerreViky.service.storageService.contract.AbstractStorageService;
-import com.ecommerce.FerreViky.utils.ImagenValidator;
+import com.ecommerce.FerreViky.utils.ImageValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.StandardCopyOption;
 import java.time.Duration;
 
 @Service
@@ -23,7 +20,7 @@ public class LocalStorageService extends AbstractStorageService {
     private final Path root;
     private final String baseUrl;
 
-    public LocalStorageService(ImagenValidator validator,
+    public LocalStorageService(ImageValidator validator,
                                @Value("${app.storage.local-dir}") String dir,
                                @Value("${app.storage.base-url}") String baseUrl) {
         super(validator);

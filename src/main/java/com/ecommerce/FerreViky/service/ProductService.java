@@ -5,11 +5,11 @@ import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionRespons
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.AdminProductResponse;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.ProductRequest;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoConDependenciasException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoModificadoException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.SkuDuplicadoException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.CategoryNotFoundException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.ProductHasDependenciesException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.ProductModifiedException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.ProductNotFoundException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.DuplicateSkuException;
 import com.ecommerce.FerreViky.mapper.product.ProductMapper;
 import com.ecommerce.FerreViky.models.Category;
 import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
@@ -76,12 +76,12 @@ public class ProductService {
      *
      * @param id product ID
      * @return the product's public details
-     * @throws ProductoNoEncontradoException if the product does not exist or is inactive
+     * @throws ProductNotFoundException if the product does not exist or is inactive
      */
     public PublicProductResponse getProductById(Long id) {
         Product product = productRepository.findById(id)
                 .filter(Product::getActive)
-                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+                .orElseThrow(() -> new ProductNotFoundException(id));
         return recordViewAndConvert(product);
     }
 
@@ -90,12 +90,12 @@ public class ProductService {
      *
      * @param slug the product's human-readable identifier
      * @return the product's public details
-     * @throws ProductoNoEncontradoException if the product does not exist or is inactive
+     * @throws ProductNotFoundException if the product does not exist or is inactive
      */
     public PublicProductResponse getProductBySlug(String slug) {
         Product product = productRepository.findBySlug(slug)
                 .filter(Product::getActive)
-                .orElseThrow(() -> new ProductoNoEncontradoException(slug));
+                .orElseThrow(() -> new ProductNotFoundException(slug));
         return recordViewAndConvert(product);
     }
 
@@ -187,7 +187,7 @@ public class ProductService {
      *
      * @param id product ID
      * @return the product's admin details
-     * @throws ProductoNoEncontradoException if the product does not exist
+     * @throws ProductNotFoundException if the product does not exist
      */
     public AdminProductResponse getAdminProductById(Long id) {
         return toAdminResponse(findProductById(id));
@@ -202,19 +202,19 @@ public class ProductService {
      *
      * <p>The database's {@code unique} constraint guarantees SKU uniqueness.
      * A duplicate caused by concurrent requests is also reported as a
-     * {@link SkuDuplicadoException}.</p>
+     * {@link DuplicateSkuException}.</p>
      *
      * @param request product details
      * @return the created product's public details
-     * @throws SkuDuplicadoException if a product with that SKU already exists
-     * @throws CategoriaNoEncontradaException if the specified category does not exist
+     * @throws DuplicateSkuException if a product with that SKU already exists
+     * @throws CategoryNotFoundException if the specified category does not exist
      */
     @Transactional
     public PublicProductResponse createProduct(ProductRequest request) {
         String sku = normalizeSku(request.sku());
 
         if (productRepository.existsBySku(sku)) {
-            throw new SkuDuplicadoException(sku);
+            throw new DuplicateSkuException(sku);
         }
 
         Category category = resolveCategory(request.categoryId());
@@ -225,7 +225,7 @@ public class ProductService {
         try {
             return toPublicResponse(productRepository.saveAndFlush(newProduct));
         } catch (DataIntegrityViolationException e) {
-            throw new SkuDuplicadoException(sku);
+            throw new DuplicateSkuException(sku);
         }
     }
 
@@ -240,10 +240,10 @@ public class ProductService {
      * @param request updated product details
      * @param productId ID of the product to update
      * @return the updated product's public details
-     * @throws ProductoNoEncontradoException if the product does not exist
-     * @throws SkuDuplicadoException if another product already uses the SKU
-     * @throws CategoriaNoEncontradaException if the specified category does not exist
-     * @throws ProductoModificadoException if another user modified the product concurrently
+     * @throws ProductNotFoundException if the product does not exist
+     * @throws DuplicateSkuException if another product already uses the SKU
+     * @throws CategoryNotFoundException if the specified category does not exist
+     * @throws ProductModifiedException if another user modified the product concurrently
      */
     @EvictTopProductos
     @Transactional
@@ -252,7 +252,7 @@ public class ProductService {
         String sku = normalizeSku(request.sku());
 
         if (productRepository.existsBySkuAndIdNot(sku, productId)) {
-            throw new SkuDuplicadoException(sku);
+            throw new DuplicateSkuException(sku);
         }
 
         Category category = resolveCategory(request.categoryId());
@@ -263,9 +263,9 @@ public class ProductService {
         try {
             productRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new SkuDuplicadoException(sku);
+            throw new DuplicateSkuException(sku);
         } catch (ObjectOptimisticLockingFailureException e) {
-            throw new ProductoModificadoException(productId);
+            throw new ProductModifiedException(productId);
         }
 
         return toPublicResponse(product);
@@ -282,8 +282,8 @@ public class ProductService {
      * <p>The image is deleted from the bucket only after the transaction commits.</p>
      *
      * @param productId ID of the product to delete
-     * @throws ProductoNoEncontradoException if the product does not exist
-     * @throws ProductoConDependenciasException if the product has codes, orders, or other references
+     * @throws ProductNotFoundException if the product does not exist
+     * @throws ProductHasDependenciesException if the product has codes, orders, or other references
      */
     @EvictTopProductos
     @Transactional
@@ -291,7 +291,7 @@ public class ProductService {
         Product product = findProductById(productId);
 
         if (virtualCodeRepository.existsByProductId(productId)) {
-            throw new ProductoConDependenciasException(productId);
+            throw new ProductHasDependenciesException(productId);
         }
 
         String imageKey = product.getImageKey();
@@ -301,7 +301,7 @@ public class ProductService {
             productRepository.delete(product);
             productRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new ProductoConDependenciasException(productId);
+            throw new ProductHasDependenciesException(productId);
         }
 
         storageService.deleteAfterCommit(imageKey);
@@ -316,7 +316,7 @@ public class ProductService {
      * transaction commits.</p>
      *
      * @param productId ID of the product to deactivate
-     * @throws ProductoNoEncontradoException if the product does not exist
+     * @throws ProductNotFoundException if the product does not exist
      */
     @EvictTopProductos
     @Transactional
@@ -333,7 +333,7 @@ public class ProductService {
      * @param productId product ID
      * @param file image to upload
      * @return the product's admin details with the updated image
-     * @throws ProductoNoEncontradoException if the product does not exist
+     * @throws ProductNotFoundException if the product does not exist
      * @throws IOException if the file cannot be read
      */
     @Transactional
@@ -355,7 +355,7 @@ public class ProductService {
      *
      * @param productId product ID
      * @return the product's admin details without an image
-     * @throws ProductoNoEncontradoException if the product does not exist
+     * @throws ProductNotFoundException if the product does not exist
      */
     @Transactional
     public AdminProductResponse removeProductImage(Long productId) {
@@ -373,11 +373,11 @@ public class ProductService {
      *
      * @param id product ID
      * @return the product
-     * @throws ProductoNoEncontradoException if the product does not exist
+     * @throws ProductNotFoundException if the product does not exist
      */
     private Product findProductById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new ProductoNoEncontradoException(id));
+                .orElseThrow(() -> new ProductNotFoundException(id));
     }
 
     /**
@@ -385,14 +385,14 @@ public class ProductService {
      *
      * @param categoryId category ID, or {@code null} if the product has no category
      * @return the category, or {@code null} if the ID is {@code null}
-     * @throws CategoriaNoEncontradaException if the ID is not {@code null} and no category exists
+     * @throws CategoryNotFoundException if the ID is not {@code null} and no category exists
      */
     private Category resolveCategory(Long categoryId) {
         if (categoryId == null) {
             return null;
         }
         return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new CategoriaNoEncontradaException(categoryId));
+                .orElseThrow(() -> new CategoryNotFoundException(categoryId));
     }
 
     /**

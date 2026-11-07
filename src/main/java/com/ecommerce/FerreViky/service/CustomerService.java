@@ -3,11 +3,11 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.UpdateCustomerRequest;
 import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.PublicCustomerResponse;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteModificadoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ContrasenaInvalida;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ImagenInvalidaException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.ClienteNoEncontradoException;
-import com.ecommerce.FerreViky.exceptions.cliente.ClienteExceptions.EmailYaExisteException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerModifiedException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.InvalidPasswordException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.InvalidImageException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.CustomerNotFoundException;
+import com.ecommerce.FerreViky.exceptions.customer.CustomerExceptions.EmailAlreadyExistsException;
 import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.repository.CustomerRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
@@ -41,12 +41,12 @@ public class CustomerService {
      *
      * @param customer customer whose profile is being retrieved
      * @return the customer's public profile details
-     * @throws ClienteNoEncontradoException if no record is associated with the given customer
+     * @throws CustomerNotFoundException if no record is associated with the given customer
      */
     public PublicCustomerResponse getCustomer(Customer customer) {
         Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
-                        new ClienteNoEncontradoException(customer.getEmail()));
+                        new CustomerNotFoundException(customer.getEmail()));
 
         return toPublicResponse(customerRecord);
     }
@@ -66,9 +66,9 @@ public class CustomerService {
      * @param customer authenticated customer whose profile is being updated
      * @param request profile changes
      * @return the updated customer's public profile details
-     * @throws ClienteNoEncontradoException if no customer exists with the given ID
-     * @throws ContrasenaInvalida if the current password is missing or does not match
-     * @throws EmailYaExisteException if another customer already uses the new email address
+     * @throws CustomerNotFoundException if no customer exists with the given ID
+     * @throws InvalidPasswordException if the current password is missing or does not match
+     * @throws EmailAlreadyExistsException if another customer already uses the new email address
      */
     @Transactional
     public PublicCustomerResponse updateCustomer(
@@ -77,7 +77,7 @@ public class CustomerService {
 
         Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
-                        new ClienteNoEncontradoException(customer.getEmail()));
+                        new CustomerNotFoundException(customer.getEmail()));
 
         boolean closeSessions = Boolean.TRUE.equals(request.closeSessions());
 
@@ -86,7 +86,7 @@ public class CustomerService {
             if (request.currentPassword() == null
                     || !passwordEncoder.matches(
                     request.currentPassword(), customerRecord.getPassword())) {
-                throw new ContrasenaInvalida();
+                throw new InvalidPasswordException();
             }
 
             customerRecord.setPassword(passwordEncoder.encode(request.newPassword()));
@@ -100,7 +100,7 @@ public class CustomerService {
                 && !newEmail.equals(customerRecord.getEmail())) {
 
             if (customerRepository.existsByEmail(newEmail)) {
-                throw new EmailYaExisteException(newEmail);
+                throw new EmailAlreadyExistsException(newEmail);
             }
 
             customerRecord.setEmail(newEmail);
@@ -123,7 +123,7 @@ public class CustomerService {
         try {
             customerRepository.flush();
         } catch (ObjectOptimisticLockingFailureException e) {
-            throw new ClienteModificadoException(customerRecord.getId(), e);
+            throw new CustomerModifiedException(customerRecord.getId(), e);
         }
 
         return toPublicResponse(customerRecord);
@@ -137,13 +137,13 @@ public class CustomerService {
      * completes successfully.</p>
      *
      * @param customer customer whose account is being deactivated
-     * @throws ClienteNoEncontradoException if no record is associated with the given customer
+     * @throws CustomerNotFoundException if no record is associated with the given customer
      */
     @Transactional
     public void deactivateCustomer(Customer customer) {
         Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
-                        new ClienteNoEncontradoException(customer.getEmail()));
+                        new CustomerNotFoundException(customer.getEmail()));
 
         customerRecord.setActive(false);
     }
@@ -156,13 +156,13 @@ public class CustomerService {
      * completes successfully.</p>
      *
      * @param customer customer whose account is being activated
-     * @throws ClienteNoEncontradoException if no record is associated with the given customer
+     * @throws CustomerNotFoundException if no record is associated with the given customer
      */
     @Transactional
     public void activateCustomer(Customer customer) {
         Customer customerRecord = customerRepository.findById(customer.getId())
                 .orElseThrow(() ->
-                        new ClienteNoEncontradoException(customer.getEmail()));
+                        new CustomerNotFoundException(customer.getEmail()));
 
         customerRecord.setActive(true);
     }
@@ -179,14 +179,14 @@ public class CustomerService {
      * @param customer authenticated customer who owns the photo
      * @param file image to upload (JPG or PNG only)
      * @return the customer's public profile details with the updated photo
-     * @throws ClienteNoEncontradoException if no record is associated with the given customer
-     * @throws ImagenInvalidaException if the file is not a valid image, its format is unsupported, or it exceeds the maximum dimensions
+     * @throws CustomerNotFoundException if no record is associated with the given customer
+     * @throws InvalidImageException if the file is not a valid image, its format is unsupported, or it exceeds the maximum dimensions
      * @throws IOException if the file cannot be read
      */
     @Transactional
     public PublicCustomerResponse uploadCustomerPhoto(Customer customer, MultipartFile file) throws IOException {
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() -> new ClienteNoEncontradoException(customer.getEmail()));
+                .orElseThrow(() -> new CustomerNotFoundException(customer.getEmail()));
 
         String previousImageKey = customerRecord.getImageKey();
         customerRecord.setImageKey(storageService.upload(file, StorageService.StorageFolder.PROFILES));
@@ -205,12 +205,12 @@ public class CustomerService {
      *
      * @param customer authenticated customer who owns the photo
      * @return the customer's public profile details without a photo
-     * @throws ClienteNoEncontradoException if no record is associated with the given customer
+     * @throws CustomerNotFoundException if no record is associated with the given customer
      */
     @Transactional
     public PublicCustomerResponse removeCustomerPhoto(Customer customer) {
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() -> new ClienteNoEncontradoException(customer.getEmail()));
+                .orElseThrow(() -> new CustomerNotFoundException(customer.getEmail()));
 
         String imageKey = customerRecord.getImageKey();
         customerRecord.setImageKey(null);

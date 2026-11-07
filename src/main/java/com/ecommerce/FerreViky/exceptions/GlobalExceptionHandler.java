@@ -73,25 +73,24 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(MultipartException.class)
-    public ResponseEntity<Map<String, String>> multipartInvalido(MultipartException e) {
-        Throwable raiz = NestedExceptionUtils.getMostSpecificCause(e);
+    public ResponseEntity<Map<String, String>> handleInvalidMultipart(MultipartException e) {
+        Throwable rootCause = NestedExceptionUtils.getMostSpecificCause(e);
 
-        if (raiz instanceof IOException && !(raiz instanceof FileUploadException)) {
-            // fallo del servidor (disco, I/O): no es culpa del cliente
-            log.error("Error de I/O procesando multipart", e);
+        if (rootCause instanceof IOException && !(rootCause instanceof FileUploadException)) {
+            log.error("I/O error while processing multipart request", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error interno al procesar el archivo"));
+                    .body(Map.of("error", "Internal error while processing the file"));
         }
 
-        log.warn("Multipart inválido: {}", raiz.getMessage());
+        log.warn("Invalid multipart request: {}", rootCause.getMessage());
         return ResponseEntity.badRequest()
-                .body(Map.of("error", "Petición multipart inválida"));
+                .body(Map.of("error", "Invalid multipart request"));
     }
 
     @ExceptionHandler(MaxUploadSizeExceededException.class)
-    public ResponseEntity<Map<String, String>> demasiadoGrande(MaxUploadSizeExceededException e) {
+    public ResponseEntity<Map<String, String>> handleUploadTooLarge(MaxUploadSizeExceededException e) {
         return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
-                .body(Map.of("error", "La imagen supera el tamaño máximo permitido"));
+                .body(Map.of("error", "The uploaded file exceeds the maximum allowed size"));
     }
 
     @ExceptionHandler(HandlerMethodValidationException.class)
@@ -111,9 +110,9 @@ public class GlobalExceptionHandler {
         ));
     }
 
-    // Falta un parámetro requerido
+    // Missing required parameter
     @ExceptionHandler(MissingServletRequestParameterException.class)
-    public ResponseEntity<Map<String, Object>> handleMissingParam(MissingServletRequestParameterException ex) {
+    public ResponseEntity<Map<String, Object>> handleMissingParameter(MissingServletRequestParameterException ex) {
         return badRequest("Parameter '" + ex.getParameterName() + "' is required");
     }
 }

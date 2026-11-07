@@ -1,7 +1,7 @@
 package com.ecommerce.FerreViky.service;
 
-import com.ecommerce.FerreViky.exceptions.codigoVirtual.CodigosVirtualesExceptions.CodigosDuplicadosException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.ProductoNoEncontradoException;
+import com.ecommerce.FerreViky.exceptions.virtualcode.VirtualCodeExceptions.DuplicateCodesException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.ProductNotFoundException;
 import com.ecommerce.FerreViky.models.VirtualCode;
 import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
 import com.ecommerce.FerreViky.models.Product;
@@ -58,13 +58,13 @@ class VirtualCodeServiceTest {
     }
 
     @Test
-    @DisplayName("When adding codes to a nonexistent product, it throws ProductoNoEncontradoException")
+    @DisplayName("When adding codes to a nonexistent product, it throws ProductNotFoundException")
     void addCodesToProduct_productNotFound_throwsProductNotFound() {
         // Arrange
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> virtualCodeService.addCodesToProduct(99L, List.of("STEAM-0001")));
         verify(virtualCodeRepository, never()).saveAllAndFlush(any());
     }
@@ -166,7 +166,7 @@ class VirtualCodeServiceTest {
 
     //  addCodesToProduct (new)
     @Test
-    @DisplayName("When some codes already exist, it throws CodigosDuplicadosException and saves nothing")
+    @DisplayName("When some codes already exist, it throws DuplicateCodesException and saves nothing")
     void addCodesToProduct_existingCodes_throwsDuplicateCodes() {
         // Arrange
         Product p = generarProductoFake(prod -> prod.setId(1L));
@@ -175,7 +175,7 @@ class VirtualCodeServiceTest {
                 .thenReturn(List.of("STEAM-0001"));
 
         // Act + Assert
-        assertThrows(CodigosDuplicadosException.class,
+        assertThrows(DuplicateCodesException.class,
                 () -> virtualCodeService.addCodesToProduct(1L, List.of("STEAM-0001", "STEAM-0002")));
         verify(virtualCodeRepository, never()).saveAllAndFlush(any());
     }
@@ -196,7 +196,7 @@ class VirtualCodeServiceTest {
     }
 
     @Test
-    @DisplayName("When the database rejects the codes for integrity (concurrent insert), it throws CodigosDuplicadosException")
+    @DisplayName("When the database rejects the codes for integrity (concurrent insert), it throws DuplicateCodesException")
     void addCodesToProduct_dataIntegrity_throwsDuplicateCodes() {
         // Arrange
         Product p = generarProductoFake(prod -> prod.setId(1L));
@@ -205,7 +205,7 @@ class VirtualCodeServiceTest {
                 .thenThrow(new DataIntegrityViolationException("unique code"));
 
         // Act + Assert
-        assertThrows(CodigosDuplicadosException.class,
+        assertThrows(DuplicateCodesException.class,
                 () -> virtualCodeService.addCodesToProduct(1L, List.of("STEAM-0001")));
     }
 
@@ -233,7 +233,7 @@ class VirtualCodeServiceTest {
         when(productRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> virtualCodeService.addCodesToProduct(99L, List.of("STEAM-0001")));
         verifyNoInteractions(virtualCodeRepository);
     }
@@ -270,7 +270,7 @@ class VirtualCodeServiceTest {
     }
 
     @Test
-    @DisplayName("When the single code already exists, addCodeToProduct throws CodigosDuplicadosException")
+    @DisplayName("When the single code already exists, addCodeToProduct throws DuplicateCodesException")
     void addCodeToProduct_existingCode_throwsDuplicateCodes() {
         // Arrange
         Product p = generarProductoFake(prod -> prod.setId(1L));
@@ -279,7 +279,7 @@ class VirtualCodeServiceTest {
                 .thenReturn(List.of("STEAM-0001"));
 
         // Act + Assert
-        assertThrows(CodigosDuplicadosException.class,
+        assertThrows(DuplicateCodesException.class,
                 () -> virtualCodeService.addCodeToProduct(1L, "STEAM-0001"));
     }
 }

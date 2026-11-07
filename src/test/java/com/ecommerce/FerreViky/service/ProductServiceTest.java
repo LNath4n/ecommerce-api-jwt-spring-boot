@@ -5,7 +5,7 @@ import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.ProductRequest;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.AdminProductResponse;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.PublicProductResponse;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.*;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.*;
 import com.ecommerce.FerreViky.models.Category;
 import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
 import com.ecommerce.FerreViky.models.Product;
@@ -70,18 +70,18 @@ class ProductServiceTest {
 
     //  getProductById / getProductBySlug
     @Test
-    @DisplayName("When getting a product by id that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When getting a product by id that does not exist, it throws ProductNotFoundException")
     void getProductById_notFound_throwsProductNotFound() {
         // Arrange
         Product p = generarProductoFake();
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.empty());
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class, () -> productService.getProductById(p.getId()));
+        assertThrows(ProductNotFoundException.class, () -> productService.getProductById(p.getId()));
     }
 
     @Test
-    @DisplayName("When getting an inactive product by id, it throws ProductoNoEncontradoException")
+    @DisplayName("When getting an inactive product by id, it throws ProductNotFoundException")
     void getProductById_inactive_throwsProductNotFound() {
         // Arrange
         Product p = generarProductoFake(producto -> {
@@ -90,22 +90,22 @@ class ProductServiceTest {
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class, () -> productService.getProductById(p.getId()));
+        assertThrows(ProductNotFoundException.class, () -> productService.getProductById(p.getId()));
     }
 
     @Test
-    @DisplayName("When getting a product by slug that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When getting a product by slug that does not exist, it throws ProductNotFoundException")
     void getProductBySlug_notFound_throwsProductNotFound() {
         // Arrange
         Product p = generarProductoFake();
 
         when(productRepository.findBySlug(p.getSlug())).thenReturn(Optional.empty());
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class, () -> productService.getProductBySlug(p.getSlug()));
+        assertThrows(ProductNotFoundException.class, () -> productService.getProductBySlug(p.getSlug()));
     }
 
     @Test
-    @DisplayName("When getting an inactive product by slug, it throws ProductoNoEncontradoException")
+    @DisplayName("When getting an inactive product by slug, it throws ProductNotFoundException")
     void getProductBySlug_inactive_throwsProductNotFound() {
         // Arrange
         Product p = generarProductoFake(producto -> {
@@ -114,7 +114,7 @@ class ProductServiceTest {
 
         // Act + Assert
         when(productRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.getProductBySlug(p.getSlug()));
     }
 
@@ -266,7 +266,7 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When an admin gets a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When an admin gets a product that does not exist, it throws ProductNotFoundException")
     void getAdminProductById_notFound_throwsProductNotFound() {
         // Arrange
         Product p = generarProductoFake(producto -> producto.setActive(false));
@@ -275,7 +275,7 @@ class ProductServiceTest {
         when(productRepository.findById(p.getId())).thenReturn(Optional.empty());
 
         // Assert
-        assertThrows(ProductoNoEncontradoException.class, () -> productService.getAdminProductById(p.getId()));
+        assertThrows(ProductNotFoundException.class, () -> productService.getAdminProductById(p.getId()));
     }
 
     //  createProduct
@@ -291,14 +291,14 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When creating a product with a nonexistent category, it throws CategoriaNoEncontradaException")
+    @DisplayName("When creating a product with a nonexistent category, it throws CategoryNotFoundException")
     void createProduct_categoryNotFound_throwsCategoryNotFound() {
         // Arrange
         ProductRequest conCategoria = generarRequestFake(b -> b.categoryId = 5L);
         when(categoryRepository.findById(5L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CategoriaNoEncontradaException.class,
+        assertThrows(CategoryNotFoundException.class,
                 () -> productService.createProduct(conCategoria));
         verify(productRepository, never()).saveAndFlush(any());
         // Verifies that nobody ever talked to this repository
@@ -319,39 +319,39 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When creating a product with an existing SKU, it throws SkuDuplicadoException")
+    @DisplayName("When creating a product with an existing SKU, it throws DuplicateSkuException")
     void createProduct_skuExists_throwsDuplicateSku() {
         when(productRepository.existsBySku("STEAM-MX-200")).thenReturn(true);
 
-        assertThrows(SkuDuplicadoException.class, () -> productService.createProduct(generarRequestFake()));
+        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(generarRequestFake()));
         verify(productRepository, never()).saveAndFlush(any());
     }
 
     @Test
-    @DisplayName("When creating a product and the database rejects it for integrity, it throws SkuDuplicadoException")
+    @DisplayName("When creating a product and the database rejects it for integrity, it throws DuplicateSkuException")
     void createProduct_dataIntegrity_throwsDuplicateSku() {
         when(productRepository.saveAndFlush(any(Product.class)))
                 .thenThrow(new DataIntegrityViolationException("dup"));
 
-        assertThrows(SkuDuplicadoException.class, () -> productService.createProduct(generarRequestFake()));
+        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(generarRequestFake()));
     }
 
     //  updateProduct
     @Test
-    @DisplayName("When updating a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When updating a product that does not exist, it throws ProductNotFoundException")
     void updateProduct_notFound_throwsProductNotFound() {
         // Arrange
         ProductRequest request = generarRequestFake();
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.updateProduct(request, 1L));
         verify(productRepository, never()).flush();
     }
 
     @Test
-    @DisplayName("When updating a product with a nonexistent category, it throws CategoriaNoEncontradaException")
+    @DisplayName("When updating a product with a nonexistent category, it throws CategoryNotFoundException")
     void updateProduct_categoryNotFound_throwsCategoryNotFound() {
         // Arrange
         Product p = generarProductoFake();
@@ -360,7 +360,7 @@ class ProductServiceTest {
         when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(CategoriaNoEncontradaException.class,
+        assertThrows(CategoryNotFoundException.class,
                 () -> productService.updateProduct(request, p.getId()));
         verify(productRepository, never()).flush();
     }
@@ -429,13 +429,13 @@ class ProductServiceTest {
 
     //  deleteProduct
     @Test
-    @DisplayName("When deleting a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When deleting a product that does not exist, it throws ProductNotFoundException")
     void deleteProduct_notFound_throwsProductNotFound() {
         // Arrange
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.deleteProduct(1L));
         verify(productRepository, never()).delete((Product) any());
         verifyNoInteractions(storageService);
@@ -464,7 +464,7 @@ class ProductServiceTest {
 
 
     @Test
-    @DisplayName("When deleting a product with associated codes, it throws ProductoConDependenciasException without touching the DB or the image")
+    @DisplayName("When deleting a product with associated codes, it throws ProductHasDependenciesException without touching the DB or the image")
     void deleteProduct_withCodes_throwsProductWithDependencies() {
         // Arrange
         Product p = generarProductoFake();
@@ -472,7 +472,7 @@ class ProductServiceTest {
         when(virtualCodeRepository.existsByProductId(p.getId())).thenReturn(true);
 
         // Act + Assert
-        assertThrows(ProductoConDependenciasException.class,
+        assertThrows(ProductHasDependenciesException.class,
                 () -> productService.deleteProduct(p.getId()));
         verify(productRepository, never()).delete((Product) any());
         verifyNoInteractions(storageService);
@@ -494,13 +494,13 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When deactivating a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When deactivating a product that does not exist, it throws ProductNotFoundException")
     void deactivateProduct_notFound_throwsProductNotFound() {
         // Arrange
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.deactivateProduct(1L));
     }
 
@@ -531,7 +531,7 @@ class ProductServiceTest {
 
     //  updateProduct (new)
     @Test
-    @DisplayName("When updating a product with a SKU used by another product, it throws SkuDuplicadoException without flushing")
+    @DisplayName("When updating a product with a SKU used by another product, it throws DuplicateSkuException without flushing")
     void updateProduct_skuUsedByAnotherProduct_throwsDuplicateSku() {
         // Arrange
         Product p = generarProductoFake();
@@ -540,7 +540,7 @@ class ProductServiceTest {
         when(productRepository.existsBySkuAndIdNot("STEAM-MX-200", p.getId())).thenReturn(true);
 
         // Act + Assert
-        assertThrows(SkuDuplicadoException.class,
+        assertThrows(DuplicateSkuException.class,
                 () -> productService.updateProduct(request, p.getId()));
         verify(productRepository, never()).flush();
     }
@@ -562,7 +562,7 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When updating a product and the database rejects it for integrity, it throws SkuDuplicadoException")
+    @DisplayName("When updating a product and the database rejects it for integrity, it throws DuplicateSkuException")
     void updateProduct_dataIntegrity_throwsDuplicateSku() {
         // Arrange
         Product p = generarProductoFake();
@@ -571,12 +571,12 @@ class ProductServiceTest {
         doThrow(new DataIntegrityViolationException("dup")).when(productRepository).flush();
 
         // Act + Assert
-        assertThrows(SkuDuplicadoException.class,
+        assertThrows(DuplicateSkuException.class,
                 () -> productService.updateProduct(request, p.getId()));
     }
 
     @Test
-    @DisplayName("When updating a product modified by another user, it throws ProductoModificadoException")
+    @DisplayName("When updating a product modified by another user, it throws ProductModifiedException")
     void updateProduct_optimisticLock_throwsProductModified() {
         // Arrange
         Product p = generarProductoFake();
@@ -586,13 +586,13 @@ class ProductServiceTest {
                 .when(productRepository).flush();
 
         // Act + Assert
-        assertThrows(ProductoModificadoException.class,
+        assertThrows(ProductModifiedException.class,
                 () -> productService.updateProduct(request, p.getId()));
     }
 
     //  deleteProduct (new)
     @Test
-    @DisplayName("When deleting a product and the database rejects it for references, it throws ProductoConDependenciasException and keeps the image")
+    @DisplayName("When deleting a product and the database rejects it for references, it throws ProductHasDependenciesException and keeps the image")
     void deleteProduct_dataIntegrity_throwsProductWithDependencies() {
         // Arrange
         Product p = generarProductoFake();
@@ -600,7 +600,7 @@ class ProductServiceTest {
         doThrow(new DataIntegrityViolationException("fk")).when(productRepository).flush();
 
         // Act + Assert
-        assertThrows(ProductoConDependenciasException.class,
+        assertThrows(ProductHasDependenciesException.class,
                 () -> productService.deleteProduct(p.getId()));
         verifyNoInteractions(storageService);
     }
@@ -627,14 +627,14 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When uploading an image for a product that does not exist, it throws ProductoNoEncontradoException without touching storage")
+    @DisplayName("When uploading an image for a product that does not exist, it throws ProductNotFoundException without touching storage")
     void uploadProductImage_notFound_throwsProductNotFound() {
         // Arrange
         MultipartFile archivo = mock(MultipartFile.class);
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.uploadProductImage(1L, archivo));
         verifyNoInteractions(storageService);
     }
@@ -656,13 +656,13 @@ class ProductServiceTest {
     }
 
     @Test
-    @DisplayName("When removing the image of a product that does not exist, it throws ProductoNoEncontradoException")
+    @DisplayName("When removing the image of a product that does not exist, it throws ProductNotFoundException")
     void removeProductImage_notFound_throwsProductNotFound() {
         // Arrange
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
-        assertThrows(ProductoNoEncontradoException.class,
+        assertThrows(ProductNotFoundException.class,
                 () -> productService.removeProductImage(1L));
         verifyNoInteractions(storageService);
     }

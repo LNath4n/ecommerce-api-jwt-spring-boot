@@ -2,9 +2,9 @@ package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.dto.dtos.category.CategoryDTO.CategoryRequest;
 import com.ecommerce.FerreViky.dto.dtos.product.ProductDTO.CategoryOptionResponse;
-import com.ecommerce.FerreViky.exceptions.categorias.CategoriasExceptions.CategoriaConProductosException;
-import com.ecommerce.FerreViky.exceptions.categorias.CategoriasExceptions.CategoriaDuplicadaException;
-import com.ecommerce.FerreViky.exceptions.productos.ProductosExceptions.CategoriaNoEncontradaException;
+import com.ecommerce.FerreViky.exceptions.category.CategoryExceptions.CategoryHasProductsException;
+import com.ecommerce.FerreViky.exceptions.category.CategoryExceptions.DuplicateCategoryException;
+import com.ecommerce.FerreViky.exceptions.product.ProductExceptions.CategoryNotFoundException;
 import com.ecommerce.FerreViky.models.Category;
 import com.ecommerce.FerreViky.repository.CategoryRepository;
 import com.ecommerce.FerreViky.repository.ProductRepository;
@@ -29,14 +29,14 @@ public class CategoryService {
      *
      * @param request category details
      * @return the created category in summary format
-     * @throws CategoriaDuplicadaException if a category with that name already exists
+     * @throws DuplicateCategoryException if a category with that name already exists
      */
     @Transactional
     public CategoryOptionResponse createCategory(CategoryRequest request) {
         String name = request.name().trim();
 
         if (categoryRepository.existsByNameIgnoreCase(name)) {
-            throw new CategoriaDuplicadaException(name);
+            throw new DuplicateCategoryException(name);
         }
 
         Category newCategory = new Category();
@@ -45,7 +45,7 @@ public class CategoryService {
         try {
             return toResponse(categoryRepository.saveAndFlush(newCategory));
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaDuplicadaException(name);
+            throw new DuplicateCategoryException(name);
         }
     }
 
@@ -55,18 +55,18 @@ public class CategoryService {
      * @param id category ID
      * @param request updated category details
      * @return the updated category in summary format
-     * @throws CategoriaNoEncontradaException if the category does not exist
-     * @throws CategoriaDuplicadaException if another category already uses that name
+     * @throws CategoryNotFoundException if the category does not exist
+     * @throws DuplicateCategoryException if another category already uses that name
      */
     @Transactional
     public CategoryOptionResponse updateCategory(Long id, CategoryRequest request) {
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new CategoriaNoEncontradaException(id));
+                .orElseThrow(() -> new CategoryNotFoundException(id));
 
         String name = request.name().trim();
 
         if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
-            throw new CategoriaDuplicadaException(name);
+            throw new DuplicateCategoryException(name);
         }
 
         category.setName(name);
@@ -74,7 +74,7 @@ public class CategoryService {
         try {
             categoryRepository.flush();
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaDuplicadaException(name);
+            throw new DuplicateCategoryException(name);
         }
 
         return toResponse(category);
@@ -87,22 +87,22 @@ public class CategoryService {
      * products or remove their category first.</p>
      *
      * @param id category ID
-     * @throws CategoriaNoEncontradaException if the category does not exist
-     * @throws CategoriaConProductosException if the category has associated products
+     * @throws CategoryNotFoundException if the category does not exist
+     * @throws CategoryHasProductsException if the category has associated products
      */
     @Transactional
     public void deleteCategory(Long id) {
         if (productRepository.existsByCategoryId(id)) {
-            throw new CategoriaConProductosException(id);
+            throw new CategoryHasProductsException(id);
         }
 
         try {
             int deletedRows = categoryRepository.deleteCategoryById(id);
             if (deletedRows == 0) {
-                throw new CategoriaNoEncontradaException(id);
+                throw new CategoryNotFoundException(id);
             }
         } catch (DataIntegrityViolationException e) {
-            throw new CategoriaConProductosException(id);
+            throw new CategoryHasProductsException(id);
         }
     }
 

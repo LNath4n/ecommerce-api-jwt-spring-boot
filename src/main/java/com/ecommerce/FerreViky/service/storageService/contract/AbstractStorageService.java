@@ -1,6 +1,6 @@
 package com.ecommerce.FerreViky.service.storageService.contract;
 
-import com.ecommerce.FerreViky.utils.ImagenValidator;
+import com.ecommerce.FerreViky.utils.ImageValidator;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
@@ -9,12 +9,12 @@ import java.io.IOException;
 import java.util.UUID;
 
 public abstract class AbstractStorageService implements StorageService {
-    private final ImagenValidator validator;
-    protected AbstractStorageService(ImagenValidator validator) { this.validator = validator; }
+    private final ImageValidator validator;
+    protected AbstractStorageService(ImageValidator validator) { this.validator = validator; }
 
     @Override
     public String upload(MultipartFile file, StorageFolder folder) throws IOException {
-        ImagenValidator.ImagenLimpia sanitizedImage = validator.validarYSanitizar(file);
+        ImageValidator.ImagenLimpia sanitizedImage = validator.validarYSanitizar(file);
         String key = folder.prefix() + UUID.randomUUID() + sanitizedImage.ext();
         storeObject(key, sanitizedImage.data(), sanitizedImage.ext(), folder);
         deleteOnRollback(key);
