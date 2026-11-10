@@ -59,7 +59,13 @@ public class PaypalService {
                         "description", description,
                         "amount", Map.of(
                                 "currency_code", currency,
-                                "value", total.setScale(2, RoundingMode.HALF_UP).toPlainString()))));
+                                "value", total.setScale(2, RoundingMode.HALF_UP).toPlainString()))),
+                "payment_source", Map.of(
+                        "paypal", Map.of(
+                                "experience_context", Map.of(
+                                        "shipping_preference", "NO_SHIPPING",
+                                        "landing_page", "LOGIN",
+                                        "user_action", "PAY_NOW"))));
 
         JsonNode res = rest.post()
                 .uri("/v2/checkout/orders")
