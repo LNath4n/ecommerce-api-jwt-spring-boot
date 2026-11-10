@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.models;
 
+import com.ecommerce.FerreViky.utils.CodeCryptoConverter;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -25,9 +26,14 @@ public class VirtualCode {
     @JoinColumn(name = "product_id", nullable = false)
     private Product product;
 
-    // The code itself. It must be stored encrypted.
-    @Column(name = "code", nullable = false, unique = true, length = 500)
+    // The code itself. Stored encrypted (AES-GCM) via the converter.
+    @Convert(converter = CodeCryptoConverter.class)
+    @Column(name = "code", nullable = false, length = 500)
     private String code;
+
+    // HMAC-SHA256 of the code: only for uniqueness and lookups.
+    @Column(name = "code_hash", nullable = false, unique = true, length = 64)
+    private String codeHash;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false)

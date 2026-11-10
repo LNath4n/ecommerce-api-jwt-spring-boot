@@ -8,6 +8,8 @@ import lombok.Setter;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "orders")
@@ -35,6 +37,15 @@ public class Orders {
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "paypal_order_id", unique = true)
+    private String paypalOrderId;
+
+    @OneToMany(mappedBy = "orders", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<OrderItem> items = new ArrayList<>();
+
+    @Column(name = "paypal_capture_id")
+    private String paypalCaptureId;
+
     @PrePersist
     void onCreate() {
         this.createdAt = LocalDateTime.now();
@@ -43,8 +54,8 @@ public class Orders {
     public enum OrderStatus {
         PENDING_PAYMENT,
         PAID,
-        CANCELLED,
-        FAILED,
+        CANCELLED, //No se cobro nada
+        FAILED, //Si se cobro pero no se puede entregar
         REFUNDED
     }
 }

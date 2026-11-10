@@ -6,6 +6,7 @@ import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.service.CustomerService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -55,7 +56,13 @@ public class CustomerController {
             @ApiResponse(
                     responseCode = "404",
                     description = "Customer does not exist",
-                    content = @Content
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "Customer not found with email juan@gmail.com"
+                            )
+                    )
             )
     })
     @GetMapping
@@ -81,7 +88,15 @@ public class CustomerController {
             @ApiResponse(
                     responseCode = "400",
                     description = "Invalid input data",
-                    content = @Content
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(type = "object"),
+                            examples = @ExampleObject(
+                                    name = "InvalidNewPassword",
+                                    summary = "New password does not meet the minimum length",
+                                    value = "{\"status\":400,\"message\":\"Validation failed\",\"errors\":{\"newPassword\":\"New password must be between 8 and 72 characters\"}}"
+                            )
+                    )
             ),
             @ApiResponse(
                     responseCode = "401",
@@ -91,12 +106,24 @@ public class CustomerController {
             @ApiResponse(
                     responseCode = "404",
                     description = "Customer does not exist",
-                    content = @Content
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "Customer not found with email juan@gmail.com"
+                            )
+                    )
             ),
             @ApiResponse(
                     responseCode = "409",
                     description = "The email address is already registered",
-                    content = @Content
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "A customer with email nuevo@gmail.com already exists"
+                            )
+                    )
             )
     })
     @PutMapping
@@ -132,7 +159,13 @@ public class CustomerController {
             @ApiResponse(
                     responseCode = "404",
                     description = "Customer does not exist",
-                    content = @Content
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "Customer not found with email juan@gmail.com"
+                            )
+                    )
             )
     })
     @DeleteMapping
@@ -150,10 +183,69 @@ public class CustomerController {
     )
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Photo uploaded; returns the updated profile"),
-            @ApiResponse(responseCode = "400", description = "The file is not a valid image or its format is not allowed (JPG and PNG only)"),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "The file is missing, malformed, not a valid image, or has an unsupported format",
+                    content = {
+                            @Content(
+                                    mediaType = "application/json",
+                                    schema = @Schema(type = "object"),
+                                    examples = {
+                                            @ExampleObject(
+                                                    name = "MissingFile",
+                                                    summary = "The multipart file field is missing",
+                                                    value = "{\"status\":400,\"message\":\"Parameter 'file' is required\"}"
+                                            ),
+                                            @ExampleObject(
+                                                    name = "InvalidMultipart",
+                                                    summary = "The multipart request is malformed",
+                                                    value = "{\"error\":\"Invalid multipart request\"}"
+                                            )
+                                    }
+                            ),
+                            @Content(
+                                    mediaType = "text/plain",
+                                    schema = @Schema(type = "string"),
+                                    examples = {
+                                            @ExampleObject(
+                                                    name = "UnsupportedImageFormat",
+                                                    summary = "Only JPG and PNG are supported",
+                                                    value = "Unsupported format. Use JPG or PNG"
+                                            ),
+                                            @ExampleObject(
+                                                    name = "InvalidImage",
+                                                    summary = "The uploaded file is not a readable image",
+                                                    value = "The file is not a valid image"
+                                            )
+                                    }
+                            )
+                    }
+            ),
             @ApiResponse(responseCode = "401", description = "User is not authenticated"),
-            @ApiResponse(responseCode = "404", description = "Customer does not exist"),
-            @ApiResponse(responseCode = "413", description = "The image exceeds the maximum allowed size")
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Customer does not exist",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "Customer not found with email juan@gmail.com"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "413",
+                    description = "The image exceeds the maximum allowed size",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(type = "object"),
+                            examples = @ExampleObject(
+                                    name = "ImageTooLarge",
+                                    summary = "Uploaded image exceeds the configured request size limit",
+                                    value = "{\"error\":\"The uploaded file exceeds the maximum allowed size\"}"
+                            )
+                    )
+            )
     })
     @PostMapping(value = "/photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PublicCustomerResponse> uploadProfilePhoto(
@@ -169,7 +261,17 @@ public class CustomerController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Photo deleted; returns the updated profile"),
             @ApiResponse(responseCode = "401", description = "User is not authenticated"),
-            @ApiResponse(responseCode = "404", description = "Customer does not exist")
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Customer does not exist",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "Customer not found with email juan@gmail.com"
+                            )
+                    )
+            )
     })
     @DeleteMapping("/photo")
     public ResponseEntity<PublicCustomerResponse> removeProfilePhoto(@AuthenticationPrincipal Customer customer) {

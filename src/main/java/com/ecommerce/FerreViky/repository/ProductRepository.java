@@ -59,4 +59,14 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
     // Retrieves the highest-rated active products meeting the review threshold.
     List<Product> findTop10ByActiveTrueAndTotalReviewsGreaterThanEqualOrderByAverageRatingDescTotalReviewsDesc(
             long minimumReviews);
+
+    @Modifying(flushAutomatically = true, clearAutomatically = true)
+    @Transactional
+    @Query("""
+        UPDATE Product p SET
+            p.totalReviews  = (SELECT COUNT(r) FROM Review r WHERE r.product.id = :id),
+            p.averageRating = (SELECT COALESCE(AVG(r.rating), 0) FROM Review r WHERE r.product.id = :id)
+        WHERE p.id = :id
+        """)
+    void refreshReviewStats(@Param("id") Long id);
 }

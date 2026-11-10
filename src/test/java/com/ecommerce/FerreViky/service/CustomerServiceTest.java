@@ -26,7 +26,7 @@ import java.time.Duration;
 import java.util.Locale;
 import java.util.Optional;
 
-import static com.ecommerce.FerreViky.utils.Fakes.*;
+import static com.ecommerce.FerreViky.utils.CustomerFakes.*;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
@@ -49,7 +49,7 @@ class CustomerServiceTest {
     @DisplayName("When getting an existing customer, it returns their public profile with the signed photo URL")
     void getCustomer_exists_returnsPublicCustomer() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String photoUrl = "http://foto.com/abc";
         PublicCustomerResponse esperado = new PublicCustomerResponse(c.getEmail(),c.getName(),c.getPhone(),photoUrl);
 
@@ -69,7 +69,7 @@ class CustomerServiceTest {
     @DisplayName("When the customer does not exist, getCustomer throws CustomerNotFoundException")
     void getCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
         // Assert
@@ -81,7 +81,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer that does not exist, it throws CustomerNotFoundException")
     void updateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest clienteEditarRequest = new UpdateCustomerRequest(c.getEmail(),c.getPassword(),"NuevaPassword",c.getName(),c.getPhone(),false);
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
@@ -93,7 +93,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer with a new password but no old password, it throws InvalidPasswordException")
     void updateCustomer_newPasswordWithoutOldPassword_throwsInvalidPassword() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest clienteEditarRequest = new UpdateCustomerRequest(c.getEmail(),null,"NuevaPassword",c.getName(),c.getPhone(),false);
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -105,7 +105,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer with an old password that does not match the current one, it throws InvalidPasswordException")
     void updateCustomer_wrongOldPassword_throwsInvalidPassword() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest clienteEditarRequest = new UpdateCustomerRequest(c.getEmail(),"DefinitivamenteNoLaPassword","NuevaPassword",c.getName(),c.getPhone(),false);
         // Act
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -118,7 +118,7 @@ class CustomerServiceTest {
     @DisplayName("When the old password is correct, the new password is stored encoded")
     void updateCustomer_correctPassword_savesEncodedPassword() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String vieja = c.getPassword();
         String contrasenaNueva = "NuevaPassword";
         String hashNuevo = "HASH_NUEVO";
@@ -142,8 +142,8 @@ class CustomerServiceTest {
     @DisplayName("When changing a customer's email to one that already exists, it throws EmailAlreadyExistsException")
     void updateCustomer_emailAlreadyExists_throwsEmailAlreadyExists() {
         // Arrange
-        Customer customerAEditar = generarClienteFake();
-        Customer customerYaExistente = generarClienteFake(cli -> cli.setEmail("ocupado@mail.com"));
+        Customer customerAEditar = fakeCustomer();
+        Customer customerYaExistente = fakeCustomer(cli -> cli.setEmail("ocupado@mail.com"));
 
         UpdateCustomerRequest request = new UpdateCustomerRequest(customerYaExistente.getEmail(), null,null, customerAEditar.getName(), customerAEditar.getPhone(),false);
         when(customerRepository.findById(customerAEditar.getId())).thenReturn(Optional.of(customerAEditar));
@@ -157,7 +157,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer's email, it is actually changed")
     void updateCustomer_newEmailAvailable_updatesEmail() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String correo = "NuevoCorreo@Gmail.com".toLowerCase(Locale.ROOT);
         UpdateCustomerRequest request = new UpdateCustomerRequest(correo, null,null, c.getName(), c.getPhone(),false);
 
@@ -174,7 +174,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer with the same email, existsByEmail is not queried")
     void updateCustomer_sameEmail_doesNotQueryRepository() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(),false);
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -190,7 +190,7 @@ class CustomerServiceTest {
     @DisplayName("When the request has no optional fields, the previous values are kept")
     void updateCustomer_nullNameAndPhone_keepsCurrentValues() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String customerName = c.getName();
         String customerPhone = c.getPhone();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
@@ -209,7 +209,7 @@ class CustomerServiceTest {
     @DisplayName("When editing the customer's name and phone, they are updated")
     void updateCustomer_nameAndPhone_updatesFields() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String customerName = "Vargas";
         String customerPhone = "01234567890";
         UpdateCustomerRequest request = new UpdateCustomerRequest(
@@ -229,7 +229,7 @@ class CustomerServiceTest {
     @DisplayName("When deactivating an account, its status changes to false")
     void deactivateCustomer_exists_setsActiveToFalse() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
         // Act
         customerService.deactivateCustomer(c);
@@ -241,7 +241,7 @@ class CustomerServiceTest {
     @DisplayName("When deactivating a nonexistent account, it throws CustomerNotFoundException")
     void deactivateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -252,7 +252,7 @@ class CustomerServiceTest {
     @DisplayName("When activating an account, its status changes to true")
     void activateCustomer_exists_setsActiveToTrue() {
         // Arrange
-        Customer c = generarClienteFake(cli -> cli.setActive(false));
+        Customer c = fakeCustomer(cli -> cli.setActive(false));
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
 
         // Act
@@ -266,7 +266,7 @@ class CustomerServiceTest {
     @DisplayName("When activating a nonexistent account, it throws CustomerNotFoundException")
     void activateCustomer_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -284,7 +284,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer with a wrong old password, the new password is never encoded or saved")
     void updateCustomer_wrongOldPassword_doesNotEncodeOrChangePassword() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String passwordOriginal = c.getPassword();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), "DefinitivamenteNoLaPassword", "NuevaPassword", c.getName(), c.getPhone(), false);
@@ -300,7 +300,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer without a new password, the password is left untouched")
     void updateCustomer_withoutNewPassword_doesNotTouchPassword() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String passwordOriginal = c.getPassword();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(), false);
@@ -318,7 +318,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer's email, it is normalized (trimmed and lowercase) before being checked and saved")
     void updateCustomer_emailWithSpacesAndUppercase_isNormalized() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 "  Nuevo@Gmail.COM ", null, null, c.getName(), c.getPhone(), false);
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -335,7 +335,7 @@ class CustomerServiceTest {
     @DisplayName("When the request email is blank, the current email is kept and the repository is not queried")
     void updateCustomer_blankEmail_keepsCurrentEmail() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String emailOriginal = c.getEmail();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 "   ", null, null, c.getName(), c.getPhone(), false);
@@ -353,7 +353,7 @@ class CustomerServiceTest {
     @DisplayName("When the request name is blank, the current name is kept")
     void updateCustomer_blankName_keepsCurrentName() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         String originalName = c.getName();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, "   ", c.getPhone(), false);
@@ -370,7 +370,7 @@ class CustomerServiceTest {
     @DisplayName("When closing sessions is requested, the customer's token version is incremented")
     void updateCustomer_closeSessions_incrementsTokenVersion() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         var versionAntes = c.getTokenVersion();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(), true);
@@ -388,7 +388,7 @@ class CustomerServiceTest {
     @DisplayName("When closing sessions is not requested, the customer's token version is unchanged")
     void updateCustomer_withoutCloseSessions_keepsTokenVersion() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         var versionAntes = c.getTokenVersion();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(), false);
@@ -405,7 +405,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer successfully, flush is called")
     void updateCustomer_success_flushesRepository() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(), false);
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -421,7 +421,7 @@ class CustomerServiceTest {
     @DisplayName("When updating a customer modified concurrently by another user, it throws CustomerModifiedException")
     void updateCustomer_optimisticLock_throwsCustomerModified() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         UpdateCustomerRequest request = new UpdateCustomerRequest(
                 c.getEmail(), null, null, c.getName(), c.getPhone(), false);
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -438,7 +438,7 @@ class CustomerServiceTest {
     @DisplayName("When uploading a photo, the new key is saved, the previous one's deletion is scheduled and the updated profile is returned")
     void uploadCustomerPhoto_exists_replacesKeyAndSchedulesPreviousDeletion() throws IOException {
         // Arrange
-        Customer c = generarClienteFake(cli -> cli.setImageKey("perfiles/vieja.png"));
+        Customer c = fakeCustomer(cli -> cli.setImageKey("perfiles/vieja.png"));
         MultipartFile archivo = mock(MultipartFile.class);
         String photoUrl = "http://foto.com/nueva";
         PublicCustomerResponse esperado = new PublicCustomerResponse(c.getEmail(), c.getName(), c.getPhone(), photoUrl);
@@ -461,7 +461,7 @@ class CustomerServiceTest {
     @DisplayName("When uploading a photo for a customer that does not exist, it throws CustomerNotFoundException without touching storage")
     void uploadCustomerPhoto_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         MultipartFile archivo = mock(MultipartFile.class);
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
@@ -475,7 +475,7 @@ class CustomerServiceTest {
     @DisplayName("When the uploaded image is invalid, it throws InvalidImageException and keeps the previous photo")
     void uploadCustomerPhoto_invalidImage_throwsInvalidImageAndKeepsPreviousPhoto() throws IOException {
         // Arrange
-        Customer c = generarClienteFake(cli -> cli.setImageKey("perfiles/vieja.png"));
+        Customer c = fakeCustomer(cli -> cli.setImageKey("perfiles/vieja.png"));
         MultipartFile archivo = mock(MultipartFile.class);
 
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -494,7 +494,7 @@ class CustomerServiceTest {
     @DisplayName("When removing the photo, the key is set to null, file deletion is scheduled and the profile is returned without a photo")
     void removeCustomerPhoto_exists_setsKeyToNullAndSchedulesDeletion() {
         // Arrange
-        Customer c = generarClienteFake(cli -> cli.setImageKey("perfiles/vieja.png"));
+        Customer c = fakeCustomer(cli -> cli.setImageKey("perfiles/vieja.png"));
         PublicCustomerResponse esperado = new PublicCustomerResponse(c.getEmail(), c.getName(), c.getPhone(), null);
 
         when(customerRepository.findById(c.getId())).thenReturn(Optional.of(c));
@@ -513,7 +513,7 @@ class CustomerServiceTest {
     @DisplayName("When removing the photo of a customer that does not exist, it throws CustomerNotFoundException without touching storage")
     void removeCustomerPhoto_notFound_throwsCustomerNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(customerRepository.findById(c.getId())).thenReturn(Optional.empty());
 
         // Act + Assert

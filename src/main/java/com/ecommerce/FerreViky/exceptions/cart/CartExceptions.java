@@ -42,6 +42,12 @@ public class CartExceptions {
         }
     }
 
+    public static class EmptyCartException extends RuntimeException {
+        public EmptyCartException() {
+            super("The cart is empty");
+        }
+    }
+
     public static class InvalidQuantityException extends RuntimeException {
         public InvalidQuantityException(Integer quantity) {
             super("Invalid quantity: " + quantity);
