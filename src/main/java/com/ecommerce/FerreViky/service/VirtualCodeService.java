@@ -6,6 +6,7 @@ import com.ecommerce.FerreViky.models.VirtualCode;
 import com.ecommerce.FerreViky.models.Product;
 import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
 import com.ecommerce.FerreViky.repository.ProductRepository;
+import com.ecommerce.FerreViky.utils.CodeHasher;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -18,7 +19,7 @@ import java.util.*;
 public class VirtualCodeService {
     private final VirtualCodeRepository virtualCodeRepository;
     private final ProductRepository productRepository;
-
+    private final CodeHasher codeHasher;
     /**
      * Adds new codes to a product. They are created with the {@code AVAILABLE} status.
      *
@@ -40,15 +41,22 @@ public class VirtualCodeService {
             throw new IllegalArgumentException("No valid codes were provided.");
         }
 
-        List<String> existingCodes = virtualCodeRepository.findExistingCodes(normalizedCodes);
-        if (!existingCodes.isEmpty()) {
-            throw new DuplicateCodesException(existingCodes.size());
+        // hash -> code (el hash es la identidad del código)
+        Map<String, String> codesByHash = new LinkedHashMap<>();
+        for (String code : normalizedCodes) {
+            codesByHash.putIfAbsent(codeHasher.hash(code), code);
         }
 
-        List<VirtualCode> newCodes = normalizedCodes.stream().map(code -> {
+        List<String> existingHashes = virtualCodeRepository.findExistingHashes(codesByHash.keySet());
+        if (!existingHashes.isEmpty()) {
+            throw new DuplicateCodesException(existingHashes.size());
+        }
+
+        List<VirtualCode> newCodes = codesByHash.entrySet().stream().map(entry -> {
             VirtualCode virtualCode = new VirtualCode();
             virtualCode.setProduct(product);
-            virtualCode.setCode(code);
+            virtualCode.setCode(entry.getValue());
+            virtualCode.setCodeHash(entry.getKey());
             return virtualCode;
         }).toList();
 

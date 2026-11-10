@@ -23,6 +23,6 @@ public class HealthController {
             @ApiResponse(responseCode = "200", description = "Version retrieved successfully")
     })
     public ResponseEntity<String> getVersion() {
-        return ResponseEntity.ok("Version 3.1: The project now uses Postman and Redis :)");
+        return ResponseEntity.ok("Version 4.0: Paypal :)");
     }
 }

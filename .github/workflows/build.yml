@@ -36,13 +36,15 @@ jobs:
           --health-retries 10
 
     env:
-      SPRING_PROFILES_ACTIVE: dev   # enables the AdminSeeder
+      SPRING_PROFILES_ACTIVE: dev   # enables the Seeder
       DB_SERVER: localhost
       DB_NAME: ferreviky
       DB_USERNAME: postgres
       DB_PASSWORD: pass
       REDIS_HOST: localhost
       JWT_SECRET_KEY: Y2ktdGVzdC1zZWNyZXQtY2ktdGVzdC1zZWNyZXQtY2ktdGVzdC1zZWNyZXQtMTIzNDU2Nzg5MA==
+      CODES_KEY: Y2ktdGVzdC1jb2Rlcy1rZXktMDEyMzQ1Njc4OWFiY2Q=
+      CODES_HMAC_KEY: Y2ktdGVzdC1obWFjLWtleS0wMTIzNDU2Nzg5YWJjZGU=
       HEALTH_URL: http://localhost:8080/health
 
     steps:

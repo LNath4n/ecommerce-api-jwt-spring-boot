@@ -18,6 +18,11 @@ public class CartExceptionHandler {
         return ResponseEntity.status(404).body(ex.getMessage());
     }
 
+    @ExceptionHandler(CartExceptions.EmptyCartException.class)
+    public ResponseEntity<String> handleEmptyCart(CartExceptions.EmptyCartException ex) {
+        return ResponseEntity.badRequest().body(ex.getMessage());
+    }
+
     @ExceptionHandler(CartExceptions.QuantityExceededException.class)
     public ResponseEntity<String> handleQuantityExceeded(CartExceptions.QuantityExceededException ex) {
         return ResponseEntity.badRequest().body(ex.getMessage());

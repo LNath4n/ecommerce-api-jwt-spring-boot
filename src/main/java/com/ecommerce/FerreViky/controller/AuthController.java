@@ -5,6 +5,7 @@ import com.ecommerce.FerreViky.dto.dtos.customer.CustomerDTO.CustomerLoginReques
 import com.ecommerce.FerreViky.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -34,7 +35,19 @@ public class AuthController {
                     description = "Authentication successful. Returns the JWT.",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))
             ),
-            @ApiResponse(responseCode = "400", description = "Invalid input data (validation failed)", content = @Content),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid input data (validation failed)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(type = "object"),
+                            examples = @ExampleObject(
+                                    name = "InvalidEmail",
+                                    summary = "Email with an invalid format",
+                                    value = "{\"status\":400,\"message\":\"Validation failed\",\"errors\":{\"email\":\"Email format is invalid\"}}"
+                            )
+                    )
+            ),
             @ApiResponse(responseCode = "401", description = "Incorrect credentials", content = @Content)
     })
     @PostMapping("/login")
@@ -52,8 +65,30 @@ public class AuthController {
                     description = "Customer registered successfully.",
                     content = @Content(schema = @Schema(implementation = AuthResponse.class))
             ),
-            @ApiResponse(responseCode = "400", description = "Invalid input data (validation failed)", content = @Content),
-            @ApiResponse(responseCode = "409", description = "The email is already registered", content = @Content),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "Invalid input data (validation failed)",
+                    content = @Content(
+                            mediaType = "application/json",
+                            schema = @Schema(type = "object"),
+                            examples = @ExampleObject(
+                                    name = "InvalidEmail",
+                                    summary = "Email with an invalid format",
+                                    value = "{\"status\":400,\"message\":\"Validation failed\",\"errors\":{\"email\":\"Email format is invalid\"}}"
+                            )
+                    )
+            ),
+            @ApiResponse(
+                    responseCode = "409",
+                    description = "The email is already registered",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(
+                                    type = "string",
+                                    example = "A customer with email juan@gmail.com already exists"
+                            )
+                    )
+            ),
             @ApiResponse(responseCode = "500", description = "Internal error while creating the customer's cart", content = @Content)
     })
     @PostMapping

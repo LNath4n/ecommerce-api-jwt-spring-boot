@@ -51,6 +51,8 @@ public interface VirtualCodeRepository extends JpaRepository<VirtualCode, Long> 
     boolean existsByProductId(Long productId);
 
     // Returns which of the supplied codes already exist.
-    @Query("select c.code from VirtualCode c where c.code in :codes")
-    List<String> findExistingCodes(@Param("codes") Collection<String> codes);
+    // Returns which of the supplied hashes already exist.
+    @Query("select c.codeHash from VirtualCode c where c.codeHash in :hashes")
+    List<String> findExistingHashes(@Param("hashes") Collection<String> hashes);
+    List<VirtualCode> findByOrdersId(Long orderId);
 }

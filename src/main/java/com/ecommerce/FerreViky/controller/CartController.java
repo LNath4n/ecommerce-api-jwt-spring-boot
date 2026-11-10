@@ -7,6 +7,7 @@ import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.service.CartService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
+import io.swagger.v3.oas.annotations.media.ExampleObject;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
@@ -39,9 +40,45 @@ public class CartController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Product added or updated successfully",
                     content = @Content(schema = @Schema(type = "string", example = "Product added to cart"))),
-            @ApiResponse(responseCode = "400", description = "Invalid quantity (≤ 0) or quantity exceeds available stock", content = @Content),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "The request quantity is invalid or the requested total exceeds available stock",
+                    content = {
+                            @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "InvalidQuantity",
+                                            summary = "Quantity is below the allowed minimum",
+                                            value = "{\"status\":400,\"message\":\"Validation failed\",\"errors\":{\"quantity\":\"Quantity must be at least 1\"}}"
+                                    )
+                            ),
+                            @Content(
+                                    mediaType = "text/plain",
+                                    schema = @Schema(type = "string"),
+                                    examples = {
+                                            @ExampleObject(
+                                                    name = "InsufficientStock",
+                                                    summary = "Requested units exceed available stock",
+                                                    value = "Cannot add 2 units of Steam Gift Card $200 MXN; only 1 are in stock"
+                                            ),
+                                            @ExampleObject(
+                                                    name = "CartQuantityExceedsStock",
+                                                    summary = "Adding units would make the cart quantity exceed stock",
+                                                    value = "You already have 1 of Steam Gift Card $200 MXN in your cart and only 1 are in stock. You can add 0 more"
+                                            )
+                                    }
+                            )
+                    }
+            ),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
-            @ApiResponse(responseCode = "404", description = "Product not found", content = @Content)
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "Product does not exist or is inactive",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(type = "string", example = "Product not found with ID: 2")
+                    )
+            )
     })
     @PostMapping
     public ResponseEntity<String> addToCart(
@@ -59,7 +96,14 @@ public class CartController {
             @ApiResponse(responseCode = "200", description = "Cart retrieved successfully",
                     content = @Content(schema = @Schema(implementation = CartResponse.class))),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
-            @ApiResponse(responseCode = "404", description = "The customer does not have a registered cart", content = @Content)
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The customer does not have a registered cart",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(type = "string", example = "Cart not found: 42")
+                    )
+            )
     })
     @GetMapping
     public ResponseEntity<CartResponse> getCart(
@@ -76,9 +120,50 @@ public class CartController {
     @ApiResponses({
             @ApiResponse(responseCode = "200", description = "Cart updated successfully",
                     content = @Content(schema = @Schema(type = "string", example = "Cart updated with the requested quantities"))),
-            @ApiResponse(responseCode = "400", description = "Invalid quantity (< 0) or quantity exceeds available stock", content = @Content),
+            @ApiResponse(
+                    responseCode = "400",
+                    description = "The request quantity is invalid or the requested quantity exceeds available stock",
+                    content = {
+                            @Content(
+                                    mediaType = "application/json",
+                                    examples = @ExampleObject(
+                                            name = "NegativeQuantity",
+                                            summary = "Quantity is below the allowed minimum",
+                                            value = "{\"status\":400,\"message\":\"Validation failed\",\"errors\":{\"quantity\":\"Quantity cannot be negative\"}}"
+                                    )
+                            ),
+                            @Content(
+                                    mediaType = "text/plain",
+                                    schema = @Schema(type = "string"),
+                                    examples = @ExampleObject(
+                                            name = "InsufficientStock",
+                                            summary = "Requested quantity exceeds available stock",
+                                            value = "Cannot have 3 units of Steam Gift Card $200 MXN; only 2 are in stock"
+                                    )
+                            )
+                    }
+            ),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
-            @ApiResponse(responseCode = "404", description = "The customer has no cart or the product is not in it", content = @Content)
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The customer has no cart or the product is not in it",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(type = "string"),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "CartNotFound",
+                                            summary = "Customer has no registered cart",
+                                            value = "No cart found for customer 42"
+                                    ),
+                                    @ExampleObject(
+                                            name = "ProductNotInCart",
+                                            summary = "Product is not in the cart",
+                                            value = "Product with ID 2 is not in the cart"
+                                    )
+                            }
+                    )
+            )
     })
     @PutMapping
     public ResponseEntity<String> updateCart(
@@ -97,7 +182,14 @@ public class CartController {
             @ApiResponse(responseCode = "200", description = "Cart cleared successfully",
                     content = @Content(schema = @Schema(type = "string", example = "The entire cart was cleared"))),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
-            @ApiResponse(responseCode = "404", description = "The customer does not have a registered cart", content = @Content)
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The customer does not have a registered cart",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(type = "string", example = "No cart found for customer 42")
+                    )
+            )
     })
     @DeleteMapping
     public ResponseEntity<String> clearCart(
@@ -115,7 +207,26 @@ public class CartController {
             @ApiResponse(responseCode = "200", description = "Product removed successfully",
                     content = @Content(schema = @Schema(type = "string", example = "Product removed"))),
             @ApiResponse(responseCode = "401", description = "JWT is missing or invalid", content = @Content),
-            @ApiResponse(responseCode = "404", description = "The customer has no cart or the product is not in it", content = @Content)
+            @ApiResponse(
+                    responseCode = "404",
+                    description = "The customer has no cart or the product is not in it",
+                    content = @Content(
+                            mediaType = "text/plain",
+                            schema = @Schema(type = "string"),
+                            examples = {
+                                    @ExampleObject(
+                                            name = "CartNotFound",
+                                            summary = "Customer has no registered cart",
+                                            value = "No cart found for customer 42"
+                                    ),
+                                    @ExampleObject(
+                                            name = "ProductNotInCart",
+                                            summary = "Product is not in the cart",
+                                            value = "Product with ID 2 is not in the cart"
+                                    )
+                            }
+                    )
+            )
     })
     @DeleteMapping("/{productId}")
     public ResponseEntity<String> removeCartItem(

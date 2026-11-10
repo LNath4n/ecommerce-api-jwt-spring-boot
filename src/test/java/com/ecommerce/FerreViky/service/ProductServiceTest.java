@@ -37,7 +37,7 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.Optional;
-import static com.ecommerce.FerreViky.utils.Fakes.*;
+import static com.ecommerce.FerreViky.utils.ProductFakes.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -73,7 +73,7 @@ class ProductServiceTest {
     @DisplayName("When getting a product by id that does not exist, it throws ProductNotFoundException")
     void getProductById_notFound_throwsProductNotFound() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.empty());
         // Act + Assert
@@ -84,7 +84,7 @@ class ProductServiceTest {
     @DisplayName("When getting an inactive product by id, it throws ProductNotFoundException")
     void getProductById_inactive_throwsProductNotFound() {
         // Arrange
-        Product p = generarProductoFake(producto -> {
+        Product p = fakeProduct(producto -> {
             producto.setActive(false);
         });
 
@@ -97,7 +97,7 @@ class ProductServiceTest {
     @DisplayName("When getting a product by slug that does not exist, it throws ProductNotFoundException")
     void getProductBySlug_notFound_throwsProductNotFound() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
 
         when(productRepository.findBySlug(p.getSlug())).thenReturn(Optional.empty());
         // Act + Assert
@@ -108,7 +108,7 @@ class ProductServiceTest {
     @DisplayName("When getting an inactive product by slug, it throws ProductNotFoundException")
     void getProductBySlug_inactive_throwsProductNotFound() {
         // Arrange
-        Product p = generarProductoFake(producto -> {
+        Product p = fakeProduct(producto -> {
             producto.setActive(false);
         });
 
@@ -123,13 +123,13 @@ class ProductServiceTest {
     @DisplayName("When getting all products, each one receives its own stock")
     void getAllProducts_withProducts_assignsStockToEachProduct() {
         // Arrange
-        Product p1 = generarProductoFake(p -> { p.setId(1L); p.setImageKey("productos/uno.png"); });
-        Product p2 = generarProductoFake(p -> { p.setId(2L); p.setImageKey("productos/dos.png"); });
+        Product p1 = fakeProduct(p -> { p.setId(1L); p.setImageKey("productos/uno.png"); });
+        Product p2 = fakeProduct(p -> { p.setId(2L); p.setImageKey("productos/dos.png"); });
         Page<Product> pagina = new PageImpl<>(List.of(p1, p2), pageable, 2);
 
         when(productRepository.findByActiveTrue(pageable)).thenReturn(pagina);
         when(virtualCodeRepository.findStockByProductIdsAndStatus(List.of(1L, 2L), CodeStatus.AVAILABLE))
-                .thenReturn(List.of(stockFake(1L, 5L), stockFake(2L, 3L)));
+                .thenReturn(List.of(fakeProductStock(1L, 5L), fakeProductStock(2L, 3L)));
         when(storageService.getPublicUrl("productos/uno.png")).thenReturn("http://img.com/uno.png");
         when(storageService.getPublicUrl("productos/dos.png")).thenReturn("http://img.com/dos.png");
 
@@ -138,21 +138,21 @@ class ProductServiceTest {
 
         // Assert
         assertEquals(2, resultado.getContent().size());
-        assertEquals(esperadoPublico(p1, "http://img.com/uno.png", 5), resultado.getContent().get(0));
-        assertEquals(esperadoPublico(p2, "http://img.com/dos.png", 3), resultado.getContent().get(1));
+        assertEquals(expectedPublicProduct(p1, "http://img.com/uno.png", 5), resultado.getContent().get(0));
+        assertEquals(expectedPublicProduct(p2, "http://img.com/dos.png", 3), resultado.getContent().get(1));
     }
 
     @Test
     @DisplayName("When a product has no available codes, its stock is reported as zero")
     void getAllProducts_productWithoutAvailableCodes_stockIsZero() {
         // Arrange
-        Product conStock = generarProductoFake(p -> { p.setId(1L); p.setImageKey("productos/uno.png"); });
-        Product sinStock = generarProductoFake(p -> { p.setId(2L); p.setImageKey("productos/dos.png"); });
+        Product conStock = fakeProduct(p -> { p.setId(1L); p.setImageKey("productos/uno.png"); });
+        Product sinStock = fakeProduct(p -> { p.setId(2L); p.setImageKey("productos/dos.png"); });
         Page<Product> pagina = new PageImpl<>(List.of(conStock, sinStock), pageable, 2);
 
         when(productRepository.findByActiveTrue(pageable)).thenReturn(pagina);
         when(virtualCodeRepository.findStockByProductIdsAndStatus(List.of(1L, 2L), CodeStatus.AVAILABLE))
-                .thenReturn(List.of(stockFake(1L, 5L)));   // product 2 does not appear
+                .thenReturn(List.of(fakeProductStock(1L, 5L)));   // product 2 does not appear
         when(storageService.getPublicUrl("productos/uno.png")).thenReturn("http://img.com/uno.png");
         when(storageService.getPublicUrl("productos/dos.png")).thenReturn("http://img.com/dos.png");
 
@@ -160,8 +160,8 @@ class ProductServiceTest {
         Page<PublicProductResponse> resultado = productService.getAllProducts(pageable);
 
         // Assert
-        assertEquals(esperadoPublico(conStock, "http://img.com/uno.png", 5), resultado.getContent().get(0));
-        assertEquals(esperadoPublico(sinStock, "http://img.com/dos.png", 0), resultado.getContent().get(1));
+        assertEquals(expectedPublicProduct(conStock, "http://img.com/uno.png", 5), resultado.getContent().get(0));
+        assertEquals(expectedPublicProduct(sinStock, "http://img.com/dos.png", 0), resultado.getContent().get(1));
     }
 
     @Test
@@ -183,13 +183,13 @@ class ProductServiceTest {
     @DisplayName("When searching with filters, the service returns the page provided by the repository")
     void searchProducts_withFilters_returnsRepositoryPage() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         String url = "http://img.com/abc.png";
         Page<Product> pagina = new PageImpl<>(List.of(p), pageable, 1);
 
         when(productRepository.findAll(any(Specification.class), eq(pageable))).thenReturn(pagina);
         when(virtualCodeRepository.findStockByProductIdsAndStatus(List.of(p.getId()), CodeStatus.AVAILABLE))
-                .thenReturn(List.of(stockFake(p.getId(), 4L)));
+                .thenReturn(List.of(fakeProductStock(p.getId(), 4L)));
         when(storageService.getPublicUrl(p.getImageKey())).thenReturn(url);
 
         // Act
@@ -198,7 +198,7 @@ class ProductServiceTest {
 
         // Assert
         assertEquals(1, resultado.getContent().size());
-        assertEquals(esperadoPublico(p, url, 4), resultado.getContent().get(0));
+        assertEquals(expectedPublicProduct(p, url, 4), resultado.getContent().get(0));
         verify(productRepository).findAll(any(Specification.class), eq(pageable));
     }
 
@@ -247,7 +247,7 @@ class ProductServiceTest {
     @DisplayName("When an admin gets a product, it is returned even if inactive")
     void getAdminProductById_exists_returnsEvenIfInactive() {
         // Arrange
-        Product p = generarProductoFake(producto -> producto.setActive(false));
+        Product p = fakeProduct(producto -> producto.setActive(false));
         String url = "http://img.com/abc.png";
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
@@ -269,7 +269,7 @@ class ProductServiceTest {
     @DisplayName("When an admin gets a product that does not exist, it throws ProductNotFoundException")
     void getAdminProductById_notFound_throwsProductNotFound() {
         // Arrange
-        Product p = generarProductoFake(producto -> producto.setActive(false));
+        Product p = fakeProduct(producto -> producto.setActive(false));
 
         // Act
         when(productRepository.findById(p.getId())).thenReturn(Optional.empty());
@@ -282,7 +282,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("When creating a product without a category, the category repository is not queried")
     void createProduct_withoutCategory_doesNotQueryCategoryRepository() {
-        ProductRequest request = generarRequestFake();
+        ProductRequest request = fakeProductRequest();
         when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
         productService.createProduct(request);
@@ -294,7 +294,7 @@ class ProductServiceTest {
     @DisplayName("When creating a product with a nonexistent category, it throws CategoryNotFoundException")
     void createProduct_categoryNotFound_throwsCategoryNotFound() {
         // Arrange
-        ProductRequest conCategoria = generarRequestFake(b -> b.categoryId = 5L);
+        ProductRequest conCategoria = fakeProductRequest(b -> b.categoryId = 5L);
         when(categoryRepository.findById(5L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -307,7 +307,7 @@ class ProductServiceTest {
     @Test
     @DisplayName("When creating a product, the slug is generated from the name and the normalized SKU")
     void createProduct_generatesSlugFromNameAndSku() {
-        ProductRequest request = generarRequestFake(b -> b.sku = "  steam-mx-200 ");
+        ProductRequest request = fakeProductRequest(b -> b.sku = "  steam-mx-200 ");
         when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
 
         productService.createProduct(request);
@@ -323,7 +323,7 @@ class ProductServiceTest {
     void createProduct_skuExists_throwsDuplicateSku() {
         when(productRepository.existsBySku("STEAM-MX-200")).thenReturn(true);
 
-        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(generarRequestFake()));
+        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(fakeProductRequest()));
         verify(productRepository, never()).saveAndFlush(any());
     }
 
@@ -333,7 +333,7 @@ class ProductServiceTest {
         when(productRepository.saveAndFlush(any(Product.class)))
                 .thenThrow(new DataIntegrityViolationException("dup"));
 
-        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(generarRequestFake()));
+        assertThrows(DuplicateSkuException.class, () -> productService.createProduct(fakeProductRequest()));
     }
 
     //  updateProduct
@@ -341,7 +341,7 @@ class ProductServiceTest {
     @DisplayName("When updating a product that does not exist, it throws ProductNotFoundException")
     void updateProduct_notFound_throwsProductNotFound() {
         // Arrange
-        ProductRequest request = generarRequestFake();
+        ProductRequest request = fakeProductRequest();
         when(productRepository.findById(1L)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -354,8 +354,8 @@ class ProductServiceTest {
     @DisplayName("When updating a product with a nonexistent category, it throws CategoryNotFoundException")
     void updateProduct_categoryNotFound_throwsCategoryNotFound() {
         // Arrange
-        Product p = generarProductoFake();
-        ProductRequest request = generarRequestFake(b -> b.categoryId = 99L);
+        Product p = fakeProduct();
+        ProductRequest request = fakeProductRequest(b -> b.categoryId = 99L);
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(categoryRepository.findById(99L)).thenReturn(Optional.empty());
 
@@ -369,12 +369,12 @@ class ProductServiceTest {
     @DisplayName("When updating an existing product, its fields are updated and flush is called")
     void updateProduct_exists_updatesFieldsAndFlushes() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         Category nueva = new Category();
         nueva.setId(7L);
         nueva.setName("Streaming");
 
-        ProductRequest request = generarRequestFake(b -> {
+        ProductRequest request = fakeProductRequest(b -> {
             b.name = "Netflix Gift Card $300 MXN";
             b.salePrice = new BigDecimal("315.00");
             b.categoryId = 7L;
@@ -396,9 +396,9 @@ class ProductServiceTest {
     @Test
     @DisplayName("When getting an existing active product by id, it returns its public data with image and stock")
     void getProductById_existsAndActive_returnsPublicProduct() {
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         String url = "http://img.com/abc.png";
-        PublicProductResponse esperado = esperadoPublico(p, url, 5, b -> b.views = 1L);
+        PublicProductResponse esperado = expectedPublicProduct(p, url, 5, b -> b.views = 1L);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(storageService.getPublicUrl(p.getImageKey())).thenReturn(url);
@@ -413,9 +413,9 @@ class ProductServiceTest {
     @Test
     @DisplayName("When getting an existing active product by slug, it returns its public data")
     void getProductBySlug_existsAndActive_returnsPublicProduct() {
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         String url = "http://img.com/abc.png";
-        PublicProductResponse esperado = esperadoPublico(p, url, 7, b -> b.views = 1L);
+        PublicProductResponse esperado = expectedPublicProduct(p, url, 7, b -> b.views = 1L);
 
         when(productRepository.findBySlug(p.getSlug())).thenReturn(Optional.of(p));
         when(storageService.getPublicUrl(p.getImageKey())).thenReturn(url);
@@ -445,7 +445,7 @@ class ProductServiceTest {
     @DisplayName("When deleting an existing product, it is removed and its image deletion is scheduled")
     void deleteProduct_exists_deletesAndSchedulesImageDeletion() {
         // Arrange
-        Product p = generarProductoFake(producto -> producto.setImageKey("productos/borrar.png"));
+        Product p = fakeProduct(producto -> producto.setImageKey("productos/borrar.png"));
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Act
@@ -467,7 +467,7 @@ class ProductServiceTest {
     @DisplayName("When deleting a product with associated codes, it throws ProductHasDependenciesException without touching the DB or the image")
     void deleteProduct_withCodes_throwsProductWithDependencies() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(virtualCodeRepository.existsByProductId(p.getId())).thenReturn(true);
 
@@ -483,7 +483,7 @@ class ProductServiceTest {
     @DisplayName("When deactivating an existing product, its active status changes to false")
     void deactivateProduct_exists_setsActiveToFalse() {
         // Arrange
-        Product p = generarProductoFake();   // active = true
+        Product p = fakeProduct();   // active = true
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Act
@@ -515,7 +515,7 @@ class ProductServiceTest {
         Category category = new Category();
         category.setId(5L);
         category.setName("Gift Cards");
-        ProductRequest request = generarRequestFake(b -> b.categoryId = 5L);
+        ProductRequest request = fakeProductRequest(b -> b.categoryId = 5L);
 
         when(categoryRepository.findById(5L)).thenReturn(Optional.of(category));
         when(productRepository.saveAndFlush(any(Product.class))).thenAnswer(inv -> inv.getArgument(0));
@@ -534,8 +534,8 @@ class ProductServiceTest {
     @DisplayName("When updating a product with a SKU used by another product, it throws DuplicateSkuException without flushing")
     void updateProduct_skuUsedByAnotherProduct_throwsDuplicateSku() {
         // Arrange
-        Product p = generarProductoFake();
-        ProductRequest request = generarRequestFake();
+        Product p = fakeProduct();
+        ProductRequest request = fakeProductRequest();
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(productRepository.existsBySkuAndIdNot("STEAM-MX-200", p.getId())).thenReturn(true);
 
@@ -549,8 +549,8 @@ class ProductServiceTest {
     @DisplayName("When updating a product, the SKU is normalized before being saved")
     void updateProduct_normalizesSku() {
         // Arrange
-        Product p = generarProductoFake();
-        ProductRequest request = generarRequestFake(b -> b.sku = "  abc-123 ");
+        Product p = fakeProduct();
+        ProductRequest request = fakeProductRequest(b -> b.sku = "  abc-123 ");
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Act
@@ -565,8 +565,8 @@ class ProductServiceTest {
     @DisplayName("When updating a product and the database rejects it for integrity, it throws DuplicateSkuException")
     void updateProduct_dataIntegrity_throwsDuplicateSku() {
         // Arrange
-        Product p = generarProductoFake();
-        ProductRequest request = generarRequestFake();
+        Product p = fakeProduct();
+        ProductRequest request = fakeProductRequest();
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         doThrow(new DataIntegrityViolationException("dup")).when(productRepository).flush();
 
@@ -579,8 +579,8 @@ class ProductServiceTest {
     @DisplayName("When updating a product modified by another user, it throws ProductModifiedException")
     void updateProduct_optimisticLock_throwsProductModified() {
         // Arrange
-        Product p = generarProductoFake();
-        ProductRequest request = generarRequestFake();
+        Product p = fakeProduct();
+        ProductRequest request = fakeProductRequest();
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         doThrow(new ObjectOptimisticLockingFailureException(Product.class, p.getId()))
                 .when(productRepository).flush();
@@ -595,7 +595,7 @@ class ProductServiceTest {
     @DisplayName("When deleting a product and the database rejects it for references, it throws ProductHasDependenciesException and keeps the image")
     void deleteProduct_dataIntegrity_throwsProductWithDependencies() {
         // Arrange
-        Product p = generarProductoFake();
+        Product p = fakeProduct();
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         doThrow(new DataIntegrityViolationException("fk")).when(productRepository).flush();
 
@@ -610,7 +610,7 @@ class ProductServiceTest {
     @DisplayName("When uploading an image, the new key is saved and deletion of the previous one is scheduled")
     void uploadProductImage_exists_replacesKeyAndSchedulesPreviousDeletion() throws IOException {
         // Arrange
-        Product p = generarProductoFake(producto -> producto.setImageKey("productos/vieja.png"));
+        Product p = fakeProduct(producto -> producto.setImageKey("productos/vieja.png"));
         MultipartFile archivo = mock(MultipartFile.class);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
@@ -643,7 +643,7 @@ class ProductServiceTest {
     @DisplayName("When removing the image, the key is set to null and file deletion is scheduled")
     void removeProductImage_exists_setsKeyToNullAndSchedulesDeletion() {
         // Arrange
-        Product p = generarProductoFake(producto -> producto.setImageKey("productos/vieja.png"));
+        Product p = fakeProduct(producto -> producto.setImageKey("productos/vieja.png"));
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
         // Act
@@ -686,18 +686,18 @@ class ProductServiceTest {
     @DisplayName("When getting the most viewed products, each one receives its stock")
     void getTopViewedProducts_withProducts_assignsStock() {
         // Arrange
-        Product p = generarProductoFake(x -> x.setId(1L));
+        Product p = fakeProduct(x -> x.setId(1L));
         String url = "http://img.com/abc.png";
         when(productRepository.findTop10ByActiveTrueOrderByViewsDesc()).thenReturn(List.of(p));
         when(virtualCodeRepository.findStockByProductIdsAndStatus(List.of(1L), CodeStatus.AVAILABLE))
-                .thenReturn(List.of(stockFake(1L, 9L)));
+                .thenReturn(List.of(fakeProductStock(1L, 9L)));
         when(storageService.getPublicUrl(p.getImageKey())).thenReturn(url);
 
         // Act
         List<PublicProductResponse> resultado = productService.getTopViewedProducts();
 
         // Assert
-        assertEquals(List.of(esperadoPublico(p, url, 9)), resultado);
+        assertEquals(List.of(expectedPublicProduct(p, url, 9)), resultado);
     }
 
     @Test
@@ -721,7 +721,7 @@ class ProductServiceTest {
     @DisplayName("When getting the most reviewed products, it returns a mutable ArrayList (cache-compatible)")
     void getTopReviewedProducts_returnsMutableList() {
         // Arrange
-        Product p = generarProductoFake(x -> x.setId(1L));
+        Product p = fakeProduct(x -> x.setId(1L));
         when(productRepository.findTop10ByActiveTrueOrderByTotalReviewsDesc()).thenReturn(List.of(p));
         when(virtualCodeRepository.findStockByProductIdsAndStatus(List.of(1L), CodeStatus.AVAILABLE))
                 .thenReturn(List.of());

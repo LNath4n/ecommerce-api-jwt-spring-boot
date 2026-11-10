@@ -1,6 +1,8 @@
 package com.ecommerce.FerreViky.service;
 
-import static com.ecommerce.FerreViky.utils.Fakes.*;
+import static com.ecommerce.FerreViky.utils.CartFakes.*;
+import static com.ecommerce.FerreViky.utils.CustomerFakes.*;
+import static com.ecommerce.FerreViky.utils.ProductFakes.*;
 
 import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.UpdateCartItemQuantityRequest;
 import com.ecommerce.FerreViky.dto.dtos.cart.CartDTO.AddCartItemRequest;
@@ -41,7 +43,7 @@ class CartServiceTest {
     @DisplayName("When adding a product that does not exist, it throws ProductNotFoundException")
     void addOrUpdateCartItem_productNotFound_throwsProductNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         AddCartItemRequest dto = new AddCartItemRequest(9L,9);
 
         // Act
@@ -55,8 +57,8 @@ class CartServiceTest {
     @DisplayName("When adding an inactive product, it throws ProductNotFoundException")
     void addOrUpdateCartItem_inactiveProduct_throwsProductNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(producto -> {producto.setActive(false);});
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(producto -> {producto.setActive(false);});
         AddCartItemRequest dto = new AddCartItemRequest(p.getId(),9);
 
         // Act
@@ -70,10 +72,10 @@ class CartServiceTest {
     @DisplayName("When adding a product with a zero or negative quantity, it throws InvalidQuantityException")
     void addOrUpdateCartItem_invalidQuantity_throwsInvalidQuantity() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        AddCartItemRequest dtoCero = agregarDto(p.getId(), 0);
-        AddCartItemRequest dtoNegativo = agregarDto(p.getId(), -7);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        AddCartItemRequest dtoCero = newAddCartItemRequest(p.getId(), 0);
+        AddCartItemRequest dtoNegativo = newAddCartItemRequest(p.getId(), -7);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
 
@@ -86,9 +88,9 @@ class CartServiceTest {
     @DisplayName("When adding a product for a customer without a cart, the cart is created and saved")
     void addOrUpdateCartItem_customerWithoutCart_createsNewCart() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        AddCartItemRequest dto = agregarDto(p.getId(), 2);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        AddCartItemRequest dto = newAddCartItemRequest(p.getId(), 2);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
@@ -114,12 +116,12 @@ class CartServiceTest {
     @DisplayName("When adding a new product to the cart, it is added as a line with the requested quantity")
     void addOrUpdateCartItem_newProduct_addsNewLine() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product existente = generarProductoFake(p -> p.setId(1L));
-        Product nuevo = generarProductoFake(p -> p.setId(2L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, existente, 1);            // the cart already has ANOTHER product
-        AddCartItemRequest dto = agregarDto(2L, 3);
+        Customer c = fakeCustomer();
+        Product existente = fakeProduct(p -> p.setId(1L));
+        Product nuevo = fakeProduct(p -> p.setId(2L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, existente, 1);            // the cart already has ANOTHER product
+        AddCartItemRequest dto = newAddCartItemRequest(2L, 3);
 
         when(productRepository.findById(2L)).thenReturn(Optional.of(nuevo));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
@@ -142,13 +144,13 @@ class CartServiceTest {
     @DisplayName("When adding a product that is already in the cart, the quantity is added to the existing line")
     void addOrUpdateCartItem_existingProduct_addsQuantity() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product existente = generarProductoFake(p -> p.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
+        Customer c = fakeCustomer();
+        Product existente = fakeProduct(p -> p.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
         int cantidadExistente = 1;
-        ItemInCart linea = agregarItem(cart, existente, cantidadExistente);            // the cart already has the product
+        ItemInCart linea = addCartItem(cart, existente, cantidadExistente);            // the cart already has the product
         int cantidadDeseadaParaAgregar = 3;
-        AddCartItemRequest dto = agregarDto(existente.getId(), cantidadDeseadaParaAgregar);
+        AddCartItemRequest dto = newAddCartItemRequest(existente.getId(), cantidadDeseadaParaAgregar);
         int cantidadDeseadaFinal = cantidadExistente + cantidadDeseadaParaAgregar;
 
         when(productRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
@@ -169,13 +171,13 @@ class CartServiceTest {
     @DisplayName("When requesting exactly the available stock, adding is allowed")
     void addOrUpdateCartItem_quantityEqualToStock_adds() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product existente = generarProductoFake(p -> p.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
+        Customer c = fakeCustomer();
+        Product existente = fakeProduct(p -> p.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
         int cantidadExistente = 1;
-        agregarItem(cart, existente, cantidadExistente);            // the cart already has the product
+        addCartItem(cart, existente, cantidadExistente);            // the cart already has the product
         int cantidadDeseadaParaAgregar = 3;
-        AddCartItemRequest dto = agregarDto(existente.getId(), cantidadDeseadaParaAgregar);
+        AddCartItemRequest dto = newAddCartItemRequest(existente.getId(), cantidadDeseadaParaAgregar);
         int cantidadDeseadaFinal = cantidadExistente + cantidadDeseadaParaAgregar;
 
         when(productRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
@@ -196,11 +198,11 @@ class CartServiceTest {
     @DisplayName("When adding more than the available stock, it throws QuantityExceededException")
     void addOrUpdateCartItem_exceedsStock_throwsQuantityExceeded() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product existente = generarProductoFake(p -> p.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));   // empty cart: it only fails because of the requested amount
+        Customer c = fakeCustomer();
+        Product existente = fakeProduct(p -> p.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));   // empty cart: it only fails because of the requested amount
         int cantidadDeseada = 3;
-        AddCartItemRequest dto = agregarDto(existente.getId(), cantidadDeseada);
+        AddCartItemRequest dto = newAddCartItemRequest(existente.getId(), cantidadDeseada);
 
         when(productRepository.findById(existente.getId())).thenReturn(Optional.of(existente));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
@@ -216,11 +218,11 @@ class CartServiceTest {
     @DisplayName("When adding to an existing line, stock is validated against the total quantity and not the requested one")
     void addOrUpdateCartItem_sumExceedsStock_throwsQuantityExceeded() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, p, 3);                       // already has 3 in the cart
-        AddCartItemRequest dto = agregarDto(p.getId(), 3);    // requests 3 more, so the total is 6
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 3);                       // already has 3 in the cart
+        AddCartItemRequest dto = newAddCartItemRequest(p.getId(), 3);    // requests 3 more, so the total is 6
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
@@ -238,8 +240,8 @@ class CartServiceTest {
     @DisplayName("When updating the quantity for a customer without a cart, it throws CustomerCartNotFoundException")
     void updateCartItemQuantity_noCart_throwsCustomerCartNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
-        UpdateCartItemQuantityRequest dto = actualizarDto(1L, 2);
+        Customer c = fakeCustomer();
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(1L, 2);
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -252,11 +254,11 @@ class CartServiceTest {
     @DisplayName("When updating the quantity of a product that is not in the cart, it throws ProductNotInCartException")
     void updateCartItemQuantity_productNotInCart_throwsProductNotInCart() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product enCarrito = generarProductoFake(p -> p.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, enCarrito, 2);
-        UpdateCartItemQuantityRequest dto = actualizarDto(99L, 3);   // product 99 is not in the cart
+        Customer c = fakeCustomer();
+        Product enCarrito = fakeProduct(p -> p.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, enCarrito, 2);
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(99L, 3);   // product 99 is not in the cart
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
@@ -270,11 +272,11 @@ class CartServiceTest {
     @DisplayName("When updating the quantity, it replaces the previous one instead of adding to it")
     void updateCartItemQuantity_validQuantity_replacesQuantity() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(prod -> prod.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        ItemInCart linea = agregarItem(cart, p, 2);   // has 2
-        UpdateCartItemQuantityRequest dto = actualizarDto(1L, 5);          // now wants 5 (adding would give 7)
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(prod -> prod.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        ItemInCart linea = addCartItem(cart, p, 2);   // has 2
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(1L, 5);          // now wants 5 (adding would give 7)
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(virtualCodeRepository.countByProductIdAndStatus(1L, VirtualCode.CodeStatus.AVAILABLE))
@@ -293,13 +295,13 @@ class CartServiceTest {
     @DisplayName("When updating the quantity to zero, the line is removed from the cart")
     void updateCartItemQuantity_zeroQuantity_removesLine() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product aBorrar = generarProductoFake(p -> p.setId(1L));
-        Product otro = generarProductoFake(p -> p.setId(2L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        ItemInCart lineaBorrada = agregarItem(cart, aBorrar, 2);
-        ItemInCart lineaOtra = agregarItem(cart, otro, 1);
-        UpdateCartItemQuantityRequest dto = actualizarDto(1L, 0);
+        Customer c = fakeCustomer();
+        Product aBorrar = fakeProduct(p -> p.setId(1L));
+        Product otro = fakeProduct(p -> p.setId(2L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        ItemInCart lineaBorrada = addCartItem(cart, aBorrar, 2);
+        ItemInCart lineaOtra = addCartItem(cart, otro, 1);
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(1L, 0);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
@@ -318,11 +320,11 @@ class CartServiceTest {
     @DisplayName("When updating the quantity above the stock, it throws QuantityExceededException and keeps the previous quantity")
     void updateCartItemQuantity_exceedsStock_throwsQuantityExceeded() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(prod -> prod.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        ItemInCart linea = agregarItem(cart, p, 2);
-        UpdateCartItemQuantityRequest dto = actualizarDto(1L, 8);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(prod -> prod.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        ItemInCart linea = addCartItem(cart, p, 2);
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(1L, 8);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(virtualCodeRepository.countByProductIdAndStatus(1L, VirtualCode.CodeStatus.AVAILABLE))
@@ -339,11 +341,11 @@ class CartServiceTest {
     @DisplayName("When updating the quantity to exactly the available stock, it is allowed")
     void updateCartItemQuantity_quantityEqualToStock_allows() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(prod -> prod.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        ItemInCart linea = agregarItem(cart, p, 1);
-        UpdateCartItemQuantityRequest dto = actualizarDto(1L, 10);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(prod -> prod.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        ItemInCart linea = addCartItem(cart, p, 1);
+        UpdateCartItemQuantityRequest dto = newUpdateCartItemQuantityRequest(1L, 10);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(virtualCodeRepository.countByProductIdAndStatus(1L, VirtualCode.CodeStatus.AVAILABLE))
@@ -362,7 +364,7 @@ class CartServiceTest {
     @DisplayName("When removing a product for a customer without a cart, it throws CustomerCartNotFoundException")
     void removeProductFromCart_noCart_throwsCustomerCartNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -374,10 +376,10 @@ class CartServiceTest {
     @DisplayName("When removing a product that is not in the cart, it throws ProductNotInCartException")
     void removeProductFromCart_productNotInCart_throwsProductNotInCart() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product enCarrito = generarProductoFake(p -> p.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, enCarrito, 2);
+        Customer c = fakeCustomer();
+        Product enCarrito = fakeProduct(p -> p.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, enCarrito, 2);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
@@ -391,12 +393,12 @@ class CartServiceTest {
     @DisplayName("When removing a product, it disappears from the cart and the other lines are kept")
     void removeProductFromCart_exists_removesOnlyThatLine() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product aBorrar = generarProductoFake(p -> p.setId(1L));
-        Product otro = generarProductoFake(p -> p.setId(2L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        ItemInCart lineaBorrada = agregarItem(cart, aBorrar, 2);
-        ItemInCart lineaOtra = agregarItem(cart, otro, 1);
+        Customer c = fakeCustomer();
+        Product aBorrar = fakeProduct(p -> p.setId(1L));
+        Product otro = fakeProduct(p -> p.setId(2L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        ItemInCart lineaBorrada = addCartItem(cart, aBorrar, 2);
+        ItemInCart lineaOtra = addCartItem(cart, otro, 1);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
@@ -415,7 +417,7 @@ class CartServiceTest {
     @DisplayName("When getting the cart of a customer without a cart, it throws CartNotFoundException")
     void getCartByCustomer_notFound_throwsCartNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(cartRepository.findByCustomerWithItems(c)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -444,9 +446,9 @@ class CartServiceTest {
     @DisplayName("When creating the cart and the database rejects it for integrity, it throws ConcurrentCartUpdateException")
     void addOrUpdateCartItem_dataIntegrityWhenCreatingCart_throwsConcurrentConflict() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        AddCartItemRequest dto = agregarDto(p.getId(), 2);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        AddCartItemRequest dto = newAddCartItemRequest(p.getId(), 2);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
@@ -462,10 +464,10 @@ class CartServiceTest {
     @DisplayName("When saving the cart and the database rejects it for integrity, it throws ConcurrentCartUpdateException")
     void addOrUpdateCartItem_dataIntegrityWhenSaving_throwsConcurrentConflict() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        AddCartItemRequest dto = agregarDto(p.getId(), 1);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        AddCartItemRequest dto = newAddCartItemRequest(p.getId(), 1);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
@@ -483,11 +485,11 @@ class CartServiceTest {
     @DisplayName("When the resulting quantity overflows an int, it throws ArithmeticException before validating stock")
     void addOrUpdateCartItem_quantityOverflow_throwsArithmeticException() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake();
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, p, Integer.MAX_VALUE);
-        AddCartItemRequest dto = agregarDto(p.getId(), 1);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct();
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, Integer.MAX_VALUE);
+        AddCartItemRequest dto = newAddCartItemRequest(p.getId(), 1);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
@@ -503,10 +505,10 @@ class CartServiceTest {
     @DisplayName("When clearing the cart, all lines are removed but the cart is kept")
     void clearCart_exists_removesAllLines() {
         // Arrange
-        Customer c = generarClienteFake();
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, generarProductoFake(p -> p.setId(1L)), 2);
-        agregarItem(cart, generarProductoFake(p -> p.setId(2L)), 1);
+        Customer c = fakeCustomer();
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, fakeProduct(p -> p.setId(1L)), 2);
+        addCartItem(cart, fakeProduct(p -> p.setId(2L)), 1);
 
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
 
@@ -522,7 +524,7 @@ class CartServiceTest {
     @DisplayName("When clearing the cart of a customer without a cart, it throws CustomerCartNotFoundException")
     void clearCart_noCart_throwsCustomerCartNotFound() {
         // Arrange
-        Customer c = generarClienteFake();
+        Customer c = fakeCustomer();
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.empty());
 
         // Act + Assert
@@ -535,10 +537,10 @@ class CartServiceTest {
     @DisplayName("When getting an existing cart, it returns the DTO and resolves each product's image URL")
     void getCartByCustomer_exists_returnsDtoAndResolvesImageUrls() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(prod -> prod.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, p, 2);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(prod -> prod.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 2);
 
         when(cartRepository.findByCustomerWithItems(c)).thenReturn(Optional.of(cart));
 
@@ -554,10 +556,10 @@ class CartServiceTest {
     @DisplayName("When getting a cart by customer id, it returns the DTO and resolves each product's image URL")
     void getCartByCustomerId_exists_returnsDtoAndResolvesImageUrls() {
         // Arrange
-        Customer c = generarClienteFake();
-        Product p = generarProductoFake(prod -> prod.setId(1L));
-        Cart cart = generarCarritoFake(car -> car.setCustomer(c));
-        agregarItem(cart, p, 2);
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(prod -> prod.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 2);
 
         when(cartRepository.findByCustomerId(c.getId())).thenReturn(Optional.of(cart));
 
