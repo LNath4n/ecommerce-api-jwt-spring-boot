@@ -16,6 +16,7 @@ import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignReques
 
 import java.io.IOException;
 import java.time.Duration;
+import java.util.Map;
 
 @Service
 @Profile("prod")
@@ -32,14 +33,17 @@ public class S3StorageService extends AbstractStorageService {
     }
 
     @Override
-    protected void storeObject(String key, byte[] data, String extension, StorageFolder folder) throws IOException {
+    protected void storeObject(String key, byte[] data, String extension,
+                               StorageFolder folder, Map<String, String> metadata) throws IOException {
         String cacheControl = (folder == StorageFolder.PRODUCTS)
                 ? "public,max-age=31536000,immutable" : "private,max-age=3600";
         String contentType = extension.equals(".png") ? "image/png" : "image/jpeg";
 
         s3.putObject(PutObjectRequest.builder()
                         .bucket(bucket).key(key)
-                        .contentType(contentType).cacheControl(cacheControl).build(),
+                        .contentType(contentType).cacheControl(cacheControl)
+                        .metadata(metadata)
+                        .build(),
                 RequestBody.fromBytes(data));
     }
 

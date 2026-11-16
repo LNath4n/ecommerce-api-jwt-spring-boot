@@ -336,12 +336,16 @@ public class ProductService {
      * @throws ProductNotFoundException if the product does not exist
      * @throws IOException if the file cannot be read
      */
+    @EvictTopProductos
     @Transactional
     public AdminProductResponse uploadProductImage(Long productId, MultipartFile file) throws IOException {
         Product product = findProductById(productId);
 
         String previousImageKey = product.getImageKey();
-        product.setImageKey(storageService.upload(file, StorageService.StorageFolder.PRODUCTS));
+        product.setImageKey(storageService.upload(
+                file,
+                StorageService.StorageFolder.PRODUCTS,
+                Map.of("product-id", productId.toString())));
 
         storageService.deleteAfterCommit(previousImageKey);
         return toAdminResponse(product);
@@ -357,6 +361,7 @@ public class ProductService {
      * @return the product's admin details without an image
      * @throws ProductNotFoundException if the product does not exist
      */
+    @EvictTopProductos
     @Transactional
     public AdminProductResponse removeProductImage(Long productId) {
         Product product = findProductById(productId);
