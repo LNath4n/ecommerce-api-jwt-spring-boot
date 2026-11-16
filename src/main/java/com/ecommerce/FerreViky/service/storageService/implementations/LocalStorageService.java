@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
+import java.util.Map;
 
 @Service
 @Profile("dev")
@@ -29,10 +30,11 @@ public class LocalStorageService extends AbstractStorageService {
     }
 
     @Override
-    protected void storeObject(String key, byte[] data, String extension, StorageFolder folder) throws IOException {
+    protected void storeObject(String key, byte[] data, String extension,
+                               StorageFolder folder, Map<String, String> metadata) throws IOException {
         Path destination = resolvePath(key);
         Files.createDirectories(destination.getParent());
-        Files.write(destination, data); // Overwrites the file if it exists. / Sobrescribe el archivo si existe.
+        Files.write(destination, data);
     }
 
     // Dev does not use presigned URLs; both folders are served from /uploads/**. / En dev no hay URL prefirmada; ambas carpetas se sirven desde /uploads/**.

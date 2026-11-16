@@ -9,6 +9,7 @@ import org.springframework.cache.annotation.EnableCaching;
 import org.springframework.cache.interceptor.CacheErrorHandler;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.Ordered;
 import org.springframework.data.redis.cache.RedisCacheConfiguration;
 import org.springframework.data.redis.serializer.GenericJacksonJsonRedisSerializer;
 import org.springframework.data.redis.serializer.RedisSerializationContext;
@@ -19,7 +20,8 @@ import tools.jackson.databind.jsontype.PolymorphicTypeValidator;
 import java.time.Duration;
 
 @Configuration
-@EnableCaching
+// así el evict corre DESPUÉS del commit y no se re-cachea un dato viejo
+@EnableCaching(order = Ordered.LOWEST_PRECEDENCE - 1)
 public class CacheConfig implements CachingConfigurer {
     private static final Logger log = LoggerFactory.getLogger(CacheConfig.class);
     @Bean

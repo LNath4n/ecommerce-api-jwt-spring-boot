@@ -6,6 +6,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.util.Map;
 import java.util.UUID;
 
 public abstract class AbstractStorageService implements StorageService {
@@ -13,10 +14,10 @@ public abstract class AbstractStorageService implements StorageService {
     protected AbstractStorageService(ImageValidator validator) { this.validator = validator; }
 
     @Override
-    public String upload(MultipartFile file, StorageFolder folder) throws IOException {
+    public String upload(MultipartFile file, StorageFolder folder, Map<String, String> metadata) throws IOException {
         ImageValidator.ImagenLimpia sanitizedImage = validator.validarYSanitizar(file);
         String key = folder.prefix() + UUID.randomUUID() + sanitizedImage.ext();
-        storeObject(key, sanitizedImage.data(), sanitizedImage.ext(), folder);
+        storeObject(key, sanitizedImage.data(), sanitizedImage.ext(), folder, metadata);
         deleteOnRollback(key);
         return key;
     }
@@ -43,6 +44,7 @@ public abstract class AbstractStorageService implements StorageService {
         });
     }
 
-    protected abstract void storeObject(String key, byte[] data, String extension, StorageFolder folder) throws IOException;
+    protected abstract void storeObject(String key, byte[] data, String extension,
+                                        StorageFolder folder, Map<String, String> metadata) throws IOException;
     protected abstract void deleteSafely(String key); // Never throws. / Nunca lanza una excepción.
 }

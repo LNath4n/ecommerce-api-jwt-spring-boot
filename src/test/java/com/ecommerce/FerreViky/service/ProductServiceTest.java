@@ -614,7 +614,11 @@ class ProductServiceTest {
         MultipartFile archivo = mock(MultipartFile.class);
 
         when(productRepository.findById(p.getId())).thenReturn(Optional.of(p));
-        when(storageService.upload(archivo, StorageService.StorageFolder.PRODUCTS)).thenReturn("productos/nueva.png");
+        when(storageService.upload(
+                eq(archivo),
+                eq(StorageService.StorageFolder.PRODUCTS),
+                anyMap()))
+                .thenReturn("productos/nueva.png");
         when(storageService.getPublicUrl("productos/nueva.png")).thenReturn("http://img.com/nueva.png");
 
         // Act
