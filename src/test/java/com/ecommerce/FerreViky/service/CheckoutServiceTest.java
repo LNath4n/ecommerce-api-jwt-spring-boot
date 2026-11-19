@@ -134,7 +134,8 @@ class CheckoutServiceTest {
         Cart cart = fakeCart(car -> car.setCustomer(c));
         addCartItem(cart, inactivo, 2);
 
-        when(ordersRepository.findByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
+        // ahora el service pide solo los IDs de las órdenes pendientes
+        when(ordersRepository.findIdsByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
                 .thenReturn(List.of());
         when(cartRepository.findByCustomerForUpdate(c))
                 .thenReturn(Optional.of(cart));
@@ -159,7 +160,8 @@ class CheckoutServiceTest {
 
         VirtualCode c1 = fakeVirtualCode(p, "AAA");// AVAILABLE por default
 
-        when(ordersRepository.findByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
+        // findIdsByBuyerAndStatus en vez de findByBuyerAndStatus
+        when(ordersRepository.findIdsByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
                 .thenReturn(List.of());
         when(cartRepository.findByCustomerForUpdate(c))
                 .thenReturn(Optional.of(cart));
@@ -189,7 +191,8 @@ class CheckoutServiceTest {
 
         AtomicReference<Orders> savedOrder = new AtomicReference<>(); //Caja que guarda el objeto
 
-        when(ordersRepository.findByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
+        // findIdsByBuyerAndStatus en vez de findByBuyerAndStatus
+        when(ordersRepository.findIdsByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
                 .thenReturn(List.of());
         when(cartRepository.findByCustomerForUpdate(c))
                 .thenReturn(Optional.of(cart));
@@ -205,7 +208,8 @@ class CheckoutServiceTest {
                 .thenReturn(List.of(code1, code2));
         when(paypalService.createOrder(any(BigDecimal.class), eq("MXN"), anyString()))
                 .thenReturn("PAYPAL-1");
-        when(ordersRepository.findById(10L))
+        // guardar el paypalOrderId ahora usa findByIdForUpdate
+        when(ordersRepository.findByIdForUpdate(10L))
                 .thenAnswer(inv -> Optional.of(savedOrder.get()));
 
         LocalDateTime antes = LocalDateTime.now();
@@ -331,7 +335,8 @@ class CheckoutServiceTest {
         });
 
         stubCheckout(c, cart, List.of(vieja));
-        when(ordersRepository.findById(99L)).thenReturn(Optional.of(vieja));
+        // cancelPending carga la orden vieja con lock
+        when(ordersRepository.findByIdForUpdate(99L)).thenReturn(Optional.of(vieja));
         when(virtualCodeRepository.findByOrdersId(99L)).thenReturn(List.of(codigoViejo));
         stubAvailableCodes(p, 1);
         stubPaypalCreate();
@@ -346,8 +351,8 @@ class CheckoutServiceTest {
         assertNull(codigoViejo.getExpiresAt());
 
         InOrder inOrder = inOrder(ordersRepository);
-        inOrder.verify(ordersRepository).findById(99L);           // primero libera la vieja
-        inOrder.verify(ordersRepository).save(any(Orders.class)); // luego crea la nueva
+        inOrder.verify(ordersRepository).findByIdForUpdate(99L);   // primero libera la vieja (con lock)
+        inOrder.verify(ordersRepository).save(any(Orders.class));  // luego crea la nueva
     }
 
     @Test
@@ -368,8 +373,8 @@ class CheckoutServiceTest {
 
         // Assert
         InOrder inOrder = inOrder(cartRepository, ordersRepository);
-        inOrder.verify(cartRepository).findByCustomerForUpdate(c);                          // 1o: lock del carrito
-        inOrder.verify(ordersRepository).findByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT); // 2o: libera pendientes
+        inOrder.verify(cartRepository).findByCustomerForUpdate(c);                               // 1o: lock del carrito
+        inOrder.verify(ordersRepository).findIdsByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT); // 2o: libera pendientes
     }
 
     @Test
@@ -780,6 +785,44 @@ class CheckoutServiceTest {
     }
 
     @Test
+    @DisplayName("When settling a payment, the cart is locked before the order (same lock order as checkout, avoids deadlocks)")
+    void confirmPayment_settle_locksCartBeforeOrder() {
+        // Arrange
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(pr -> pr.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 1);
+        stubSuccessfulPayment(c, p, 1, cart);
+
+        // Act
+        checkoutService.confirmPayment("PP-1", c);
+
+        // Assert
+        InOrder inOrder = inOrder(cartRepository, ordersRepository);
+        inOrder.verify(cartRepository).findByCustomerForUpdate(c);      // 1o: carrito
+        inOrder.verify(ordersRepository).findByIdForUpdate(10L);        // 2o: orden
+    }
+
+    @Test
+    @DisplayName("When the buyer has no cart, an already charged order is still marked PAID")
+    void confirmPayment_noCart_stillMarksPaid() {
+        // Arrange (cartRepository sin stub => Optional.empty())
+        Customer c = fakeCustomer();
+        Product p = fakeProduct(pr -> pr.setId(1L));
+        Pending pe = stubPendingOrder(c, p, 1);
+        when(virtualCodeRepository.findByOrdersId(10L)).thenReturn(pe.codes());
+        when(paypalService.captureOrder("PP-1", CAPTURE_REQUEST_ID))
+                .thenReturn(captureJson("COMPLETED", "CAP-1", "COMPLETED", totalOf(pe)));
+
+        // Act
+        Orders result = assertDoesNotThrow(() -> checkoutService.confirmPayment("PP-1", c));
+
+        // Assert
+        assertEquals(OrderStatus.PAID, result.getStatus());
+        assertEquals(CodeStatus.SOLD, pe.codes().get(0).getStatus());
+    }
+
+    @Test
     @DisplayName("When the captured amount differs from the order total, the order is FAILED, codes are freed and a refund is issued")
     void confirmPayment_amountMismatch_failsFreesCodesAndRefunds() {
         // Arrange
@@ -809,8 +852,12 @@ class CheckoutServiceTest {
         // Arrange
         Customer c = fakeCustomer();
         Product p = fakeProduct(pr -> pr.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 1);
         Pending pe = stubPendingOrder(c, p, 1);
         when(virtualCodeRepository.findByOrdersId(10L)).thenReturn(pe.codes());
+        // el carrito ahora se bloquea siempre, pero no debe vaciarse si la orden falló
+        when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(paypalService.captureOrder("PP-1", CAPTURE_REQUEST_ID))
                 .thenReturn(captureJson("COMPLETED", "CAP-1", "COMPLETED", totalOf(pe), currency));
         when(paypalService.refundCapture("CAP-1", "refund-order-10")).thenReturn("COMPLETED");
@@ -822,7 +869,7 @@ class CheckoutServiceTest {
         assertEquals(OrderStatus.REFUNDED, result.getStatus());
         assertEquals(CodeStatus.AVAILABLE, pe.codes().get(0).getStatus());
         verify(paypalService).refundCapture("CAP-1", "refund-order-10");
-        verifyNoInteractions(cartRepository);
+        assertFalse(cart.getItems().isEmpty());                        // el carrito se conserva
     }
 
     @Test
@@ -868,14 +915,17 @@ class CheckoutServiceTest {
     }
 
     @Test
-    @DisplayName("When the amount is correct, the cart is not touched if the order failed")
+    @DisplayName("When the amount is correct but the order failed, the cart is not emptied")
     void confirmPayment_failed_doesNotClearCart() {
         // Arrange (monto correcto, pero la reserva se pierde después del cobro)
         Customer c = fakeCustomer();
         Product p = fakeProduct(pr -> pr.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 1);
         Pending pe = stubPendingOrder(c, p, 1);
         when(virtualCodeRepository.findByOrdersId(10L))
                 .thenReturn(pe.codes(), List.of(), pe.codes());
+        when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(paypalService.captureOrder("PP-1", CAPTURE_REQUEST_ID))
                 .thenReturn(captureJson("COMPLETED", "CAP-1", "COMPLETED", totalOf(pe)));
         when(paypalService.refundCapture(anyString(), anyString())).thenReturn("COMPLETED");
@@ -884,7 +934,7 @@ class CheckoutServiceTest {
         checkoutService.confirmPayment("PP-1", c);
 
         // Assert
-        verifyNoInteractions(cartRepository);
+        assertFalse(cart.getItems().isEmpty());                        // el carrito se conserva
     }
 
     @Test
@@ -914,8 +964,12 @@ class CheckoutServiceTest {
         // Arrange
         Customer c = fakeCustomer();
         Product p = fakeProduct(pr -> pr.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 1);
         Pending pe = stubPendingOrder(c, p, 1);
         when(virtualCodeRepository.findByOrdersId(10L)).thenReturn(pe.codes());
+        // el carrito se bloquea antes de revisar la orden, pero no debe vaciarse
+        when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         JsonNode ok = captureJson("COMPLETED", "CAP-1", "COMPLETED", totalOf(pe));
         when(paypalService.captureOrder("PP-1", CAPTURE_REQUEST_ID)).thenAnswer(inv -> {
             pe.order().setStatus(OrderStatus.PAID);   // webhook / otra petición lo resolvió mientras tanto
@@ -928,7 +982,7 @@ class CheckoutServiceTest {
         // Assert
         assertEquals(OrderStatus.PAID, result.getStatus());
         assertEquals(CodeStatus.RESERVED, pe.codes().get(0).getStatus());   // esta petición no los tocó
-        verifyNoInteractions(cartRepository);
+        assertFalse(cart.getItems().isEmpty());                              // ni vació el carrito
         verify(paypalService, never()).refundCapture(any(), any());
     }
 
@@ -1077,8 +1131,11 @@ class CheckoutServiceTest {
         // Arrange
         Customer c = fakeCustomer();
         Product p = fakeProduct(pr -> pr.setId(1L));
+        Cart cart = fakeCart(car -> car.setCustomer(c));
+        addCartItem(cart, p, 1);
         Pending pe = stubPendingOrderById(c, p, 1);
         when(virtualCodeRepository.findByOrdersId(10L)).thenReturn(List.of());   // ya no hay códigos ligados
+        when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));
         when(paypalService.getOrder("PP-1"))
                 .thenReturn(captureJson("COMPLETED", "CAP-1", "COMPLETED", totalOf(pe)));
         when(paypalService.refundCapture("CAP-1", "refund-order-10")).thenReturn("COMPLETED");
@@ -1089,7 +1146,7 @@ class CheckoutServiceTest {
         // Assert
         assertEquals(OrderStatus.REFUNDED, pe.order().getStatus());
         verify(paypalService).refundCapture("CAP-1", "refund-order-10");
-        verifyNoInteractions(cartRepository);
+        assertFalse(cart.getItems().isEmpty());                         // el carrito se conserva
     }
 
     //  cancelOrder
@@ -1174,8 +1231,8 @@ class CheckoutServiceTest {
     @Test
     @DisplayName("When releasing an order that does not exist, it throws OrderNotFoundException")
     void releaseOrder_notFound_throwsOrderNotFound() {
-        // Arrange
-        when(ordersRepository.findById(10L)).thenReturn(Optional.empty());
+        // Arrange (releaseOrder carga la orden con lock)
+        when(ordersRepository.findByIdForUpdate(10L)).thenReturn(Optional.empty());
 
         // Act + Assert
         assertThrows(OrderNotFoundException.class, () -> checkoutService.releaseOrder(10L));
@@ -1317,10 +1374,15 @@ class CheckoutServiceTest {
         return stubCheckout(c, cart, List.of());
     }
 
-    /** Stubea el camino común de checkout. Devuelve una "caja" con la orden que crea el service. */
+    /**
+     * Stubea el camino común de checkout. Devuelve una "caja" con la orden que crea el service.
+     * El service lee la orden de dos formas: findById (lectura rápida) y findByIdForUpdate (con lock),
+     * por eso ambas se stubean con lenient (según el flujo, se usa una u otra).
+     */
     private AtomicReference<Orders> stubCheckout(Customer c, Cart cart, List<Orders> pending) {
         AtomicReference<Orders> saved = new AtomicReference<>();
-        when(ordersRepository.findByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT)).thenReturn(pending); //1
+        when(ordersRepository.findIdsByBuyerAndStatus(c, OrderStatus.PENDING_PAYMENT))
+                .thenReturn(pending.stream().map(Orders::getId).toList()); //1
         when(cartRepository.findByCustomerForUpdate(c)).thenReturn(Optional.of(cart));//2
         when(ordersRepository.save(any(Orders.class))).thenAnswer(inv -> {
             Orders o = inv.getArgument(0);
@@ -1330,7 +1392,8 @@ class CheckoutServiceTest {
             return o;
         });
         //3
-        when(ordersRepository.findById(10L)).thenAnswer(inv -> Optional.of(saved.get()));
+        lenient().when(ordersRepository.findById(10L)).thenAnswer(inv -> Optional.of(saved.get()));
+        lenient().when(ordersRepository.findByIdForUpdate(10L)).thenAnswer(inv -> Optional.of(saved.get()));
         return saved;
     }
 
@@ -1363,7 +1426,8 @@ class CheckoutServiceTest {
 
     /**
      * Orden PENDING_PAYMENT (id 10, paypalOrderId "PP-1") con item y códigos RESERVED.
-     * Solo stubea findById: es lo que usan expireOrReconcile / releaseOrder (el job).
+     * Stubea findById (lectura rápida) y findByIdForUpdate (con lock), ambas con lenient
+     * porque según el flujo se usa una, la otra o las dos.
      */
     private Pending stubPendingOrderById(Customer c, Product p, int qty) {
         Orders order = fakeOrder(o -> {
@@ -1374,7 +1438,8 @@ class CheckoutServiceTest {
             o.setTotalAmount(p.getSalePrice().multiply(BigDecimal.valueOf(qty)));
         });
         addOrderItem(order, p, qty, p.getSalePrice());
-        when(ordersRepository.findById(10L)).thenReturn(Optional.of(order));
+        lenient().when(ordersRepository.findById(10L)).thenReturn(Optional.of(order));
+        lenient().when(ordersRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(order));
         return new Pending(order, reservedCodes(p, order, qty));
     }
 
@@ -1423,14 +1488,15 @@ class CheckoutServiceTest {
                 HttpHeaders.EMPTY, body.getBytes(StandardCharsets.UTF_8), StandardCharsets.UTF_8);
     }
 
-    /** Para release/refund: findById(10L) devuelve una orden con ese estado y captureId. */
+    /** Para release/refund: devuelve una orden con ese estado y captureId (findById y findByIdForUpdate). */
     private Orders stubOrderById(OrderStatus status, String captureId) {
         Orders o = fakeOrder(x -> {
             x.setId(10L);
             x.setStatus(status);
             x.setPaypalCaptureId(captureId);
         });
-        when(ordersRepository.findById(10L)).thenReturn(Optional.of(o));
+        lenient().when(ordersRepository.findById(10L)).thenReturn(Optional.of(o));
+        lenient().when(ordersRepository.findByIdForUpdate(10L)).thenReturn(Optional.of(o));
         return o;
     }
 }

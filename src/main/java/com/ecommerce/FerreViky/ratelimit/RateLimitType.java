@@ -8,9 +8,9 @@ public enum RateLimitType {
 
     AUTH(10),
     UPLOAD(10),
-    PUBLIC(45),
-    USER(30),
-    ADMIN(60);
+    PUBLIC(25),
+    USER(20),
+    ADMIN(40);
 
     private final int capacity;
 

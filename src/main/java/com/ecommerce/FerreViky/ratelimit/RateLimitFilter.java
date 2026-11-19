@@ -1,5 +1,6 @@
 package com.ecommerce.FerreViky.ratelimit;
 
+import com.ecommerce.FerreViky.ratelimit.provider.BucketProvider;
 import org.springframework.beans.factory.annotation.Value;
 
 import java.nio.charset.StandardCharsets;
@@ -41,11 +42,11 @@ public class RateLimitFilter extends OncePerRequestFilter {
             String xff = request.getHeader("X-Forwarded-For");
             if (StringUtils.hasText(xff)) {
                 String[] partes = xff.split(",");
-                System.out.println("Hola desde (CloudFront): " + partes[partes.length - 1].trim());
+                //System.out.println("Hola desde (CloudFront): " + partes[partes.length - 1].trim());
                 return partes[partes.length - 1].trim();   // la que añadió CloudFront // the one added by CloudFront
             }
         }
-        System.out.println("Hola desde : "+request.getRemoteAddr());
+        //System.out.println("Hola desde : "+request.getRemoteAddr());
         return request.getRemoteAddr();
     }
 

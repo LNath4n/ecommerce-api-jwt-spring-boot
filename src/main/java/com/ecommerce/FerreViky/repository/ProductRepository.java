@@ -69,4 +69,10 @@ public interface ProductRepository extends JpaRepository<Product, Long>, JpaSpec
         WHERE p.id = :id
         """)
     void refreshReviewStats(@Param("id") Long id);
+
+    // Adds a batch of views to a product's counter.
+    @Modifying
+    @Transactional
+    @Query("UPDATE Product p SET p.views = p.views + :delta WHERE p.id = :id")
+    void addViews(@Param("id") Long id, @Param("delta") long delta);
 }

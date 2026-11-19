@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * PayPal checkout for virtual-code products.
@@ -47,6 +48,16 @@ import java.util.List;
  *
  * <p>Inline tags such as {@code // E10} identify the concurrency and failure scenarios
  * (edge cases) that the surrounding code protects against.
+ *
+ * <p>Locking rules (safe with several app instances):
+ * <ol>
+ *   <li>To modify an order, lock it first ({@code FOR UPDATE}) and then check its status.
+ *       The lock query must be the first read of that order in the transaction, otherwise
+ *       Hibernate returns the stale copy it already loaded.</li>
+ *   <li>Lock order is always cart, then order, then codes. A step may skip a level but
+ *       never go backwards.</li>
+ *   <li>PayPal is never called while holding a lock or inside a transaction.</li>
+ * </ol>
  */
 @Service
 @RequiredArgsConstructor
@@ -91,7 +102,8 @@ public class CheckoutService {
 
         // E7: if the server dies before saving the id, the job releases the order
         tx.executeWithoutResult(s -> {
-            Orders o = getOrderOrThrow(order.getId());
+            // LOCK: the order is locked so a concurrent cancel is not overwritten by this save
+            Orders o = getOrderForUpdateOrThrow(order.getId());
             // Only the id is saved, the order stays PENDING
             if (o.getStatus() != OrderStatus.PENDING_PAYMENT)   // E2: another checkout cancelled it
                 throw new OrderNotPayableException(o.getId(), o.getStatus());
@@ -115,9 +127,10 @@ public class CheckoutService {
         if (cart.getItems().isEmpty())
             throw new EmptyCartException();
 
-        // E2: with the cart locked, release the previous pending orders
-        ordersRepository.findByBuyerAndStatus(customer, OrderStatus.PENDING_PAYMENT)
-                .forEach(o -> cancelPending(o.getId()));
+        // E2: with the cart locked, release the previous pending orders.
+        // Only ids are loaded; each order is then read fresh under lock inside cancelPending.
+        ordersRepository.findIdsByBuyerAndStatus(customer, OrderStatus.PENDING_PAYMENT)
+                .forEach(this::cancelPending);
 
         Orders order = new Orders();
         order.setBuyer(customer);
@@ -245,13 +258,21 @@ public class CheckoutService {
         BigDecimal captured = new BigDecimal(capture.at("/amount/value").asText());
         String currency = capture.at("/amount/currency_code").asText();
 
-        // E7: the captureId is saved first, so a refund is always possible
-        tx.executeWithoutResult(s ->
-                getOrderOrThrow(orderId).setPaypalCaptureId(captureId));
+        // E7: the captureId is saved first, so a refund is always possible.
+        // LOCK: only the order is locked here, and its buyer is returned for the next step.
+        Customer buyer = tx.execute(s -> {
+            Orders o = getOrderForUpdateOrThrow(orderId);
+            o.setPaypalCaptureId(captureId);
+            return o.getBuyer();
+        });
 
         // Defense 2: wrong amount/currency or lost reservation => charged without product => FAILED
         tx.executeWithoutResult(s -> {
-            Orders o = getOrderOrThrow(orderId);
+            // LOCK ORDER: cart first, then order, same as createPendingOrder (avoids deadlocks).
+            // The cart query must come first so the order is read fresh under its lock.
+            // Already charged, so a missing cart must not make this fail.
+            Optional<Cart> cart = cartRepository.findByCustomerForUpdate(buyer);
+            Orders o = getOrderForUpdateOrThrow(orderId);
 
             // E1: another request (or the webhook) already resolved it
             if (o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.REFUNDED) return;
@@ -278,10 +299,7 @@ public class CheckoutService {
                 c.setExpiresAt(null);
             }
 
-            Customer buyer = o.getBuyer();
-            Cart cart = cartRepository.findByCustomerForUpdate(buyer)
-                    .orElseThrow(() -> new CustomerCartNotFoundException(buyer.getId()));
-            cart.getItems().clear();
+            cart.ifPresent(c -> c.getItems().clear());
         });
 
         Orders result = getOrderOrThrow(orderId);
@@ -300,6 +318,8 @@ public class CheckoutService {
      * @param orderId local order id
      */
     public void expireOrReconcile(Long orderId) {
+        // No lock on purpose: quick look before calling PayPal.
+        // The final decision is re-checked under lock in settleCapture / cancelPending.
         Orders o = getOrderOrThrow(orderId);
         if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return;
 
@@ -366,6 +386,8 @@ public class CheckoutService {
      * @param orderId local order id
      */
     public void refundOrder(Long orderId) {
+        // No lock on purpose: PayPal must never be called while holding a lock.
+        // Duplicate refunds are prevented by the fixed requestId below.
         Orders o = getOrderOrThrow(orderId);
         // E15: only refunds FAILED orders that have a captureId
         if (o.getStatus() != OrderStatus.FAILED || o.getPaypalCaptureId() == null) return;
@@ -389,17 +411,21 @@ public class CheckoutService {
         }
     }
 
-    /** Sets the order status to {@code REFUNDED} in its own transaction. */
+    /**
+     * Sets the order status to {@code REFUNDED} in its own transaction.
+     * Only a {@code FAILED} order changes, so a state set by someone else is never overwritten.
+     */
     private void markRefunded(Long orderId) {
-        tx.executeWithoutResult(s ->
-                getOrderOrThrow(orderId)
-                        .setStatus(OrderStatus.REFUNDED));
+        tx.executeWithoutResult(s -> {
+            Orders o = getOrderForUpdateOrThrow(orderId);
+            if (o.getStatus() == OrderStatus.FAILED) o.setStatus(OrderStatus.REFUNDED);
+        });
     }
 
     /**
      * Returns the order's {@code RESERVED} codes to {@code AVAILABLE}.
      *
-     * @implNote Must be called inside an active transaction.
+     * @implNote Must be called inside an active transaction, with the order already locked.
      */
     private void freeReservedCodes(Long orderId) {
         for (VirtualCode c : virtualCodeRepository.findByOrdersId(orderId)) {
@@ -418,7 +444,9 @@ public class CheckoutService {
      * @implNote Must be called inside an active transaction.
      */
     private void cancelPending(Long orderId) {
-        Orders o = getOrderOrThrow(orderId);
+        // LOCK: a second instance waits here, then sees CANCELLED and exits, so the codes
+        // are never released twice (they could already belong to another buyer).
+        Orders o = getOrderForUpdateOrThrow(orderId);
         if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return;   // E16: do not touch paid orders
 
         freeReservedCodes(orderId);
@@ -449,6 +477,17 @@ public class CheckoutService {
 
     private Orders getOrderOrThrow(Long orderId) {
         return ordersRepository.findById(orderId)
+                .orElseThrow(() -> new OrderNotFoundException(orderId));
+    }
+
+    /**
+     * Loads the order with {@code SELECT ... FOR UPDATE}.
+     *
+     * @implNote Must be called inside an active transaction, and before any other read of
+     *           the same order in that transaction.
+     */
+    private Orders getOrderForUpdateOrThrow(Long orderId) {
+        return ordersRepository.findByIdForUpdate(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
     }
 }

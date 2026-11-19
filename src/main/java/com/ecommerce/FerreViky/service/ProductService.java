@@ -60,6 +60,7 @@ public class ProductService {
     private final VirtualCodeRepository virtualCodeRepository;
     private final CartItemRepository cartProductRepository;
     private final StorageService storageService;
+    private final ViewCounterService viewCounterService;
 
     /**
      * Retrieves active products in paginated form.
@@ -420,8 +421,8 @@ public class ProductService {
      * @return the product's public details with the updated view count
      */
     private PublicProductResponse recordViewAndConvert(Product product) {
-        productRepository.incrementViews(product.getId());
-        product.setViews(product.getViews() + 1);
+        viewCounterService.increment(product.getId());
+        product.setViews(product.getViews() + 1);   // solo para la respuesta, no se guarda
         return toPublicResponse(product);
     }
 
