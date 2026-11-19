@@ -24,7 +24,7 @@ import java.util.Map;
 @Tag(name = "Health", description = "Checks the API status")
 public class HealthController {
 
-    private static final String VERSION = "4.0";
+    private static final String VERSION = "4.1";
     private static final String FEATURED = "We added Paypal :)";
     private static final Logger log = LoggerFactory.getLogger(HealthController.class);
 
