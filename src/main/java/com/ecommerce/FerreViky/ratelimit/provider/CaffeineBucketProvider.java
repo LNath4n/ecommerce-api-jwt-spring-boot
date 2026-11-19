@@ -1,5 +1,6 @@
-package com.ecommerce.FerreViky.ratelimit;
+package com.ecommerce.FerreViky.ratelimit.provider;
 
+import com.ecommerce.FerreViky.ratelimit.RateLimitType;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.github.bucket4j.Bandwidth;

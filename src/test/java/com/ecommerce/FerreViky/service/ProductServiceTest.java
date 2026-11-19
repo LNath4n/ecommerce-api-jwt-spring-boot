@@ -60,6 +60,9 @@ class ProductServiceTest {
     @InjectMocks
     private ProductService productService;
 
+    @Mock
+    private ViewCounterService viewCounterService;
+
     private Pageable pageable;
 
     @BeforeEach
@@ -397,6 +400,7 @@ class ProductServiceTest {
     @DisplayName("When getting an existing active product by id, it returns its public data with image and stock")
     void getProductById_existsAndActive_returnsPublicProduct() {
         Product p = fakeProduct();
+        p.setViews(0L); // partimos de un valor conocido
         String url = "http://img.com/abc.png";
         PublicProductResponse esperado = expectedPublicProduct(p, url, 5, b -> b.views = 1L);
 
@@ -407,13 +411,15 @@ class ProductServiceTest {
         PublicProductResponse resultado = productService.getProductById(p.getId());
 
         assertEquals(esperado, resultado);
-        verify(productRepository).incrementViews(p.getId());
+        verify(viewCounterService).increment(p.getId());
+        verify(productRepository, never()).incrementViews(any());
     }
 
     @Test
     @DisplayName("When getting an existing active product by slug, it returns its public data")
     void getProductBySlug_existsAndActive_returnsPublicProduct() {
         Product p = fakeProduct();
+        p.setViews(0L);
         String url = "http://img.com/abc.png";
         PublicProductResponse esperado = expectedPublicProduct(p, url, 7, b -> b.views = 1L);
 
@@ -424,7 +430,8 @@ class ProductServiceTest {
         PublicProductResponse resultado = productService.getProductBySlug(p.getSlug());
 
         assertEquals(esperado, resultado);
-        verify(productRepository).incrementViews(p.getId());
+        verify(viewCounterService).increment(p.getId());
+        verify(productRepository, never()).incrementViews(any());
     }
 
     //  deleteProduct
