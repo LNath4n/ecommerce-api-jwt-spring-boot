@@ -13,9 +13,12 @@ import com.ecommerce.FerreViky.repository.CartRepository;
 import com.ecommerce.FerreViky.repository.CustomerRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -30,6 +33,8 @@ import java.util.Locale;
 @Service
 @AllArgsConstructor
 public class AuthService {
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final CustomerRepository customerRepository;
     private final CartRepository cartRepository;
@@ -52,13 +57,24 @@ public class AuthService {
     public AuthResponse login(CustomerLoginRequest dto) {
         String email = normalizeEmail(dto.email());
 
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(email, dto.password())
-        );
+        log.debug("Login attempt received");
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(email, dto.password())
+            );
+        } catch (AuthenticationException e) {
+            log.warn("Login failed: {}", e.getClass().getSimpleName());
+            throw e;
+        }
 
         Customer customer = customerRepository.findByEmail(email)
-                .orElseThrow(()-> new CustomerNotFoundException(dto.email()));
+                .orElseThrow(()-> {
+                    log.error("Credentials were valid but the customer was not found in the database");
+                    return new CustomerNotFoundException(dto.email());
+                });
 
+        log.info("Customer {} logged in", customer.getId());
         return new AuthResponse(jwtService.getToken(customer));
     }
 
@@ -83,13 +99,17 @@ public class AuthService {
     public AuthResponse registerCustomer(CustomerLoginRequest dto) {
         String email = normalizeEmail(dto.email());
 
+        log.debug("Registration attempt received");
+
         if (customerRepository.existsByEmail(email)) {
+            log.warn("Registration rejected: email is already registered");
             throw new EmailAlreadyExistsException(email);
         }
 
         Customer customer = persistCustomer(dto, email);
         createCart(customer);
 
+        log.info("Customer {} registered with an empty cart", customer.getId());
         return new AuthResponse(jwtService.getToken(customer));
     }
 
@@ -112,6 +132,8 @@ public class AuthService {
         try {
             return customerRepository.saveAndFlush(customer);
         } catch (DataIntegrityViolationException e) {
+            // The exception is not logged on purpose: its message can include the email
+            log.warn("Registration rejected: duplicate email detected by the database (concurrent registration)");
             throw new EmailAlreadyExistsException(email);
         }
     }
@@ -130,6 +152,7 @@ public class AuthService {
         try {
             cartRepository.saveAndFlush(cart);
         } catch (Exception e) {
+            log.error("Cart creation failed for customer {}", customer.getId(), e);
             throw new CartCreationException(customer.getId(), e);
         }
     }

@@ -10,12 +10,16 @@ import com.ecommerce.FerreViky.repository.CategoryRepository;
 import com.ecommerce.FerreViky.repository.ProductRepository;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @AllArgsConstructor
 @Service
 public class CategoryService {
+
+    private static final Logger log = LoggerFactory.getLogger(CategoryService.class);
 
     private final CategoryRepository categoryRepository;
     private final ProductRepository productRepository;
@@ -34,8 +38,10 @@ public class CategoryService {
     @Transactional
     public CategoryOptionResponse createCategory(CategoryRequest request) {
         String name = request.name().trim();
+        log.debug("Creating category '{}'", name);
 
         if (categoryRepository.existsByNameIgnoreCase(name)) {
+            log.warn("Cannot create category '{}': name already exists", name);
             throw new DuplicateCategoryException(name);
         }
 
@@ -43,8 +49,11 @@ public class CategoryService {
         newCategory.setName(name);
 
         try {
-            return toResponse(categoryRepository.saveAndFlush(newCategory));
+            Category saved = categoryRepository.saveAndFlush(newCategory);
+            log.info("Category created: id={}, name='{}'", saved.getId(), saved.getName());
+            return toResponse(saved);
         } catch (DataIntegrityViolationException e) {
+            log.warn("Cannot create category '{}': duplicate detected by database constraint", name);
             throw new DuplicateCategoryException(name);
         }
     }
@@ -60,12 +69,18 @@ public class CategoryService {
      */
     @Transactional
     public CategoryOptionResponse updateCategory(Long id, CategoryRequest request) {
+        log.debug("Updating category id={}", id);
+
         Category category = categoryRepository.findById(id)
-                .orElseThrow(() -> new CategoryNotFoundException(id));
+                .orElseThrow(() -> {
+                    log.warn("Cannot update category: id={} not found", id);
+                    return new CategoryNotFoundException(id);
+                });
 
         String name = request.name().trim();
 
         if (categoryRepository.existsByNameIgnoreCaseAndIdNot(name, id)) {
+            log.warn("Cannot update category id={}: name '{}' already used by another category", id, name);
             throw new DuplicateCategoryException(name);
         }
 
@@ -74,9 +89,11 @@ public class CategoryService {
         try {
             categoryRepository.flush();
         } catch (DataIntegrityViolationException e) {
+            log.warn("Cannot update category id={}: duplicate name '{}' detected by database constraint", id, name);
             throw new DuplicateCategoryException(name);
         }
 
+        log.info("Category updated: id={}, name='{}'", id, name);
         return toResponse(category);
     }
 
@@ -92,16 +109,22 @@ public class CategoryService {
      */
     @Transactional
     public void deleteCategory(Long id) {
+        log.debug("Deleting category id={}", id);
+
         if (productRepository.existsByCategoryId(id)) {
+            log.warn("Cannot delete category id={}: it has associated products", id);
             throw new CategoryHasProductsException(id);
         }
 
         try {
             int deletedRows = categoryRepository.deleteCategoryById(id);
             if (deletedRows == 0) {
+                log.warn("Cannot delete category: id={} not found", id);
                 throw new CategoryNotFoundException(id);
             }
+            log.info("Category deleted: id={}", id);
         } catch (DataIntegrityViolationException e) {
+            log.warn("Cannot delete category id={}: products associated detected by database constraint", id);
             throw new CategoryHasProductsException(id);
         }
     }

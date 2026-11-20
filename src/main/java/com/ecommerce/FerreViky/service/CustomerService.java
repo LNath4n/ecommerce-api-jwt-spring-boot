@@ -13,6 +13,8 @@ import com.ecommerce.FerreViky.repository.CustomerRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -26,6 +28,8 @@ import java.util.Locale;
 @AllArgsConstructor
 @Service
 public class CustomerService {
+
+    private static final Logger log = LoggerFactory.getLogger(CustomerService.class);
 
     private final CustomerMapper customerMapper;
     private final PasswordEncoder passwordEncoder;
@@ -44,9 +48,12 @@ public class CustomerService {
      * @throws CustomerNotFoundException if no record is associated with the given customer
      */
     public PublicCustomerResponse getCustomer(Customer customer) {
+        log.debug("Fetching profile of customer {}", customer.getId());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() ->
-                        new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Profile fetch failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         return toPublicResponse(customerRecord);
     }
@@ -75,9 +82,12 @@ public class CustomerService {
             Customer customer,
             UpdateCustomerRequest request) {
 
+        log.debug("Updating profile of customer {}", customer.getId());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() ->
-                        new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Update failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         boolean closeSessions = Boolean.TRUE.equals(request.closeSessions());
 
@@ -86,10 +96,13 @@ public class CustomerService {
             if (request.currentPassword() == null
                     || !passwordEncoder.matches(
                     request.currentPassword(), customerRecord.getPassword())) {
+                log.warn("Password change rejected for customer {}: current password missing or incorrect",
+                        customerRecord.getId());
                 throw new InvalidPasswordException();
             }
 
             customerRecord.setPassword(passwordEncoder.encode(request.newPassword()));
+            log.info("Password changed for customer {}", customerRecord.getId());
         }
 
         // Prevents assigning an email address already used by another customer. / Evita asignar un correo que ya pertenezca a otro cliente.
@@ -100,32 +113,40 @@ public class CustomerService {
                 && !newEmail.equals(customerRecord.getEmail())) {
 
             if (customerRepository.existsByEmail(newEmail)) {
+                log.warn("Email change rejected for customer {}: email is already in use", customerRecord.getId());
                 throw new EmailAlreadyExistsException(newEmail);
             }
 
             customerRecord.setEmail(newEmail);
+            log.info("Email changed for customer {}", customerRecord.getId());
         }
 
         // Updates the personal details included in the request. / Actualiza los datos personales enviados en la solicitud.
         if (request.name() != null && !request.name().isBlank()) {
             customerRecord.setName(request.name());
+            log.debug("Name updated for customer {}", customerRecord.getId());
         }
 
         if (request.phone() != null) {
             customerRecord.setPhone(request.phone());
+            log.debug("Phone updated for customer {}", customerRecord.getId());
         }
 
         // Invalidates previously issued tokens only when requested. / Invalida todos los tokens emitidos antes (solo si se pidió).
         if (closeSessions) {
             customerRecord.setTokenVersion(customerRecord.getTokenVersion() + 1);
+            log.info("Sessions closed for customer {} (tokenVersion={})",
+                    customerRecord.getId(), customerRecord.getTokenVersion());
         }
 
         try {
             customerRepository.flush();
         } catch (ObjectOptimisticLockingFailureException e) {
+            log.warn("Concurrent modification detected while updating customer {}", customerRecord.getId());
             throw new CustomerModifiedException(customerRecord.getId(), e);
         }
 
+        log.info("Profile updated for customer {}", customerRecord.getId());
         return toPublicResponse(customerRecord);
     }
 
@@ -141,11 +162,15 @@ public class CustomerService {
      */
     @Transactional
     public void deactivateCustomer(Customer customer) {
+        log.debug("Deactivating customer {}", customer.getId());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() ->
-                        new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Deactivation failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         customerRecord.setActive(false);
+        log.info("Customer {} deactivated", customerRecord.getId());
     }
 
     /**
@@ -160,11 +185,15 @@ public class CustomerService {
      */
     @Transactional
     public void activateCustomer(Customer customer) {
+        log.debug("Activating customer {}", customer.getId());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() ->
-                        new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Activation failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         customerRecord.setActive(true);
+        log.info("Customer {} activated", customerRecord.getId());
     }
 
 
@@ -185,12 +214,19 @@ public class CustomerService {
      */
     @Transactional
     public PublicCustomerResponse uploadCustomerPhoto(Customer customer, MultipartFile file) throws IOException {
+        log.debug("Uploading profile photo for customer {} (size={} bytes, contentType={})",
+                customer.getId(), file.getSize(), file.getContentType());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() -> new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Photo upload failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         String previousImageKey = customerRecord.getImageKey();
         customerRecord.setImageKey(storageService.upload(file, StorageService.StorageFolder.PROFILES));
 
+        log.info("Profile photo uploaded for customer {} (replaced a previous photo: {})",
+                customerRecord.getId(), previousImageKey != null);
         storageService.deleteAfterCommit(previousImageKey);
 
         return toPublicResponse(customerRecord);
@@ -209,11 +245,16 @@ public class CustomerService {
      */
     @Transactional
     public PublicCustomerResponse removeCustomerPhoto(Customer customer) {
+        log.debug("Removing profile photo of customer {}", customer.getId());
         Customer customerRecord = customerRepository.findById(customer.getId())
-                .orElseThrow(() -> new CustomerNotFoundException(customer.getEmail()));
+                .orElseThrow(() -> {
+                    log.warn("Photo removal failed: customer {} not found", customer.getId());
+                    return new CustomerNotFoundException(customer.getEmail());
+                });
 
         String imageKey = customerRecord.getImageKey();
         customerRecord.setImageKey(null);
+        log.info("Profile photo removed for customer {} (had a photo: {})", customerRecord.getId(), imageKey != null);
         storageService.deleteAfterCommit(imageKey);   // Deletes from S3 only after the database transaction commits. / Borra de S3 solo si la BD confirma.
 
         return toPublicResponse(customerRecord);

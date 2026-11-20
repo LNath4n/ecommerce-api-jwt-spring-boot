@@ -30,6 +30,7 @@ public class S3StorageService extends AbstractStorageService {
                             @Value("${app.s3.bucket}") String bucket) {
         super(validator);
         this.s3 = s3; this.presigner = presigner; this.bucket = bucket;
+        log.info("S3 storage service initialized with bucket '{}'", bucket);
     }
 
     @Override
@@ -39,23 +40,41 @@ public class S3StorageService extends AbstractStorageService {
                 ? "public,max-age=31536000,immutable" : "private,max-age=3600";
         String contentType = extension.equals(".png") ? "image/png" : "image/jpeg";
 
-        s3.putObject(PutObjectRequest.builder()
-                        .bucket(bucket).key(key)
-                        .contentType(contentType).cacheControl(cacheControl)
-                        .metadata(metadata)
-                        .build(),
-                RequestBody.fromBytes(data));
+        log.debug("Uploading object to S3: bucket={}, key={}, folder={}, contentType={}, size={} bytes",
+                bucket, key, folder, contentType, data.length);
+
+        try {
+            s3.putObject(PutObjectRequest.builder()
+                            .bucket(bucket).key(key)
+                            .contentType(contentType).cacheControl(cacheControl)
+                            .metadata(metadata)
+                            .build(),
+                    RequestBody.fromBytes(data));
+        } catch (RuntimeException e) {
+            log.error("Failed to upload {} to S3 bucket {}: {}", key, bucket, e.getMessage());
+            throw e;
+        }
+
+        log.info("Object uploaded to S3: bucket={}, key={}", bucket, key);
     }
 
     @Override
     public String getPublicUrl(String key) {
-        if (key == null || key.isBlank()) return null;
+        if (key == null || key.isBlank()) {
+            log.debug("Public URL requested with empty key, returning null");
+            return null;
+        }
+        log.debug("Building public URL for key {}", key);
         return s3.utilities().getUrl(b -> b.bucket(bucket).key(key)).toExternalForm();
     }
 
     @Override
     public String getPresignedUrl(String key, Duration validity) {
-        if (key == null || key.isBlank()) return null;
+        if (key == null || key.isBlank()) {
+            log.debug("Presigned URL requested with empty key, returning null");
+            return null;
+        }
+        log.debug("Generating presigned URL for key {} valid for {}", key, validity);
         return presigner.presignGetObject(GetObjectPresignRequest.builder()
                         .signatureDuration(validity)
                         .getObjectRequest(b -> b.bucket(bucket).key(key)).build())
@@ -66,6 +85,7 @@ public class S3StorageService extends AbstractStorageService {
     protected void deleteSafely(String key) {
         try {
             s3.deleteObject(DeleteObjectRequest.builder().bucket(bucket).key(key).build());
+            log.info("Object deleted from S3: bucket={}, key={}", bucket, key);
         } catch (Exception e) {
             log.warn("Could not delete {} from S3: {}", key, e.getMessage());
         }

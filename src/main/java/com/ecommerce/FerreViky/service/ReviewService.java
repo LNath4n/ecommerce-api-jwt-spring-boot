@@ -17,6 +17,8 @@ import com.ecommerce.FerreViky.models.Review;
 import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.repository.ReviewRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -30,6 +32,8 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 @RequiredArgsConstructor
 public class ReviewService {
+
+    private static final Logger log = LoggerFactory.getLogger(ReviewService.class);
 
     private static final int MAX_COMMENT_LENGTH = 1000;
 
@@ -54,16 +58,26 @@ public class ReviewService {
     @EvictTopProductos
     @Transactional
     public ReviewResponse create(Long productId, Customer customer, ReviewRequest req) {
+        log.debug("Creating review: productId={}, customerId={}", productId, customer.getId());
         validate(req);
 
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Cannot create review: product {} not found", productId);
+                    return new ProductNotFoundException(productId);
+                });
 
-        if (!reviewRepository.hasPurchased(productId, customer.getId(), OrderStatus.PAID))
+        if (!reviewRepository.hasPurchased(productId, customer.getId(), OrderStatus.PAID)) {
+            log.warn("Cannot create review: customer {} has not purchased product {}",
+                    customer.getId(), productId);
             throw new ProductNotPurchasedException(productId);
+        }
 
-        if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId()))
+        if (reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId())) {
+            log.warn("Cannot create review: customer {} already reviewed product {}",
+                    customer.getId(), productId);
             throw new ReviewAlreadyExistsException(productId);
+        }
 
         Review review = Review.builder()
                 .product(product)
@@ -75,8 +89,12 @@ public class ReviewService {
         try {
             ReviewResponse response = ReviewResponse.from(reviewRepository.saveAndFlush(review));
             productRepository.refreshReviewStats(productId);
+            log.info("Review created: productId={}, customerId={}, rating={}",
+                    productId, customer.getId(), req.rating());
             return response;
         } catch (DataIntegrityViolationException e) {
+            log.warn("Cannot create review: duplicate detected by database constraint "
+                    + "(productId={}, customerId={})", productId, customer.getId());
             throw new ReviewAlreadyExistsException(productId);
         }
     }
@@ -94,15 +112,22 @@ public class ReviewService {
     @EvictTopProductos
     @Transactional
     public ReviewResponse update(Long productId, Customer customer, ReviewRequest req) {
+        log.debug("Updating review: productId={}, customerId={}", productId, customer.getId());
         validate(req);
 
         Review review = reviewRepository.findByProductIdAndCustomerId(productId, customer.getId())
-                .orElseThrow(() -> new ReviewNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Cannot update review: not found (productId={}, customerId={})",
+                            productId, customer.getId());
+                    return new ReviewNotFoundException(productId);
+                });
 
         review.setRating(req.rating());
         review.setComment(cleanComment(req.comment()));
         ReviewResponse response = ReviewResponse.from(review);
         productRepository.refreshReviewStats(productId); // flushAutomatically guarda el cambio antes
+        log.info("Review updated: productId={}, customerId={}, rating={}",
+                productId, customer.getId(), req.rating());
         return response;
     }
 
@@ -116,10 +141,17 @@ public class ReviewService {
     @EvictTopProductos
     @Transactional
     public void delete(Long productId, Customer customer) {
+        log.debug("Deleting review: productId={}, customerId={}", productId, customer.getId());
+
         Review review = reviewRepository.findByProductIdAndCustomerId(productId, customer.getId())
-                .orElseThrow(() -> new ReviewNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Cannot delete review: not found (productId={}, customerId={})",
+                            productId, customer.getId());
+                    return new ReviewNotFoundException(productId);
+                });
         reviewRepository.delete(review);
         productRepository.refreshReviewStats(productId);
+        log.info("Review deleted: productId={}, customerId={}", productId, customer.getId());
     }
 
     /**
@@ -132,9 +164,14 @@ public class ReviewService {
      */
     @Transactional(readOnly = true)
     public ReviewResponse getMine(Long productId, Customer customer) {
+        log.debug("Fetching customer's review: productId={}, customerId={}", productId, customer.getId());
         return reviewRepository.findByProductIdAndCustomerId(productId, customer.getId())
                 .map(ReviewResponse::from)
-                .orElseThrow(() -> new ReviewNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.debug("Review not found: productId={}, customerId={}",
+                            productId, customer.getId());
+                    return new ReviewNotFoundException(productId);
+                });
     }
 
     /**
@@ -147,8 +184,12 @@ public class ReviewService {
      */
     @Transactional(readOnly = true)
     public Page<ReviewResponse> list(Long productId, Pageable pageable) {
-        if (!productRepository.existsById(productId))
+        log.debug("Listing reviews: productId={}, page={}, size={}",
+                productId, pageable.getPageNumber(), pageable.getPageSize());
+        if (!productRepository.existsById(productId)) {
+            log.warn("Cannot list reviews: product {} not found", productId);
             throw new ProductNotFoundException(productId);
+        }
         return reviewRepository.findByProductId(productId, pageable).map(ReviewResponse::from);
     }
 
@@ -161,12 +202,16 @@ public class ReviewService {
      */
     @Transactional(readOnly = true)
     public ReviewSummary summary(Long productId) {
-        if (!productRepository.existsById(productId))
+        log.debug("Calculating review summary: productId={}", productId);
+        if (!productRepository.existsById(productId)) {
+            log.warn("Cannot calculate review summary: product {} not found", productId);
             throw new ProductNotFoundException(productId);
+        }
 
         long count = reviewRepository.countByProductId(productId);
         Double avg = reviewRepository.findAverageRating(productId);
         double rounded = avg == null ? 0.0 : Math.round(avg * 10.0) / 10.0;
+        log.debug("Review summary: productId={}, count={}, average={}", productId, count, rounded);
         return new ReviewSummary(productId, rounded, count);
     }
 
@@ -181,6 +226,8 @@ public class ReviewService {
     public ReviewEligibility eligibility(Long productId, Customer customer) {
         boolean purchased = reviewRepository.hasPurchased(productId, customer.getId(), OrderStatus.PAID);
         boolean reviewed = reviewRepository.existsByProductIdAndCustomerId(productId, customer.getId());
+        log.debug("Review eligibility: productId={}, customerId={}, purchased={}, reviewed={}",
+                productId, customer.getId(), purchased, reviewed);
         return new ReviewEligibility(purchased, reviewed);
     }
 
@@ -193,10 +240,14 @@ public class ReviewService {
      * @throws InvalidReviewException if the request, rating, or comment is invalid
      */
     private void validate(ReviewRequest req) {
-        if (req == null || req.rating() == null || req.rating() < 1 || req.rating() > 5)
+        if (req == null || req.rating() == null || req.rating() < 1 || req.rating() > 5) {
+            log.warn("Invalid review: rating out of range or missing");
             throw new InvalidReviewException("La calificación debe estar entre 1 y 5");
-        if (req.comment() != null && req.comment().strip().length() > MAX_COMMENT_LENGTH)
+        }
+        if (req.comment() != null && req.comment().strip().length() > MAX_COMMENT_LENGTH) {
+            log.warn("Invalid review: comment exceeds {} characters", MAX_COMMENT_LENGTH);
             throw new InvalidReviewException("El comentario no puede pasar de " + MAX_COMMENT_LENGTH + " caracteres");
+        }
     }
 
     /**
