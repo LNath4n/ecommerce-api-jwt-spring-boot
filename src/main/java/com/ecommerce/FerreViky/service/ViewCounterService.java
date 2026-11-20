@@ -1,4 +1,3 @@
-
 package com.ecommerce.FerreViky.service;
 
 import com.ecommerce.FerreViky.repository.ProductRepository;
@@ -106,6 +105,7 @@ public class ViewCounterService {
      */
     @Scheduled(fixedDelay = 30_000)
     public void flush() {
+        log.debug("Starting view counter flush");
         drainLocalBuffer();
 
         ScanOptions options = ScanOptions.scanOptions()
@@ -115,6 +115,7 @@ public class ViewCounterService {
 
         try (Cursor<String> cursor = redis.scan(options)) {
             cursor.forEachRemaining(this::flushKey);
+            log.debug("View counter flush finished");
         } catch (Exception e) {
             log.warn("View flush failed, will retry: {}", e.getMessage());
         }
@@ -129,6 +130,7 @@ public class ViewCounterService {
      */
     @PreDestroy
     void onShutdown() {
+        log.info("Shutting down: persisting remaining buffered product views");
         drainLocalBuffer();
     }
 
@@ -156,7 +158,10 @@ public class ViewCounterService {
         // only one retrieves its value while the other receives null.
         String raw = redis.opsForValue().getAndDelete(key);
 
-        if (raw == null) return;
+        if (raw == null) {
+            log.trace("Counter {} already processed by another instance", key);
+            return;
+        }
 
         long productId;
         long delta;
@@ -169,10 +174,14 @@ public class ViewCounterService {
             return;
         }
 
-        if (delta <= 0) return;
+        if (delta <= 0) {
+            log.debug("Ignoring non-positive view counter {} = {}", key, delta);
+            return;
+        }
 
         try {
             productRepository.addViews(productId, delta);
+            log.debug("Persisted {} views of product {}", delta, productId);
         } catch (Exception e) {
             log.warn("Could not save {} views of product {}, returning them", delta, productId);
             giveBack(key, productId, delta);
@@ -193,7 +202,10 @@ public class ViewCounterService {
     private void giveBack(String key, long productId, long delta) {
         try {
             redis.opsForValue().increment(key, delta);
+            log.debug("Returned {} views of product {} to Redis", delta, productId);
         } catch (Exception e) {
+            log.warn("Redis unavailable while returning {} views of product {}, buffering locally",
+                    delta, productId);
             addToLocalBuffer(productId, delta);
         }
     }
@@ -218,6 +230,8 @@ public class ViewCounterService {
             try {
                 productRepository.addViews(id, views);
             } catch (Exception e) {
+                log.warn("Could not save {} buffered views of product {}, keeping them for retry: {}",
+                        views, id, e.getMessage());
                 adder.add(views);   // Restore the views for the next synchronization cycle.
             }
         });

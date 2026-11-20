@@ -23,6 +23,8 @@ import com.ecommerce.FerreViky.specification.ProductoSpecification;
 import com.ecommerce.FerreViky.utils.SlugUtil;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
@@ -53,6 +55,8 @@ import java.util.stream.Collectors;
 @AllArgsConstructor
 public class ProductService {
 
+    private static final Logger log = LoggerFactory.getLogger(ProductService.class);
+
     private static final int MIN_REVIEWS_FOR_TOP_RATED = 3;
 
     private final ProductRepository productRepository;
@@ -69,6 +73,7 @@ public class ProductService {
      * @return a page of active products with their public details
      */
     public Page<PublicProductResponse> getAllProducts(Pageable pageable) {
+        log.debug("Listing active products, pageable={}", pageable);
         return toPublicPage(productRepository.findByActiveTrue(pageable));
     }
 
@@ -80,9 +85,13 @@ public class ProductService {
      * @throws ProductNotFoundException if the product does not exist or is inactive
      */
     public PublicProductResponse getProductById(Long id) {
+        log.debug("Fetching product {}", id);
         Product product = productRepository.findById(id)
                 .filter(Product::getActive)
-                .orElseThrow(() -> new ProductNotFoundException(id));
+                .orElseThrow(() -> {
+                    log.debug("Product {} not found or inactive", id);
+                    return new ProductNotFoundException(id);
+                });
         return recordViewAndConvert(product);
     }
 
@@ -94,9 +103,13 @@ public class ProductService {
      * @throws ProductNotFoundException if the product does not exist or is inactive
      */
     public PublicProductResponse getProductBySlug(String slug) {
+        log.debug("Fetching product by slug {}", slug);
         Product product = productRepository.findBySlug(slug)
                 .filter(Product::getActive)
-                .orElseThrow(() -> new ProductNotFoundException(slug));
+                .orElseThrow(() -> {
+                    log.debug("Product with slug {} not found or inactive", slug);
+                    return new ProductNotFoundException(slug);
+                });
         return recordViewAndConvert(product);
     }
 
@@ -114,6 +127,8 @@ public class ProductService {
      * @return a page of active products matching the criteria
      */
     public Page<PublicProductResponse> searchProducts(String text, String platform, Long categoryId, Pageable pageable) {
+        log.debug("Searching products: text={} platform={} categoryId={} pageable={}",
+                text, platform, categoryId, pageable);
         Specification<Product> spec = ProductoSpecification.activeOnly()
                 .and(ProductoSpecification.byText(text))
                 .and(ProductoSpecification.withPlatform(platform))
@@ -151,6 +166,7 @@ public class ProductService {
      */
     @Cacheable(value = "topVistas", unless = "#result == null or #result.isEmpty()")
     public List<PublicProductResponse> getTopViewedProducts() {
+        log.debug("Cache miss for topVistas, querying the database");
         return toPublicResponses(productRepository.findTop10ByActiveTrueOrderByViewsDesc());
     }
 
@@ -164,6 +180,7 @@ public class ProductService {
      */
     @Cacheable(value = "topCalificados", unless = "#result == null or #result.isEmpty()")
     public List<PublicProductResponse> getTopRatedProducts() {
+        log.debug("Cache miss for topCalificados, querying the database");
         return toPublicResponses(productRepository
                 .findTop10ByActiveTrueAndTotalReviewsGreaterThanEqualOrderByAverageRatingDescTotalReviewsDesc(
                         MIN_REVIEWS_FOR_TOP_RATED));
@@ -178,6 +195,7 @@ public class ProductService {
      */
     @Cacheable(value = "topResenados", unless = "#result == null or #result.isEmpty()")
     public List<PublicProductResponse> getTopReviewedProducts() {
+        log.debug("Cache miss for topResenados, querying the database");
         return toPublicResponses(productRepository.findTop10ByActiveTrueOrderByTotalReviewsDesc());
     }
 
@@ -191,6 +209,7 @@ public class ProductService {
      * @throws ProductNotFoundException if the product does not exist
      */
     public AdminProductResponse getAdminProductById(Long id) {
+        log.debug("Fetching admin view of product {}", id);
         return toAdminResponse(findProductById(id));
     }
 
@@ -212,9 +231,11 @@ public class ProductService {
      */
     @Transactional
     public PublicProductResponse createProduct(ProductRequest request) {
+        log.debug("Creating product with sku {}", request.sku());
         String sku = normalizeSku(request.sku());
 
         if (productRepository.existsBySku(sku)) {
+            log.warn("Product creation rejected: sku {} already exists", sku);
             throw new DuplicateSkuException(sku);
         }
 
@@ -224,8 +245,11 @@ public class ProductService {
         newProduct.setSlug(SlugUtil.slugify(request.name() + " " + sku));
 
         try {
-            return toPublicResponse(productRepository.saveAndFlush(newProduct));
+            Product savedProduct = productRepository.saveAndFlush(newProduct);
+            log.info("Product {} created (sku={})", savedProduct.getId(), sku);
+            return toPublicResponse(savedProduct);
         } catch (DataIntegrityViolationException e) {
+            log.warn("Product creation rejected: sku {} duplicated (concurrent request)", sku);
             throw new DuplicateSkuException(sku);
         }
     }
@@ -249,10 +273,12 @@ public class ProductService {
     @EvictTopProductos
     @Transactional
     public PublicProductResponse updateProduct(ProductRequest request, Long productId) {
+        log.debug("Updating product {}", productId);
         Product product = findProductById(productId);
         String sku = normalizeSku(request.sku());
 
         if (productRepository.existsBySkuAndIdNot(sku, productId)) {
+            log.warn("Update of product {} rejected: sku {} is used by another product", productId, sku);
             throw new DuplicateSkuException(sku);
         }
 
@@ -264,11 +290,14 @@ public class ProductService {
         try {
             productRepository.flush();
         } catch (DataIntegrityViolationException e) {
+            log.warn("Update of product {} rejected: sku {} duplicated (concurrent request)", productId, sku);
             throw new DuplicateSkuException(sku);
         } catch (ObjectOptimisticLockingFailureException e) {
+            log.warn("Concurrent modification detected while updating product {}", productId);
             throw new ProductModifiedException(productId);
         }
 
+        log.info("Product {} updated", productId);
         return toPublicResponse(product);
     }
 
@@ -289,9 +318,11 @@ public class ProductService {
     @EvictTopProductos
     @Transactional
     public void deleteProduct(Long productId) {
+        log.debug("Deleting product {}", productId);
         Product product = findProductById(productId);
 
         if (virtualCodeRepository.existsByProductId(productId)) {
+            log.warn("Deletion of product {} rejected: it has virtual codes", productId);
             throw new ProductHasDependenciesException(productId);
         }
 
@@ -302,9 +333,11 @@ public class ProductService {
             productRepository.delete(product);
             productRepository.flush();
         } catch (DataIntegrityViolationException e) {
+            log.warn("Deletion of product {} rejected: it is referenced by other records", productId);
             throw new ProductHasDependenciesException(productId);
         }
 
+        log.info("Product {} deleted (had an image: {})", productId, imageKey != null);
         storageService.deleteAfterCommit(imageKey);
     }
 
@@ -322,7 +355,9 @@ public class ProductService {
     @EvictTopProductos
     @Transactional
     public void deactivateProduct(Long productId) {
+        log.debug("Deactivating product {}", productId);
         findProductById(productId).setActive(false);
+        log.info("Product {} deactivated", productId);
     }
 
     /**
@@ -340,6 +375,8 @@ public class ProductService {
     @EvictTopProductos
     @Transactional
     public AdminProductResponse uploadProductImage(Long productId, MultipartFile file) throws IOException {
+        log.debug("Uploading image for product {} (size={} bytes, contentType={})",
+                productId, file.getSize(), file.getContentType());
         Product product = findProductById(productId);
 
         String previousImageKey = product.getImageKey();
@@ -348,6 +385,8 @@ public class ProductService {
                 StorageService.StorageFolder.PRODUCTS,
                 Map.of("product-id", productId.toString())));
 
+        log.info("Image uploaded for product {} (replaced a previous image: {})",
+                productId, previousImageKey != null);
         storageService.deleteAfterCommit(previousImageKey);
         return toAdminResponse(product);
     }
@@ -365,10 +404,12 @@ public class ProductService {
     @EvictTopProductos
     @Transactional
     public AdminProductResponse removeProductImage(Long productId) {
+        log.debug("Removing image of product {}", productId);
         Product product = findProductById(productId);
 
         String key = product.getImageKey();
         product.setImageKey(null);
+        log.info("Image removed from product {} (had an image: {})", productId, key != null);
         storageService.deleteAfterCommit(key);
 
         return toAdminResponse(product);
@@ -383,7 +424,10 @@ public class ProductService {
      */
     private Product findProductById(Long id) {
         return productRepository.findById(id)
-                .orElseThrow(() -> new ProductNotFoundException(id));
+                .orElseThrow(() -> {
+                    log.warn("Product {} not found", id);
+                    return new ProductNotFoundException(id);
+                });
     }
 
     /**
@@ -398,7 +442,10 @@ public class ProductService {
             return null;
         }
         return categoryRepository.findById(categoryId)
-                .orElseThrow(() -> new CategoryNotFoundException(categoryId));
+                .orElseThrow(() -> {
+                    log.warn("Category {} not found", categoryId);
+                    return new CategoryNotFoundException(categoryId);
+                });
     }
 
     /**
@@ -422,6 +469,7 @@ public class ProductService {
      */
     private PublicProductResponse recordViewAndConvert(Product product) {
         viewCounterService.increment(product.getId());
+        log.trace("View recorded for product {}", product.getId());
         product.setViews(product.getViews() + 1);   // solo para la respuesta, no se guarda
         return toPublicResponse(product);
     }

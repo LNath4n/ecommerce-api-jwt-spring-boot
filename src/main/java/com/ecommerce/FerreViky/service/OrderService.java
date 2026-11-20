@@ -12,6 +12,8 @@ import com.ecommerce.FerreViky.models.VirtualCode.CodeStatus;
 import com.ecommerce.FerreViky.repository.OrdersRepository;
 import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class OrderService {
 
+    private static final Logger log = LoggerFactory.getLogger(OrderService.class);
+
     private final OrdersRepository ordersRepository;
     private final VirtualCodeRepository virtualCodeRepository;
 
@@ -37,10 +41,13 @@ public class OrderService {
      */
     @Transactional(readOnly = true)
     public List<OrderSummary> myOrders(Customer customer) {
-        return ordersRepository.findByBuyerOrderByCreatedAtDesc(customer).stream()
+        log.debug("Fetching orders for customer {}", customer.getId());
+        List<OrderSummary> orders = ordersRepository.findByBuyerOrderByCreatedAtDesc(customer).stream()
                 .map(o -> new OrderSummary(o.getId(), o.getCreatedAt(),
                         o.getTotalAmount(), o.getStatus()))
                 .toList();
+        log.debug("Found {} orders for customer {}", orders.size(), customer.getId());
+        return orders;
     }
 
     /**
@@ -55,8 +62,12 @@ public class OrderService {
      */
     @Transactional(readOnly = true)
     public OrderDetail myOrder(Long orderId, Customer customer) {
+        log.debug("Fetching order {} for customer {}", orderId, customer.getId());
         Orders o = ordersRepository.findByIdAndBuyer(orderId, customer)
-                .orElseThrow(() -> new OrderNotFoundException(orderId));
+                .orElseThrow(() -> {
+                    log.warn("Order {} not found for customer {}", orderId, customer.getId());
+                    return new OrderNotFoundException(orderId);
+                });
 
         // Solo se entregan códigos si el pedido está pagado
         Map<Long, List<String>> codesByProduct = o.getStatus() == OrderStatus.PAID
@@ -66,6 +77,9 @@ public class OrderService {
                         c -> c.getProduct().getId(),
                         Collectors.mapping(VirtualCode::getCode, Collectors.toList())))
                 : Map.of();
+        // Only counts are logged, never the codes themselves
+        log.debug("Order {} is {}, codes delivered for {} products",
+                orderId, o.getStatus(), codesByProduct.size());
 
         List<DeliveredItem> items = o.getItems().stream()
                 .map(i -> new DeliveredItem(
@@ -77,6 +91,7 @@ public class OrderService {
                         codesByProduct.getOrDefault(i.getProduct().getId(), List.of())))
                 .toList();
 
+        log.debug("Order {} detail built with {} items", orderId, items.size());
         return new OrderDetail(o.getId(), o.getCreatedAt(), o.getTotalAmount(),
                 o.getStatus(), items);
     }

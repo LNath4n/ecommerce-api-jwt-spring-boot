@@ -87,15 +87,21 @@ public class CheckoutService {
      */
     public String checkout(Customer customer) {
 
+        log.info("Checkout started for customer {}", customer.getId());
+
         // E5: single transaction, if anything fails it is fully rolled back
         Orders order = tx.execute(s -> createPendingOrder(customer));
+        log.info("Pending order {} created for customer {}, total={} {}",
+                order.getId(), customer.getId(), order.getTotalAmount(), CURRENCY);
 
         String paypalOrderId;
         try {
             // No waiting on PayPal inside the transaction
             paypalOrderId = paypalService.createOrder(
                     order.getTotalAmount(), CURRENCY, "Pedido #" + order.getId());
+            log.info("PayPal order {} created for order {}", paypalOrderId, order.getId());
         } catch (RuntimeException e) {   // E6
+            log.error("PayPal createOrder failed for order {}, releasing reservation", order.getId(), e);
             releaseOrder(order.getId());
             throw e;
         }
@@ -105,11 +111,15 @@ public class CheckoutService {
             // LOCK: the order is locked so a concurrent cancel is not overwritten by this save
             Orders o = getOrderForUpdateOrThrow(order.getId());
             // Only the id is saved, the order stays PENDING
-            if (o.getStatus() != OrderStatus.PENDING_PAYMENT)   // E2: another checkout cancelled it
+            if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {   // E2: another checkout cancelled it
+                log.warn("Cannot save PayPal order id {}: order {} is now {}",
+                        paypalOrderId, o.getId(), o.getStatus());
                 throw new OrderNotPayableException(o.getId(), o.getStatus());
+            }
             o.setPaypalOrderId(paypalOrderId);
         });
 
+        log.info("Checkout completed for order {} (paypal {})", order.getId(), paypalOrderId);
         return paypalOrderId;   // Returned to Angular
     }
 
@@ -121,11 +131,17 @@ public class CheckoutService {
      */
     private Orders createPendingOrder(Customer customer) {
         // E2: the cart lock queues the second checkout
+        log.debug("Locking cart for customer {}", customer.getId());
         Cart cart = cartRepository.findByCustomerForUpdate(customer)
-                .orElseThrow(() -> new CustomerCartNotFoundException(customer.getId()));
+                .orElseThrow(() -> {
+                    log.warn("Checkout failed: no cart found for customer {}", customer.getId());
+                    return new CustomerCartNotFoundException(customer.getId());
+                });
 
-        if (cart.getItems().isEmpty())
+        if (cart.getItems().isEmpty()) {
+            log.warn("Checkout failed: cart is empty for customer {}", customer.getId());
             throw new EmptyCartException();
+        }
 
         // E2: with the cart locked, release the previous pending orders.
         // Only ids are loaded; each order is then read fresh under lock inside cancelPending.
@@ -136,6 +152,7 @@ public class CheckoutService {
         order.setBuyer(customer);
         order.setTotalAmount(BigDecimal.ZERO);
         order = ordersRepository.save(order);   // the id is needed to link the codes
+        log.debug("Order {} saved, reserving codes for {} cart items", order.getId(), cart.getItems().size());
 
         LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(reservationMinutes);
         BigDecimal total = BigDecimal.ZERO;
@@ -150,21 +167,29 @@ public class CheckoutService {
             Product p = ci.getProduct();
             int qty = ci.getQuantity();
 
-            if (!p.getActive()) throw new ProductNotFoundException(p.getId());   // E18
+            if (!p.getActive()) {   // E18
+                log.warn("Checkout failed: product {} is inactive (order {})", p.getId(), order.getId());
+                throw new ProductNotFoundException(p.getId());
+            }
 
             // E3: FOR UPDATE, the second buyer waits for their turn
             List<VirtualCode> codes = virtualCodeRepository.findByProductIdAndStatusForUpdate(
                     p.getId(), CodeStatus.AVAILABLE, PageRequest.of(0, qty));
 
             // E3, E5: out of stock, roll back all reservations
-            if (codes.size() < qty)
+            if (codes.size() < qty) {
+                log.warn("Checkout failed: not enough codes for product {} ({}), available={}, requested={} (order {})",
+                        p.getId(), p.getName(), codes.size(), qty, order.getId());
                 throw new QuantityExceededException(p.getName(), codes.size(), qty);
+            }
 
             for (VirtualCode c : codes) {
                 c.setStatus(CodeStatus.RESERVED);
                 c.setOrders(order);
                 c.setExpiresAt(expiresAt);
             }
+
+            log.debug("Reserved {} codes of product {} for order {}", codes.size(), p.getId(), order.getId());
 
             OrderItem oi = new OrderItem();
             oi.setOrders(order);
@@ -177,6 +202,8 @@ public class CheckoutService {
         }
 
         order.setTotalAmount(total);
+        log.info("Order {} reserved: {} items, total={} {}, expires at {}",
+                order.getId(), items.size(), total, CURRENCY, expiresAt);
         return order;
     }
 
@@ -195,33 +222,55 @@ public class CheckoutService {
      * @throws HttpClientErrorException     if PayPal rejects the payment; the user can retry
      */
     public Orders confirmPayment(String paypalOrderId, Customer customer) {
+        log.info("Confirming payment for PayPal order {} (customer {})", paypalOrderId, customer.getId());
+
         Orders order = ordersRepository
                 .findByPaypalOrderIdAndBuyer(paypalOrderId, customer)   // E17: if it is not theirs, 404
-                .orElseThrow(OrderNotFoundException::new);
+                .orElseThrow(() -> {
+                    log.warn("Confirm payment: PayPal order {} not found for customer {}",
+                            paypalOrderId, customer.getId());
+                    return new OrderNotFoundException();
+                });
 
         if (order.getStatus() == OrderStatus.PAID
-                || order.getStatus() == OrderStatus.REFUNDED) return order;   // E1: idempotent
+                || order.getStatus() == OrderStatus.REFUNDED) {   // E1: idempotent
+            log.info("Order {} is already {}, returning without charging again",
+                    order.getId(), order.getStatus());
+            return order;
+        }
 
-        if (order.getStatus() != OrderStatus.PENDING_PAYMENT)   // E8: the job already cancelled it, 409
+        if (order.getStatus() != OrderStatus.PENDING_PAYMENT) {   // E8: the job already cancelled it, 409
+            log.warn("Confirm payment rejected: order {} is {}", order.getId(), order.getStatus());
             throw new OrderNotPayableException(order.getId(), order.getStatus());
+        }
 
         // E9, Important 1: before charging, verify the reservation is still alive
         Boolean reservationOk = tx.execute(s -> hasValidReservation(order.getId()));
         if (!Boolean.TRUE.equals(reservationOk)) {
+            log.warn("Reservation no longer valid for order {}, releasing it before charging", order.getId());
             releaseOrder(order.getId());
             throw new ReservationExpiredException(order.getId());
         }
 
         JsonNode res;
         try {
+            log.info("Capturing PayPal payment for order {} (paypal {})", order.getId(), paypalOrderId);
             // E1: fixed requestId per order, a retry does not charge twice
             res = paypalService.captureOrder(paypalOrderId, "capture-order-" + order.getId());
             // This is where the charge happens
+            log.info("PayPal capture call succeeded for order {}", order.getId());
         } catch (HttpClientErrorException.UnprocessableEntity e) {
-            if (e.getResponseBodyAsString().contains("ORDER_ALREADY_CAPTURED"))   // E12
+            if (e.getResponseBodyAsString().contains("ORDER_ALREADY_CAPTURED")) {   // E12
+                log.info("Order {} was already captured in PayPal, waiting for the other request to finish",
+                        order.getId());
                 return waitForOutcome(order.getId());
+            }
+            log.warn("PayPal rejected capture for order {} ({}): {}",
+                    order.getId(), e.getStatusCode(), e.getResponseBodyAsString());
             throw e;
         } catch (HttpClientErrorException e) {   // E11: definitive rejection, nothing was charged
+            log.warn("PayPal rejected capture for order {} ({}): {}",
+                    order.getId(), e.getStatusCode(), e.getResponseBodyAsString());
             throw e;
         } catch (RestClientException e) {
             // E10: timeout or 5xx, we do NOT know whether PayPal charged. Nothing is released,
@@ -245,24 +294,30 @@ public class CheckoutService {
      * @throws PaymentNotCompletedException if the capture is not {@code COMPLETED}
      */
     private Orders settleCapture(Long orderId, JsonNode res) {
+        log.debug("Settling capture for order {}", orderId);
         JsonNode capture = res.at("/purchase_units/0/payments/captures/0");
         String captureId = capture.path("id").asText(null);
 
         // E14: must be COMPLETED and the id must exist, otherwise no product is delivered
         if (!"COMPLETED".equals(res.path("status").asText())
                 || captureId == null
-                || !"COMPLETED".equals(capture.path("status").asText()))
+                || !"COMPLETED".equals(capture.path("status").asText())) {
+            log.warn("Capture for order {} is not completed: orderStatus={}, captureId={}, captureStatus={}",
+                    orderId, res.path("status").asText(), captureId, capture.path("status").asText());
             throw new PaymentNotCompletedException();
+        }
 
         // E13: what PayPal actually charged
         BigDecimal captured = new BigDecimal(capture.at("/amount/value").asText());
         String currency = capture.at("/amount/currency_code").asText();
+        log.info("Order {} captured in PayPal: capture={}, amount={} {}", orderId, captureId, captured, currency);
 
         // E7: the captureId is saved first, so a refund is always possible.
         // LOCK: only the order is locked here, and its buyer is returned for the next step.
         Customer buyer = tx.execute(s -> {
             Orders o = getOrderForUpdateOrThrow(orderId);
             o.setPaypalCaptureId(captureId);
+            log.debug("Capture id {} saved for order {}", captureId, orderId);
             return o.getBuyer();
         });
 
@@ -275,11 +330,16 @@ public class CheckoutService {
             Orders o = getOrderForUpdateOrThrow(orderId);
 
             // E1: another request (or the webhook) already resolved it
-            if (o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.REFUNDED) return;
+            if (o.getStatus() == OrderStatus.PAID || o.getStatus() == OrderStatus.REFUNDED) {
+                log.info("Order {} already resolved as {}, nothing to do", o.getId(), o.getStatus());
+                return;
+            }
 
             // E13: compareTo so that 100.0 equals 100.00
             boolean amountOk = CURRENCY.equals(currency)
                     && captured.compareTo(o.getTotalAmount()) == 0;
+            log.debug("Order {}: captured={} {}, expected={} {}, amountOk={}",
+                    o.getId(), captured, currency, o.getTotalAmount(), CURRENCY, amountOk);
 
             // E9, E13: charged but cannot be fulfilled => FAILED
             if (!amountOk || !hasValidReservation(o.getId())) {
@@ -293,20 +353,25 @@ public class CheckoutService {
             o.setStatus(OrderStatus.PAID);
 
             LocalDateTime now = LocalDateTime.now();
+            int soldCount = 0;
             for (VirtualCode c : virtualCodeRepository.findByOrdersId(o.getId())) {
                 c.setStatus(CodeStatus.SOLD);
                 c.setSoldAt(now);
                 c.setExpiresAt(null);
+                soldCount++;
             }
+            log.info("Order {} marked PAID, {} codes sold", o.getId(), soldCount);
 
             cart.ifPresent(c -> c.getItems().clear());
         });
 
         Orders result = getOrderOrThrow(orderId);
         if (result.getStatus() == OrderStatus.FAILED) {   // E9, E13: immediate refund
+            log.warn("Order {} is FAILED after capture, starting immediate refund", orderId);
             refundOrder(orderId);
             result = getOrderOrThrow(orderId);
         }
+        log.info("Order {} settled with final status {}", orderId, result.getStatus());
         return result;
     }
 
@@ -320,8 +385,12 @@ public class CheckoutService {
     public void expireOrReconcile(Long orderId) {
         // No lock on purpose: quick look before calling PayPal.
         // The final decision is re-checked under lock in settleCapture / cancelPending.
+        log.debug("Reconcile check for order {}", orderId);
         Orders o = getOrderOrThrow(orderId);
-        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return;
+        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            log.debug("Order {} is {}, nothing to reconcile", orderId, o.getStatus());
+            return;
+        }
 
         if (o.getPaypalOrderId() != null) {
             JsonNode res;
@@ -333,6 +402,7 @@ public class CheckoutService {
                 return;
             }
 
+            log.debug("PayPal status for order {} is {}", orderId, res.path("status").asText());
             if ("COMPLETED".equals(res.path("status").asText())) {
                 // E7: PayPal already charged but the order was still pending, finish it
                 log.warn("Order {} was captured in PayPal but still pending, settling", orderId);
@@ -341,6 +411,7 @@ public class CheckoutService {
             }
         }
         // E7, E8: no charge (or the PayPal order was never created), release it
+        log.info("Order {} has no charge in PayPal, releasing it", orderId);
         releaseOrder(orderId);
     }
 
@@ -351,13 +422,21 @@ public class CheckoutService {
      */
     private boolean hasValidReservation(Long orderId) {   // E9
         Orders o = getOrderOrThrow(orderId);
-        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return false;
+        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {
+            log.debug("Reservation check: order {} is {}, not PENDING_PAYMENT", orderId, o.getStatus());
+            return false;
+        }
 
         int expected = o.getItems().stream().mapToInt(OrderItem::getQuantity).sum();
         List<VirtualCode> codes = virtualCodeRepository.findByOrdersId(orderId);
 
-        return codes.size() == expected
+        boolean valid = codes.size() == expected
                 && codes.stream().allMatch(c -> c.getStatus() == CodeStatus.RESERVED);
+        if (!valid) {
+            log.warn("Invalid reservation for order {}: expected {} codes, found {}",
+                    orderId, expected, codes.size());
+        }
+        return valid;
     }
 
     /**
@@ -369,8 +448,13 @@ public class CheckoutService {
      * @throws OrderNotFoundException if the order is not found for this buyer
      */
     public void cancelOrder(String paypalOrderId, Customer customer) {
+        log.info("Customer {} requested cancellation of PayPal order {}", customer.getId(), paypalOrderId);
         Orders order = ordersRepository.findByPaypalOrderIdAndBuyer(paypalOrderId, customer)   // E17
-                .orElseThrow(OrderNotFoundException::new);
+                .orElseThrow(() -> {
+                    log.warn("Cancel order: PayPal order {} not found for customer {}",
+                            paypalOrderId, customer.getId());
+                    return new OrderNotFoundException();
+                });
         releaseOrder(order.getId());   // E16
     }
 
@@ -390,17 +474,26 @@ public class CheckoutService {
         // Duplicate refunds are prevented by the fixed requestId below.
         Orders o = getOrderOrThrow(orderId);
         // E15: only refunds FAILED orders that have a captureId
-        if (o.getStatus() != OrderStatus.FAILED || o.getPaypalCaptureId() == null) return;
+        if (o.getStatus() != OrderStatus.FAILED || o.getPaypalCaptureId() == null) {
+            log.debug("Refund skipped for order {}: status={}, hasCaptureId={}",
+                    orderId, o.getStatus(), o.getPaypalCaptureId() != null);
+            return;
+        }
 
         try {
             // E15: fixed requestId per order, if retried PayPal does not duplicate the refund
+            log.info("Refunding capture {} for order {}", o.getPaypalCaptureId(), orderId);
             String status = paypalService.refundCapture(o.getPaypalCaptureId(), "refund-order-" + orderId);
+            log.info("PayPal refund for order {} returned status {}", orderId, status);
 
             if ("COMPLETED".equals(status) || "PENDING".equals(status)) {
                 markRefunded(orderId);
+            } else {
+                log.warn("Unexpected refund status {} for order {}, it stays FAILED", status, orderId);
             }
         } catch (HttpClientErrorException.UnprocessableEntity e) {
             if (e.getResponseBodyAsString().contains("CAPTURE_FULLY_REFUNDED")) {
+                log.info("Capture of order {} was already fully refunded in PayPal", orderId);
                 markRefunded(orderId);   // E15: already refunded
             } else {
                 log.error("Refund rejected for order {}: {}", orderId, e.getResponseBodyAsString());
@@ -418,7 +511,12 @@ public class CheckoutService {
     private void markRefunded(Long orderId) {
         tx.executeWithoutResult(s -> {
             Orders o = getOrderForUpdateOrThrow(orderId);
-            if (o.getStatus() == OrderStatus.FAILED) o.setStatus(OrderStatus.REFUNDED);
+            if (o.getStatus() == OrderStatus.FAILED) {
+                o.setStatus(OrderStatus.REFUNDED);
+                log.info("Order {} marked REFUNDED", orderId);
+            } else {
+                log.warn("Order {} not marked REFUNDED because its status is {}", orderId, o.getStatus());
+            }
         });
     }
 
@@ -428,13 +526,16 @@ public class CheckoutService {
      * @implNote Must be called inside an active transaction, with the order already locked.
      */
     private void freeReservedCodes(Long orderId) {
+        int released = 0;
         for (VirtualCode c : virtualCodeRepository.findByOrdersId(orderId)) {
             if (c.getStatus() == CodeStatus.RESERVED) {
                 c.setStatus(CodeStatus.AVAILABLE);
                 c.setOrders(null);
                 c.setExpiresAt(null);
+                released++;
             }
         }
+        log.debug("Released {} reserved codes of order {}", released, orderId);
     }
 
     /**
@@ -447,10 +548,14 @@ public class CheckoutService {
         // LOCK: a second instance waits here, then sees CANCELLED and exits, so the codes
         // are never released twice (they could already belong to another buyer).
         Orders o = getOrderForUpdateOrThrow(orderId);
-        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return;   // E16: do not touch paid orders
+        if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {   // E16: do not touch paid orders
+            log.debug("Cancel skipped for order {}: status is {}", orderId, o.getStatus());
+            return;
+        }
 
         freeReservedCodes(orderId);
         o.setStatus(OrderStatus.CANCELLED);
+        log.info("Order {} cancelled and its reserved codes released", orderId);
     }
 
     /**
@@ -464,14 +569,20 @@ public class CheckoutService {
         // Waits 5 times, 400 ms apart, for it to stop being PENDING; if it doesn't change, throws
         for (int i = 0; i < 5; i++) {
             Orders o = getOrderOrThrow(orderId);
-            if (o.getStatus() != OrderStatus.PENDING_PAYMENT) return o;
+            if (o.getStatus() != OrderStatus.PENDING_PAYMENT) {
+                log.debug("Order {} left PENDING_PAYMENT after {} waits, now {}", orderId, i, o.getStatus());
+                return o;
+            }
+            log.debug("Order {} still pending (check {}/5), waiting", orderId, i + 1);
             try {
                 Thread.sleep(400);
             } catch (InterruptedException ie) {
+                log.warn("Interrupted while waiting for the outcome of order {}", orderId);
                 Thread.currentThread().interrupt();
                 break;
             }
         }
+        log.warn("Order {} is still PENDING_PAYMENT after waiting, leaving it for reconciliation", orderId);
         throw new PaymentProcessingException(orderId);
     }
 

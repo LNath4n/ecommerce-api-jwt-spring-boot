@@ -1,5 +1,7 @@
 package com.ecommerce.FerreViky.service;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
@@ -16,6 +18,8 @@ import java.util.Map;
 
 @Service
 public class PaypalService {
+
+    private static final Logger log = LoggerFactory.getLogger(PaypalService.class);
 
     private final RestClient rest;
     private final String clientId;
@@ -34,8 +38,12 @@ public class PaypalService {
 
     // Token OAuth2 con caché: solo pide uno nuevo cuando está por expirar
     private synchronized String getAccessToken() {
-        if (Instant.now().isBefore(tokenExpiry)) return accessToken;
+        if (Instant.now().isBefore(tokenExpiry)) {
+            log.trace("Using cached PayPal access token");
+            return accessToken;
+        }
 
+        log.info("Requesting a new PayPal access token");
         MultiValueMap<String, String> form = new LinkedMultiValueMap<>();
         form.add("grant_type", "client_credentials");
 
@@ -49,10 +57,12 @@ public class PaypalService {
 
         accessToken = res.get("access_token").asText();
         tokenExpiry = Instant.now().plusSeconds(res.get("expires_in").asLong() - 60);
+        log.info("New PayPal access token obtained, cached until {}", tokenExpiry);
         return accessToken;
     }
 
     public String createOrder(BigDecimal total, String currency, String description) {
+        log.debug("Calling PayPal createOrder: total={} {} description={}", total, currency, description);
         Map<String, Object> body = Map.of(
                 "intent", "CAPTURE",
                 "purchase_units", List.of(Map.of(
@@ -75,11 +85,14 @@ public class PaypalService {
                 .retrieve()
                 .body(JsonNode.class);
 
-        return res.get("id").asText();
+        String paypalOrderId = res.get("id").asText();
+        log.info("PayPal order {} created (total={} {})", paypalOrderId, total, currency);
+        return paypalOrderId;
     }
 
     public JsonNode captureOrder(String orderId, String requestId) {
-        return rest.post()
+        log.info("Calling PayPal capture for order {} (requestId {})", orderId, requestId);
+        JsonNode res = rest.post()
                 .uri("/v2/checkout/orders/{id}/capture", orderId)
                 .headers(h -> {
                     h.setBearerAuth(getAccessToken());
@@ -89,17 +102,24 @@ public class PaypalService {
                 .body(Map.of())
                 .retrieve()
                 .body(JsonNode.class);
+        log.info("PayPal capture for order {} responded with status {}",
+                orderId, res == null ? null : res.path("status").asText());
+        return res;
     }
 
     public JsonNode getOrder(String orderId) {
-        return rest.get()
+        log.debug("Calling PayPal getOrder for order {}", orderId);
+        JsonNode res = rest.get()
                 .uri("/v2/checkout/orders/{id}", orderId)
                 .headers(h -> h.setBearerAuth(getAccessToken()))
                 .retrieve()
                 .body(JsonNode.class);
+        log.debug("PayPal order {} has status {}", orderId, res == null ? null : res.path("status").asText());
+        return res;
     }
 
     public String refundCapture(String captureId, String requestId) {
+        log.info("Calling PayPal refund for capture {} (requestId {})", captureId, requestId);
         JsonNode res = rest.post()
                 .uri("/v2/payments/captures/{id}/refund", captureId)
                 .headers(h -> {
@@ -110,6 +130,8 @@ public class PaypalService {
                 .body(Map.of())
                 .retrieve()
                 .body(JsonNode.class);
-        return res.get("status").asText();   // COMPLETED, PENDING, FAILED...
+        String status = res.get("status").asText();
+        log.info("PayPal refund for capture {} responded with status {}", captureId, status);
+        return status;   // COMPLETED, PENDING, FAILED...
     }
 }

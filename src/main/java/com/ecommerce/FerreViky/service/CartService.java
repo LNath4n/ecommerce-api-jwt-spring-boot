@@ -21,6 +21,8 @@ import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
 import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.service.storageService.contract.StorageService;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -39,6 +41,8 @@ import java.util.Optional;
 @Service
 @AllArgsConstructor
 public class CartService {
+
+    private static final Logger log = LoggerFactory.getLogger(CartService.class);
 
     private static final String CONCURRENT_CART_UPDATE_MESSAGE =
             "Another operation is updating your cart. Please try again.";
@@ -69,6 +73,8 @@ public class CartService {
      */
     @Transactional
     public void addOrUpdateCartItem(AddCartItemRequest addRequest, Customer customer) {
+        log.debug("Add to cart: customer={} product={} quantity={}",
+                customer.getId(), addRequest.productId(), addRequest.quantity());
         Product product = getActiveProduct(addRequest.productId(), addRequest.quantity());
         Cart cart = getOrCreateLockedCart(customer);
 
@@ -80,18 +86,24 @@ public class CartService {
         validateStockForAddition(product, currentQuantity, addRequest.quantity());
 
         if (existingItem.isPresent()) {
+            log.debug("Product {} already in cart, quantity {} -> {}",
+                    product.getId(), currentQuantity, newQuantity);
             existingItem.get().setQuantity(newQuantity);
         } else {
             ItemInCart newCartItem = new ItemInCart();
             newCartItem.setCart(cart);
             newCartItem.setProduct(product);
             newCartItem.setQuantity(newQuantity);
+            log.debug("Product {} added to cart as a new item, quantity {}", product.getId(), newQuantity);
             cart.getItems().add(newCartItem);
         }
 
         try {
             cartRepository.saveAndFlush(cart);
+            log.debug("Cart saved for customer {}", customer.getId());
         } catch (DataIntegrityViolationException e) {
+            log.warn("Concurrent cart update conflict for customer {} (product {})",
+                    customer.getId(), product.getId());
             throw new ConcurrentCartUpdateException(CONCURRENT_CART_UPDATE_MESSAGE);
         }
     }
@@ -112,15 +124,26 @@ public class CartService {
      */
     @Transactional
     public void updateCartItemQuantity(UpdateCartItemQuantityRequest quantityRequest, Customer customer) {
+        log.debug("Update cart quantity: customer={} product={} quantity={}",
+                customer.getId(), quantityRequest.productId(), quantityRequest.quantity());
         Cart cart = getLockedCartForUpdate(customer);
 
         ItemInCart cartItem = findCartItem(cart, quantityRequest.productId())
-                .orElseThrow(() -> new ProductNotInCartException(quantityRequest.productId()));
+                .orElseThrow(() -> {
+                    log.warn("Update rejected: product {} is not in the cart of customer {}",
+                            quantityRequest.productId(), customer.getId());
+                    return new ProductNotInCartException(quantityRequest.productId());
+                });
 
         if (quantityRequest.quantity() == 0) {
+            log.debug("Quantity 0 requested, removing product {} from cart of customer {}",
+                    quantityRequest.productId(), customer.getId());
             cart.getItems().remove(cartItem);
         } else {
             validateExactStock(cartItem.getProduct(), quantityRequest.quantity());
+            log.debug("Product {} quantity {} -> {} in cart of customer {}",
+                    quantityRequest.productId(), cartItem.getQuantity(),
+                    quantityRequest.quantity(), customer.getId());
             cartItem.setQuantity(quantityRequest.quantity());
         }
 
@@ -141,12 +164,18 @@ public class CartService {
      */
     @Transactional
     public void removeProductFromCart(Long productId, Customer customer) {
+        log.debug("Remove from cart: customer={} product={}", customer.getId(), productId);
         Cart cart = getLockedCartForUpdate(customer);
 
         ItemInCart cartItem = findCartItem(cart, productId)
-                .orElseThrow(() -> new ProductNotInCartException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Remove rejected: product {} is not in the cart of customer {}",
+                            productId, customer.getId());
+                    return new ProductNotInCartException(productId);
+                });
 
         cart.getItems().remove(cartItem);
+        log.debug("Product {} removed from cart of customer {}", productId, customer.getId());
     }
 
     /**
@@ -161,8 +190,12 @@ public class CartService {
      */
     @Transactional(readOnly = true)
     public CartResponse getCartByCustomer(Customer customer) {
+        log.debug("Fetching cart for customer {}", customer.getId());
         Cart cart = cartRepository.findByCustomerWithItems(customer)
-                .orElseThrow(() -> new CartNotFoundException(customer.getId()));
+                .orElseThrow(() -> {
+                    log.warn("No cart found for customer {}", customer.getId());
+                    return new CartNotFoundException(customer.getId());
+                });
 
         return toResponse(cart);
     }
@@ -180,8 +213,12 @@ public class CartService {
      */
     @Transactional(readOnly = true)
     public CartResponse getCartByCustomerId(Long customerId) {
+        log.debug("Fetching cart by customer id {}", customerId);
         Cart cart = cartRepository.findByCustomerId(customerId)
-                .orElseThrow(() -> new CartNotFoundException(customerId));
+                .orElseThrow(() -> {
+                    log.warn("No cart found for customer id {}", customerId);
+                    return new CartNotFoundException(customerId);
+                });
 
         return toResponse(cart);
     }
@@ -201,6 +238,7 @@ public class CartService {
     private Cart getOrCreateLockedCart(Customer customer) {
         return cartRepository.findByCustomerForUpdate(customer)
                 .orElseGet(() -> {
+                    log.info("No cart found for customer {}, creating one", customer.getId());
                     Cart newCart = new Cart();
                     newCart.setCustomer(customer);
                     newCart.setCreatedAt(LocalDateTime.now());
@@ -208,6 +246,7 @@ public class CartService {
                     try {
                         return cartRepository.saveAndFlush(newCart);
                     } catch (DataIntegrityViolationException e) {
+                        log.warn("Concurrent cart creation conflict for customer {}", customer.getId());
                         throw new ConcurrentCartUpdateException(CONCURRENT_CART_UPDATE_MESSAGE);
                     }
                 });
@@ -222,7 +261,10 @@ public class CartService {
      */
     private Cart getLockedCartForUpdate(Customer customer) {
         return cartRepository.findByCustomerForUpdate(customer)
-                .orElseThrow(() -> new CustomerCartNotFoundException(customer.getId()));
+                .orElseThrow(() -> {
+                    log.warn("Cart not found for customer {}", customer.getId());
+                    return new CustomerCartNotFoundException(customer.getId());
+                });
     }
 
     /**
@@ -254,10 +296,15 @@ public class CartService {
     private Product getActiveProduct(Long productId, int requestedQuantity) {
         Product product = productRepository.findById(productId)
                 .filter(Product::getActive)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Product {} not found or inactive", productId);
+                    return new ProductNotFoundException(productId);
+                });
 
-        if (requestedQuantity <= 0)
+        if (requestedQuantity <= 0) {
+            log.warn("Invalid quantity {} requested for product {}", requestedQuantity, productId);
             throw new InvalidQuantityException(requestedQuantity);
+        }
 
         return product;
     }
@@ -279,9 +326,15 @@ public class CartService {
         long availableStock = virtualCodeRepository
                 .countByProductIdAndStatus(product.getId(), CodeStatus.AVAILABLE);
 
-        if (currentQuantity + requestedQuantity > availableStock)
+        log.debug("Stock check for product {}: available={}, inCart={}, adding={}",
+                product.getId(), availableStock, currentQuantity, requestedQuantity);
+
+        if (currentQuantity + requestedQuantity > availableStock) {
+            log.info("Not enough stock for product {}: available={}, inCart={}, adding={}",
+                    product.getId(), availableStock, currentQuantity, requestedQuantity);
             throw new QuantityExceededException(
                     product.getName(), availableStock, currentQuantity, requestedQuantity);
+        }
     }
 
     /**
@@ -296,9 +349,15 @@ public class CartService {
         long availableStock = virtualCodeRepository
                 .countByProductIdAndStatus(product.getId(), CodeStatus.AVAILABLE);
 
-        if (desiredQuantity > availableStock)
+        log.debug("Stock check for product {}: available={}, desired={}",
+                product.getId(), availableStock, desiredQuantity);
+
+        if (desiredQuantity > availableStock) {
+            log.info("Not enough stock for product {}: available={}, desired={}",
+                    product.getId(), availableStock, desiredQuantity);
             throw new QuantityExceededException(
                     product.getName(), availableStock, desiredQuantity);
+        }
     }
 
     /**
@@ -314,7 +373,9 @@ public class CartService {
     @Transactional
     public void clearCart(Customer customer) {
         Cart cart = getLockedCartForUpdate(customer);
+        int itemCount = cart.getItems().size();
         cart.getItems().clear();
+        log.info("Cart cleared for customer {} ({} items removed)", customer.getId(), itemCount);
     }
 
     /**

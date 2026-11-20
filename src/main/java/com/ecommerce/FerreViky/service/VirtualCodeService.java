@@ -9,6 +9,8 @@ import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.utils.CodeHasher;
 import org.springframework.transaction.annotation.Transactional;
 import lombok.AllArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -17,6 +19,8 @@ import java.util.*;
 @Service
 @AllArgsConstructor
 public class VirtualCodeService {
+    private static final Logger log = LoggerFactory.getLogger(VirtualCodeService.class);
+
     private final VirtualCodeRepository virtualCodeRepository;
     private final ProductRepository productRepository;
     private final CodeHasher codeHasher;
@@ -28,8 +32,12 @@ public class VirtualCodeService {
     @Transactional
     public int addCodesToProduct(Long productId, List<String> codes) {
         Product product = productRepository.findById(productId)
-                .orElseThrow(() -> new ProductNotFoundException(productId));
+                .orElseThrow(() -> {
+                    log.warn("Cannot add codes: product {} not found", productId);
+                    return new ProductNotFoundException(productId);
+                });
 
+        log.debug("Adding codes to product {}: {} codes received", productId, codes.size());
         List<String> normalizedCodes = codes.stream()
                 .filter(Objects::nonNull)
                 .map(String::trim)
@@ -38,8 +46,11 @@ public class VirtualCodeService {
                 .toList();
 
         if (normalizedCodes.isEmpty()) {
+            log.warn("Cannot add codes to product {}: no valid codes were provided", productId);
             throw new IllegalArgumentException("No valid codes were provided.");
         }
+        log.debug("{} valid codes after normalization ({} discarded as null, blank or repeated)",
+                normalizedCodes.size(), codes.size() - normalizedCodes.size());
 
         // hash -> code (el hash es la identidad del código)
         Map<String, String> codesByHash = new LinkedHashMap<>();
@@ -49,6 +60,8 @@ public class VirtualCodeService {
 
         List<String> existingHashes = virtualCodeRepository.findExistingHashes(codesByHash.keySet());
         if (!existingHashes.isEmpty()) {
+            log.warn("Codes rejected for product {}: {} of {} already exist",
+                    productId, existingHashes.size(), codesByHash.size());
             throw new DuplicateCodesException(existingHashes.size());
         }
 
@@ -63,9 +76,12 @@ public class VirtualCodeService {
         try {
             virtualCodeRepository.saveAllAndFlush(newCodes);
         } catch (DataIntegrityViolationException e) {
+            // The exception is not logged on purpose: its message can include code hashes
+            log.warn("Codes rejected for product {}: duplicate detected by the database (concurrent insert)", productId);
             throw new DuplicateCodesException(0); // Race condition / Carrera
         }
 
+        log.info("{} codes added to product {}", newCodes.size(), productId);
         return newCodes.size();
     }
 
