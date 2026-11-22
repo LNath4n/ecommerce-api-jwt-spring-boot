@@ -24,16 +24,19 @@ public class PaypalService {
     private final RestClient rest;
     private final String clientId;
     private final String clientSecret;
+    private final String webhookId;
 
     private String accessToken;
     private Instant tokenExpiry = Instant.EPOCH;
 
     public PaypalService(RestClient paypalRestClient,
                          @Value("${paypal.client-id}") String clientId,
-                         @Value("${paypal.client-secret}") String clientSecret) {
+                         @Value("${paypal.client-secret}") String clientSecret,
+                         @Value("${paypal.webhook-id}") String webhookId) {
         this.rest = paypalRestClient;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
+        this.webhookId = webhookId;
     }
 
     // Token OAuth2 con caché: solo pide uno nuevo cuando está por expirar
@@ -133,5 +136,65 @@ public class PaypalService {
         String status = res.get("status").asText();
         log.info("PayPal refund for capture {} responded with status {}", captureId, status);
         return status;   // COMPLETED, PENDING, FAILED...
+    }
+
+    /**
+     * Verifies that a webhook really comes from PayPal, using PayPal's own verification API.
+     *
+     * <p>{@code rawBody} must be the exact text received. PayPal checks a CRC32 of it, so it
+     * is embedded as-is instead of being parsed and serialized again.
+     *
+     * @return {@code true} only if PayPal answers {@code SUCCESS}
+     * @throws RuntimeException if PayPal cannot be reached (the caller should let PayPal retry)
+     */
+    public boolean verifyWebhookSignature(String authAlgo, String certUrl, String transmissionId,
+                                          String transmissionSig, String transmissionTime,
+                                          String rawBody) {
+        String body = "{"
+                + "\"auth_algo\":" + jsonString(authAlgo) + ","
+                + "\"cert_url\":" + jsonString(certUrl) + ","
+                + "\"transmission_id\":" + jsonString(transmissionId) + ","
+                + "\"transmission_sig\":" + jsonString(transmissionSig) + ","
+                + "\"transmission_time\":" + jsonString(transmissionTime) + ","
+                + "\"webhook_id\":" + jsonString(webhookId) + ","
+                + "\"webhook_event\":" + rawBody
+                + "}";
+
+        log.debug("Calling PayPal verify-webhook-signature (transmission {})", transmissionId);
+        JsonNode res = rest.post()
+                .uri("/v1/notifications/verify-webhook-signature")
+                .headers(h -> h.setBearerAuth(getAccessToken()))
+                .contentType(MediaType.APPLICATION_JSON)
+                .body(body)
+                .retrieve()
+                .body(JsonNode.class);
+
+        String status = res == null ? null : res.path("verification_status").asText(null);
+        log.debug("PayPal webhook verification for transmission {} returned {}", transmissionId, status);
+        return "SUCCESS".equals(status);
+    }
+
+    private static String jsonString(String s) {
+        if (s == null) {
+            return "\"\"";
+        }
+        StringBuilder sb = new StringBuilder("\"");
+        for (char c : s.toCharArray()) {
+            switch (c) {
+                case '"' -> sb.append("\\\"");
+                case '\\' -> sb.append("\\\\");
+                case '\n' -> sb.append("\\n");
+                case '\r' -> sb.append("\\r");
+                case '\t' -> sb.append("\\t");
+                default -> {
+                    if (c < 0x20) {
+                        sb.append(String.format("\\u%04x", (int) c));
+                    } else {
+                        sb.append(c);
+                    }
+                }
+            }
+        }
+        return sb.append('"').toString();
     }
 }

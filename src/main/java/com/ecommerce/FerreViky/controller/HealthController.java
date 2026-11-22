@@ -25,7 +25,7 @@ import java.time.Instant;
 @Tag(name = "Health", description = "Checks the API status")
 public class HealthController {
 
-    private static final String VERSION = "5.1";
+    private static final String VERSION = "5.1.2";
     private static final String FEATURED = "Add email verification with DynamoDB";
     private static final Logger log = LoggerFactory.getLogger(HealthController.class);
 
