@@ -12,8 +12,6 @@ import java.util.Locale;
 public class CustomerDTO {
     @Schema(description = "Response after registering a new customer")
     public record CustomerCreatedResponse(
-            @Schema(description = "Generated customer ID", example = "42")
-            Long id,
 
             @Schema(description = "Registered email", example = "juan@gmail.com")
             String email
@@ -182,6 +180,29 @@ public class CustomerDTO {
         @JsonIgnore
         public boolean isPhoneNotBlankIfPresent() {
             return phone == null || !phone.isBlank();
+        }
+    }
+
+    @Schema(description = "Token received by email to verify the account")
+    public record VerifyEmailRequest(
+            @Schema(description = "Verification token from the email link", example = "q3Zk1x...")
+            @NotBlank(message = "Token is required")
+            @Size(max = 64, message = "Token is invalid")
+            @Pattern(regexp = "^[A-Za-z0-9_-]+$", message = "Token is invalid")
+            String token
+    ) {}
+
+    @Schema(description = "Email address that should receive a new verification email")
+    public record ResendVerificationRequest(
+            @Schema(description = "Customer email", example = "juan@gmail.com")
+            @NotBlank(message = "Email is required")
+            @Email(message = "Email format is invalid")
+            @NoNullChars
+            @Size(max = 254, message = "Email cannot exceed 254 characters")
+            String email
+    ) {
+        public ResendVerificationRequest {
+            email = email == null ? null : email.trim().toLowerCase(Locale.ROOT);
         }
     }
 }

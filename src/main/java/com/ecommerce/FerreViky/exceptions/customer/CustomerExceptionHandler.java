@@ -48,4 +48,17 @@ public class CustomerExceptionHandler {
     public ResponseEntity<String> handleEmailAlreadyOwned(CustomerExceptions.EmailAlreadyOwnedException ex) {
         return ResponseEntity.status(409).body(ex.getMessage());
     }
+
+    @ExceptionHandler(CustomerExceptions.EmailNotVerifiedException.class)
+    public ResponseEntity<Map<String, String>> handleEmailNotVerified(CustomerExceptions.EmailNotVerifiedException ex) {
+        // El mensaje de la excepción lleva el correo: no se devuelve al cliente
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(Map.of("error", "EMAIL_NOT_VERIFIED"));
+    }
+
+    @ExceptionHandler(CustomerExceptions.InvalidVerificationTokenException.class)
+    public ResponseEntity<Map<String, String>> handleInvalidVerificationToken(CustomerExceptions.InvalidVerificationTokenException ex) {
+        return ResponseEntity.badRequest()
+                .body(Map.of("error", "INVALID_VERIFICATION_TOKEN"));
+    }
 }

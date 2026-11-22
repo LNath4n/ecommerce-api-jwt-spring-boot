@@ -1,10 +1,10 @@
 {
   "info": {
-    "_postman_id": "cb8b786f-fbc7-4414-bddb-7b4383929577",
-    "name": "Postman Coleccion",
+    "_postman_id": "357b71ea-3420-49e3-b63d-a8f0c433d571",
+    "name": "Postman Coleccion Copy 2",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
     "_exporter_id": "49994754",
-    "_collection_link": "https://go.postman.co/collection/49994754-cb8b786f-fbc7-4414-bddb-7b4383929577?source=collection_link"
+    "_collection_link": "https://go.postman.co/collection/49994754-357b71ea-3420-49e3-b63d-a8f0c433d571?source=collection_link"
   },
   "item": [
     {
@@ -93,7 +93,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const cv = pm.collectionVariables;\r\nconst base = pm.variables.replaceIn('{{baseUrl}}');\r\nconst runId = Date.now();\r\nconst ALN = 'abcdefghjkmnpqrstuvwxyz23456789';\r\nconst rnd = n => Array.from({ length: n }, () => ALN[Math.floor(Math.random() * ALN.length)]).join('');\r\n\r\nconst post = (path, body) => new Promise((resolve, reject) => {\r\n  pm.sendRequest({\r\n    url: base + path,\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json' },\r\n    body: { mode: 'raw', raw: JSON.stringify(body) }\r\n  }, (err, res) => err ? reject(err) : resolve(res));\r\n});\r\n\r\n(async () => {\r\n  cv.set('runId', String(runId));\r\n\r\n  for (const i of [1, 2, 3]) {\r\n    const email = `qa.client${i}.${runId}.${rnd(4)}@example.com`;\r\n    const password = `Qa!${rnd(6)}9aA`;\r\n\r\n    // 1) Register\r\n    const reg = await post('/auth', { email, password });\r\n    if (reg.code >= 300) {\r\n      console.error(`Client ${i} registration failed`, reg.code, reg.text());\r\n      continue;\r\n    }\r\n\r\n    // 2) Login\r\n    const login = await post('/auth/login', { email, password });\r\n    if (login.code !== 200) {\r\n      console.error(`Client ${i} login failed`, login.code, login.text());\r\n      continue;\r\n    }\r\n\r\n    cv.set(`clientEmail${i}`, email);\r\n    cv.set(`clientPassword${i}`, password);\r\n    cv.set(`token${i}`, login.json().token);\r\n  }\r\n\r\n  cv.set('setupDone', '1');\r\n  console.log('Clients ready:', [1, 2, 3].map(i => cv.get(`clientEmail${i}`)));\r\n})();"
+                  "const cv = pm.collectionVariables;\r\nconst base = pm.variables.replaceIn('{{baseUrl}}');\r\nconst runId = Date.now();\r\n\r\nconst post = (path, body) => new Promise((resolve, reject) => {\r\n  pm.sendRequest({\r\n    url: base + path,\r\n    method: 'POST',\r\n    header: { 'Content-Type': 'application/json' },\r\n    body: { mode: 'raw', raw: JSON.stringify(body) }\r\n  }, (err, res) => err ? reject(err) : resolve(res));\r\n});\r\n\r\n(async () => {\r\n  cv.set('runId', String(runId));\r\n\r\n  for (const i of [1, 2, 3]) {\r\n    const email = `qa.client${i}@example.com`;\r\n    const password = 'Qa!client123';\r\n\r\n    const login = await post('/auth/login', { email, password });\r\n    if (login.code !== 200) {\r\n      console.error(`Client ${i} login failed`, login.code, login.text());\r\n      continue;\r\n    }\r\n\r\n    cv.set(`clientEmail${i}`, email);\r\n    cv.set(`clientPassword${i}`, password);\r\n    cv.set(`token${i}`, login.json().token);\r\n  }\r\n\r\n  cv.set('setupDone', '1');\r\n  console.log('Clients ready:', [1, 2, 3].map(i => cv.get(`clientEmail${i}`)));\r\n})();"
                 ]
               }
             },
@@ -102,35 +102,7 @@
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "const cv = pm.collectionVariables;",
-                  "const isJwt = t => typeof t === 'string' && t.split('.').length === 3;",
-                  "const expOf = t => {",
-                  "  try {",
-                  "    const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');",
-                  "    return JSON.parse(atob(p)).exp * 1000;",
-                  "  } catch (e) { return 0; }",
-                  "};",
-                  "",
-                  "[1, 2, 3].forEach(i => {",
-                  "  pm.test(`Client ${i}: email, password, and token are saved`, () => {",
-                  "    pm.expect(cv.get(`clientEmail${i}`), 'email').to.be.a('string').and.not.empty;",
-                  "    pm.expect(cv.get(`clientPassword${i}`), 'password').to.have.length.within(8, 72);",
-                  "    pm.expect(isJwt(cv.get(`token${i}`)), 'JWT-formatted token').to.be.true;",
-                  "  });",
-                  "",
-                  "  pm.test(`Client ${i}: token is valid`, () => {",
-                  "    pm.expect(expOf(cv.get(`token${i}`))).to.be.above(Date.now());",
-                  "  });",
-                  "});",
-                  "",
-                  "pm.test('All 3 emails and all 3 tokens are unique', () => {",
-                  "  const emails = [1, 2, 3].map(i => cv.get(`clientEmail${i}`));",
-                  "  const tokens = [1, 2, 3].map(i => cv.get(`token${i}`));",
-                  "  pm.expect(new Set(emails).size).to.equal(3);",
-                  "  pm.expect(new Set(tokens).size).to.equal(3);",
-                  "});",
-                  "",
-                  "pm.test('setupDone is active', () => pm.expect(cv.get('setupDone')).to.equal('1'));"
+                  "const cv = pm.collectionVariables;\nconst isJwt = t => typeof t === 'string' && t.split('.').length === 3;\nconst expOf = t => {\n  try {\n    const p = t.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');\n    return JSON.parse(atob(p)).exp * 1000;\n  } catch (e) { return 0; }\n};\n\n[1, 2, 3].forEach(i => {\n  pm.test(`Client ${i}: email, password, and token are saved`, () => {\n    pm.expect(cv.get(`clientEmail${i}`), 'email').to.be.a('string').and.not.empty;\n    pm.expect(cv.get(`clientPassword${i}`), 'password').to.have.length.within(8, 72);\n    pm.expect(isJwt(cv.get(`token${i}`)), 'JWT-formatted token').to.be.true;\n  });\n\n  pm.test(`Client ${i}: token is valid`, () => {\n    pm.expect(expOf(cv.get(`token${i}`))).to.be.above(Date.now());\n  });\n});\n\npm.test('All 3 emails and all 3 tokens are unique', () => {\n  const emails = [1, 2, 3].map(i => cv.get(`clientEmail${i}`));\n  const tokens = [1, 2, 3].map(i => cv.get(`token${i}`));\n  pm.expect(new Set(emails).size).to.equal(3);\n  pm.expect(new Set(tokens).size).to.equal(3);\n});\n\npm.test('setupDone is active', () => pm.expect(cv.get('setupDone')).to.equal('1'));"
                 ]
               }
             }
@@ -6555,44 +6527,7 @@
                   "script": {
                     "type": "text/javascript",
                     "exec": [
-                      "const cv = pm.collectionVariables;",
-                      "const base = pm.variables.replaceIn('{{baseUrl}}');",
-                      "",
-                      "// DECIDE your rule: true = the old email is free, false = it is reserved (409)",
-                      "const EXPECT_FREE = true;",
-                      "",
-                      "pm.test(\"Never responds with 5xx\", () => pm.expect(pm.response.code).to.be.below(500));",
-                      "",
-                      "if (EXPECT_FREE) {",
-                      "  pm.test(\"Old email can be registered again → 200/201\", () => {",
-                      "    pm.expect(pm.response.code, pm.response.text().slice(0, 200)).to.be.oneOf([200, 201]);",
-                      "  });",
-                      "} else {",
-                      "  pm.test(\"Old email is reserved → 409\", () => pm.expect(pm.response.code).to.eql(409));",
-                      "}",
-                      "",
-                      "if (EXPECT_FREE && [200, 201].includes(pm.response.code)) {",
-                      "  const send = (path, method, headers, body) => new Promise(resolve => {",
-                      "    pm.sendRequest({",
-                      "      url: base + path, method,",
-                      "      header: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),",
-                      "      body: body ? { mode: 'raw', raw: JSON.stringify(body) } : undefined",
-                      "    }, (err, res) => resolve({ err, res }));",
-                      "  });",
-                      "",
-                      "  (async () => {",
-                      "    const login = await send('/auth/login', 'POST', {}, { email: cv.get('oldEmail2'), password: cv.get('reclaimPassword') });",
-                      "    pm.test(\"New owner of the old email can log in\", () => pm.expect(login.res.code).to.eql(200));",
-                      "",
-                      "    const oldPass = await send('/auth/login', 'POST', {}, { email: cv.get('oldEmail2'), password: cv.get('clientPassword2') });",
-                      "    pm.test(\"Previous owner's password does NOT work on the re-registered email\", () => pm.expect(oldPass.res.code).to.eql(401));",
-                      "",
-                      "    // informational: the stale token from [0144] now points at the NEW owner's email",
-                      "    const stale = await send('/customer', 'GET', { Authorization: 'Bearer ' + cv.get('oldToken2') });",
-                      "    console.log('[0147] OLD token2 against the re-registered account ->', stale.res && stale.res.code);",
-                      "    pm.test(\"Stale token of the previous owner is rejected (informational)\", () => pm.expect(stale.res.code).to.eql(401));",
-                      "  })();",
-                      "}"
+                      "const cv = pm.collectionVariables;\nconst base = pm.variables.replaceIn('{{baseUrl}}');\n\n// DECIDE your rule: true = the old email is free, false = it is reserved (409)\nconst EXPECT_FREE = true;\n\npm.test(\"Never responds with 5xx\", () => pm.expect(pm.response.code).to.be.below(500));\n\nif (EXPECT_FREE) {\n  pm.test(\"Old email can be registered again → 200/201\", () => {\n    pm.expect(pm.response.code, pm.response.text().slice(0, 200)).to.be.oneOf([200, 201]);\n  });\n} else {\n  pm.test(\"Old email is reserved → 409\", () => pm.expect(pm.response.code).to.eql(409));\n}\n\nif (EXPECT_FREE && [200, 201].includes(pm.response.code)) {\n  const send = (path, method, headers, body) => new Promise(resolve => {\n    pm.sendRequest({\n      url: base + path, method,\n      header: Object.assign({ 'Content-Type': 'application/json' }, headers || {}),\n      body: body ? { mode: 'raw', raw: JSON.stringify(body) } : undefined\n    }, (err, res) => resolve({ err, res }));\n  });\n\n  (async () => {\n    // Account is created but not active/verified yet → login returns 403\n    const login = await send('/auth/login', 'POST', {}, { email: cv.get('oldEmail2'), password: cv.get('reclaimPassword') });\n    pm.test(\"New owner of the old email gets 403 on login (account not verified/active yet)\", () => {\n      pm.expect(login.res.code, login.res.text().slice(0, 300)).to.eql(403);\n    });\n\n    // Old password must never give access (401 or 403 depending on check order)\n    const oldPass = await send('/auth/login', 'POST', {}, { email: cv.get('oldEmail2'), password: cv.get('clientPassword2') });\n    pm.test(\"Previous owner's password does NOT work (401 or 403, never 200)\", () => {\n      pm.expect(oldPass.res.code, oldPass.res.text().slice(0, 300)).to.be.oneOf([401, 403]);\n    });\n\n    // informational: the stale token from [0144] now points at the NEW owner's email\n    const stale = await send('/customer', 'GET', { Authorization: 'Bearer ' + cv.get('oldToken2') });\n    console.log('[0147] OLD token2 against the re-registered account ->', stale.res && stale.res.code);\n    pm.test(\"Stale token of the previous owner is rejected (informational)\", () => {\n      pm.expect(stale.res.code, (stale.res.text() || '').slice(0, 300)).to.be.oneOf([401, 403]);\n    });\n  })();\n}"
                     ]
                   }
                 },
@@ -20113,6 +20048,370 @@
     {
       "key": "adminPassword",
       "value": "1234567890"
+    },
+    {
+      "key": "adminToken",
+      "value": ""
+    },
+    {
+      "key": "runId",
+      "value": ""
+    },
+    {
+      "key": "clientEmail1",
+      "value": ""
+    },
+    {
+      "key": "clientPassword1",
+      "value": ""
+    },
+    {
+      "key": "token1",
+      "value": ""
+    },
+    {
+      "key": "clientEmail2",
+      "value": ""
+    },
+    {
+      "key": "clientPassword2",
+      "value": ""
+    },
+    {
+      "key": "token2",
+      "value": ""
+    },
+    {
+      "key": "clientEmail3",
+      "value": ""
+    },
+    {
+      "key": "clientPassword3",
+      "value": ""
+    },
+    {
+      "key": "token3",
+      "value": ""
+    },
+    {
+      "key": "setupDone",
+      "value": ""
+    },
+    {
+      "key": "categoryId1",
+      "value": ""
+    },
+    {
+      "key": "categoryName1",
+      "value": ""
+    },
+    {
+      "key": "categoryId2",
+      "value": ""
+    },
+    {
+      "key": "categoryName2",
+      "value": ""
+    },
+    {
+      "key": "categoryId3",
+      "value": ""
+    },
+    {
+      "key": "categoryName3",
+      "value": ""
+    },
+    {
+      "key": "categoryId",
+      "value": ""
+    },
+    {
+      "key": "productId1",
+      "value": ""
+    },
+    {
+      "key": "productSku1",
+      "value": ""
+    },
+    {
+      "key": "productName1",
+      "value": ""
+    },
+    {
+      "key": "productType1",
+      "value": ""
+    },
+    {
+      "key": "productPrice1",
+      "value": ""
+    },
+    {
+      "key": "productCategoryId1",
+      "value": ""
+    },
+    {
+      "key": "productId2",
+      "value": ""
+    },
+    {
+      "key": "productSku2",
+      "value": ""
+    },
+    {
+      "key": "productName2",
+      "value": ""
+    },
+    {
+      "key": "productType2",
+      "value": ""
+    },
+    {
+      "key": "productPrice2",
+      "value": ""
+    },
+    {
+      "key": "productId3",
+      "value": ""
+    },
+    {
+      "key": "productSku3",
+      "value": ""
+    },
+    {
+      "key": "productName3",
+      "value": ""
+    },
+    {
+      "key": "productType3",
+      "value": ""
+    },
+    {
+      "key": "productPrice3",
+      "value": ""
+    },
+    {
+      "key": "productCategoryId3",
+      "value": ""
+    },
+    {
+      "key": "productId4",
+      "value": ""
+    },
+    {
+      "key": "productSku4",
+      "value": ""
+    },
+    {
+      "key": "productName4",
+      "value": ""
+    },
+    {
+      "key": "productType4",
+      "value": ""
+    },
+    {
+      "key": "productPrice4",
+      "value": ""
+    },
+    {
+      "key": "productCategoryId4",
+      "value": ""
+    },
+    {
+      "key": "productId5",
+      "value": ""
+    },
+    {
+      "key": "productSku5",
+      "value": ""
+    },
+    {
+      "key": "productName5",
+      "value": ""
+    },
+    {
+      "key": "productType5",
+      "value": ""
+    },
+    {
+      "key": "productPrice5",
+      "value": ""
+    },
+    {
+      "key": "prodSku",
+      "value": ""
+    },
+    {
+      "key": "tipoValido",
+      "value": ""
+    },
+    {
+      "key": "codesExpected1",
+      "value": ""
+    },
+    {
+      "key": "codesSaved1",
+      "value": ""
+    },
+    {
+      "key": "productCodes1",
+      "value": ""
+    },
+    {
+      "key": "codesExpected2",
+      "value": ""
+    },
+    {
+      "key": "codesSaved2",
+      "value": ""
+    },
+    {
+      "key": "productCodes2",
+      "value": ""
+    },
+    {
+      "key": "codesExpected3",
+      "value": ""
+    },
+    {
+      "key": "codesSaved3",
+      "value": ""
+    },
+    {
+      "key": "productCodes3",
+      "value": ""
+    },
+    {
+      "key": "codesExpected4",
+      "value": ""
+    },
+    {
+      "key": "codesExpected5",
+      "value": ""
+    },
+    {
+      "key": "dupLowerStatus",
+      "value": ""
+    },
+    {
+      "key": "dupLowerBody",
+      "value": ""
+    },
+    {
+      "key": "longEmail",
+      "value": ""
+    },
+    {
+      "key": "tokenLoginA",
+      "value": ""
+    },
+    {
+      "key": "tokenLoginAStatus",
+      "value": ""
+    },
+    {
+      "key": "profileBefore",
+      "value": ""
+    },
+    {
+      "key": "oldEmail2",
+      "value": ""
+    },
+    {
+      "key": "oldToken2",
+      "value": ""
+    },
+    {
+      "key": "newEmail2",
+      "value": ""
+    },
+    {
+      "key": "reclaimPassword",
+      "value": ""
+    },
+    {
+      "key": "oldPassword3",
+      "value": ""
+    },
+    {
+      "key": "oldToken3",
+      "value": ""
+    },
+    {
+      "key": "newPassword3",
+      "value": ""
+    },
+    {
+      "key": "sessionA3",
+      "value": ""
+    },
+    {
+      "key": "sessionB3",
+      "value": ""
+    },
+    {
+      "key": "client2Password",
+      "value": ""
+    },
+    {
+      "key": "fotoA",
+      "value": ""
+    },
+    {
+      "key": "fotoB",
+      "value": ""
+    },
+    {
+      "key": "fotoC",
+      "value": ""
+    },
+    {
+      "key": "fotoExif",
+      "value": ""
+    },
+    {
+      "key": "cartUnitPrice",
+      "value": ""
+    },
+    {
+      "key": "cartProductId",
+      "value": ""
+    },
+    {
+      "key": "cartBefore",
+      "value": ""
+    },
+    {
+      "key": "deactivateStatus",
+      "value": ""
+    },
+    {
+      "key": "deactivateBody",
+      "value": ""
+    },
+    {
+      "key": "cartSnapshot",
+      "value": ""
+    },
+    {
+      "key": "cartProdSku",
+      "value": ""
+    },
+    {
+      "key": "cartProdName",
+      "value": ""
+    },
+    {
+      "key": "prodCartId",
+      "value": ""
+    },
+    {
+      "key": "raceRounds",
+      "value": ""
+    },
+    {
+      "key": "raceResults",
+      "value": ""
     }
   ]
 }

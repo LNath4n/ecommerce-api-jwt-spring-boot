@@ -1,10 +1,12 @@
 package com.ecommerce.FerreViky.configuration;
 
+import com.ecommerce.FerreViky.models.Cart;
 import com.ecommerce.FerreViky.models.Customer;
 import com.ecommerce.FerreViky.models.Customer.Role;
 import com.ecommerce.FerreViky.models.Product;
 import com.ecommerce.FerreViky.models.Product.ProductType;
 import com.ecommerce.FerreViky.models.VirtualCode;
+import com.ecommerce.FerreViky.repository.CartRepository;
 import com.ecommerce.FerreViky.repository.CustomerRepository;
 import com.ecommerce.FerreViky.repository.ProductRepository;
 import com.ecommerce.FerreViky.repository.VirtualCodeRepository;
@@ -16,6 +18,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -29,10 +32,13 @@ public class AdminSeeder implements CommandLineRunner {
     private final VirtualCodeRepository virtualCodeRepository;
     private final PasswordEncoder passwordEncoder;
     private final CodeHasher codeHasher;
+    private final CartRepository cartRepository;
+    private static final String QA_CLIENT_PASSWORD = "Qa!client123";
 
     @Override
     public void run(String... args) {
         String email = "admin@admin.com";
+        seedQaClients();
 
         if (!customerRepository.existsByEmail(email)) {
             customerRepository.save(Customer.builder()
@@ -40,6 +46,7 @@ public class AdminSeeder implements CommandLineRunner {
                     .password(passwordEncoder.encode("1234567890"))
                     .role(Role.ADMIN)
                     .name("Admin")
+                    .emailVerified(true)
                     .build());
         }
 
@@ -88,6 +95,27 @@ public class AdminSeeder implements CommandLineRunner {
 
         if (!codesToSave.isEmpty()) {
             virtualCodeRepository.saveAll(codesToSave);
+        }
+    }
+
+
+    private void seedQaClients() {
+        for (int i = 1; i <= 3; i++) {
+            String clientEmail = "qa.client" + i + "@example.com";
+            if (customerRepository.existsByEmail(clientEmail)) continue;
+
+            Customer client = customerRepository.save(Customer.builder()
+                    .email(clientEmail)
+                    .password(passwordEncoder.encode(QA_CLIENT_PASSWORD))
+                    .role(Role.USER)
+                    .name("QA Client " + i)
+                    .emailVerified(true)
+                    .build());
+
+            Cart cart = new Cart();
+            cart.setCustomer(client);
+            cart.setCreatedAt(LocalDateTime.now());
+            cartRepository.save(cart);
         }
     }
 }

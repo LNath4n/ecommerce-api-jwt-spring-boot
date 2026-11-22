@@ -57,6 +57,10 @@ public class Customer implements UserDetails {
     private boolean active = true;
 
     @Builder.Default
+    @Column(name = "email_verified", nullable = false, columnDefinition = "boolean default true")
+    private boolean emailVerified = false;
+
+    @Builder.Default
     @Column(name = "token_version", nullable = false, columnDefinition = "integer default 0")
     private int tokenVersion = 0;
     @Override

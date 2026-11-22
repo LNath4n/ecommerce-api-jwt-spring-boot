@@ -13,13 +13,22 @@ import java.time.Duration;
 @Component
 public class CaffeineBucketProvider implements BucketProvider {
 
-    private final Cache<String, Bucket> buckets = Caffeine.newBuilder().expireAfterAccess(Duration.ofMinutes(2)).maximumSize(50_000).build();
+    // Debe ser mayor que el periodo más largo de RateLimitType (RESEND_EMAIL = 1 hora),
+    // si no el bucket se borraría (y se reiniciaría) antes de recargarse.
+    // maximumSize acota la memoria.
+    private final Cache<String, Bucket> buckets = Caffeine.newBuilder()
+            .expireAfterAccess(Duration.ofHours(2))
+            .maximumSize(50_000)
+            .build();
 
     @Override
     public Bucket bucketFor(String key, RateLimitType type) {
         // El tipo va en la clave para que cada tipo tenga su propio bucket
-        //Al final la cubeta se ve algo asi "AUTH:ip:192.168.1.5"
-        //Bandwith... Cada minuto se rellena de golpe
-        return buckets.get(type.name() + ":" + key, ignored -> Bucket.builder().addLimit(Bandwidth.classic(type.getCapacity(), Refill.intervally(type.getCapacity(), Duration.ofMinutes(1)))).build());
+        // Al final la cubeta se ve algo asi "AUTH:ip:192.168.1.5"
+        // Bandwidth: al terminar el periodo del tipo se rellena de golpe
+        return buckets.get(type.name() + ":" + key, ignored -> Bucket.builder()
+                .addLimit(Bandwidth.classic(type.getCapacity(),
+                        Refill.intervally(type.getCapacity(), type.getPeriod())))
+                .build());
     }
 }

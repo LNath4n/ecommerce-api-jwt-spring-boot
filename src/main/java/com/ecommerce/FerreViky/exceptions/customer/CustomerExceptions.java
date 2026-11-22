@@ -51,4 +51,16 @@ public class CustomerExceptions {
             super("Customer with ID " + id + " was modified by another operation", cause);
         }
     }
+
+    public static class EmailNotVerifiedException extends RuntimeException {
+        public EmailNotVerifiedException(String email) {
+            super("Email not verified: " + email);
+        }
+    }
+
+    public static class InvalidVerificationTokenException extends RuntimeException {
+        public InvalidVerificationTokenException() {
+            super("Verification token is invalid, expired or already used");
+        }
+    }
 }

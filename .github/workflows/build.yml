@@ -34,9 +34,16 @@ jobs:
           --health-interval 5s
           --health-timeout 5s
           --health-retries 10
+      floci:
+        image: floci/floci:latest
+        ports: ["4566:4566"]
+      mailpit:
+        image: axllent/mailpit
+        ports: ["1025:1025", "8025:8025"]
 
     env:
       SPRING_PROFILES_ACTIVE: dev   # enables the Seeder
+      SPRING_DOCKER_COMPOSE_ENABLED: "false"   # los services de arriba reemplazan al compose.yaml
       DB_SERVER: localhost
       DB_NAME: ferreviky
       DB_USERNAME: postgres
