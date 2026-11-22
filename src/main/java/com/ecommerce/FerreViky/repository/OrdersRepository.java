@@ -31,4 +31,6 @@ public interface OrdersRepository extends JpaRepository<Orders, Long> {
     @Query("SELECT o.id FROM Orders o WHERE o.buyer = :buyer AND o.status = :status")
     List<Long> findIdsByBuyerAndStatus(@Param("buyer") Customer buyer,
                                        @Param("status") OrderStatus status);
+
+    Optional<Orders> findByPaypalOrderId(String paypalOrderId);
 }

@@ -232,6 +232,53 @@ public class CheckoutService {
                     return new OrderNotFoundException();
                 });
 
+        return confirmOrder(order);
+    }
+
+    /**
+     * Webhook entry point (CHECKOUT.ORDER.APPROVED): captures the payment when the buyer
+     * approved it in PayPal but never came back to the app (closed the tab, lost connection).
+     * Same flow and same guarantees as {@link #confirmPayment(String, Customer)}, without a
+     * customer because the webhook has no session; the order is found by its PayPal id.
+     *
+     * @param paypalOrderId PayPal order id sent by the webhook
+     * @return the order in its resulting state
+     * @throws OrderNotFoundException if no local order has that PayPal id (it can also be a
+     *                                webhook that arrived before {@link #checkout(Customer)}
+     *                                saved the id, so the caller lets PayPal retry)
+     */
+    public Orders confirmFromWebhook(String paypalOrderId) {
+        log.info("Webhook confirm for PayPal order {}", paypalOrderId);
+        Orders order = ordersRepository.findByPaypalOrderId(paypalOrderId)
+                .orElseThrow(() -> {
+                    log.warn("Webhook confirm: PayPal order {} not found", paypalOrderId);
+                    return new OrderNotFoundException();
+                });
+        return confirmOrder(order);
+    }
+
+    /**
+     * Webhook entry point (capture completed, denied, etc.): lets the reconciliation logic
+     * decide from the real PayPal state. Completes the order if PayPal charged it,
+     * otherwise releases it. See {@link #expireOrReconcile(Long)}.
+     *
+     * @param paypalOrderId PayPal order id sent by the webhook
+     * @throws OrderNotFoundException if no local order has that PayPal id
+     */
+    public void reconcileFromWebhook(String paypalOrderId) {
+        log.info("Webhook reconcile for PayPal order {}", paypalOrderId);
+        Orders order = ordersRepository.findByPaypalOrderId(paypalOrderId)
+                .orElseThrow(() -> {
+                    log.warn("Webhook reconcile: PayPal order {} not found", paypalOrderId);
+                    return new OrderNotFoundException();
+                });
+        expireOrReconcile(order.getId());
+    }
+
+    /** Shared capture flow for the buyer's confirm call and the webhook. */
+    private Orders confirmOrder(Orders order) {
+        String paypalOrderId = order.getPaypalOrderId();
+
         if (order.getStatus() == OrderStatus.PAID
                 || order.getStatus() == OrderStatus.REFUNDED) {   // E1: idempotent
             log.info("Order {} is already {}, returning without charging again",
