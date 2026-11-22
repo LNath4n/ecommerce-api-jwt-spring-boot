@@ -178,7 +178,7 @@ jobs:
             --instance-ids $INSTANCE_ID \
             --document-name AWS-RunShellScript \
             --comment "deploy ${{ github.sha }}" \
-            --parameters 'commands=["/home/ec2-user/deploy.sh ${{ github.sha }}"]' \
+            --parameters 'commands=["/home/ec2-user/deploy.sh ${{ github.sha }} ${{ github.run_number }}"]' \
             --timeout-seconds 600 \
             --query Command.CommandId --output text)
 
