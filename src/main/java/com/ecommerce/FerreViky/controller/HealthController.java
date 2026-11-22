@@ -36,8 +36,16 @@ public class HealthController {
     @Value("${app.dynamodb.verification-table}")
     private String verificationTable;
 
+    @Value("${APP_COMMIT:unknown}")
+    private String commit;
+
+    @Value("${APP_DEPLOY:0}")
+    private String deploy;
+
     public record HealthResponse(
             String version,
+            String deploy,
+            String commit,
             String featured,
             String status,
             String database,
@@ -55,6 +63,8 @@ public class HealthController {
 
         HealthResponse body = new HealthResponse(
                 VERSION,
+                deploy,
+                commit,
                 FEATURED,
                 dbUp ? (redisUp && dynamoUp ? "UP" : "DEGRADED") : "DOWN",
                 dbUp ? "UP" : "DOWN",
