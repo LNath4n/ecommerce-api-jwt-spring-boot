@@ -61,7 +61,7 @@ public class RedisBucketProvider implements BucketProvider {
     public Bucket bucketFor(String key, RateLimitType type) {
         BucketConfiguration config = BucketConfiguration.builder()
                 .addLimit(Bandwidth.classic(type.getCapacity(),
-                        Refill.intervally(type.getCapacity(), Duration.ofMinutes(1))))
+                        Refill.intervally(type.getCapacity(), type.getPeriod())))
                 .build();
 
         // Misma clave que Caffeine: "AUTH:ip:192.168.1.5"
@@ -87,7 +87,8 @@ public class RedisBucketProvider implements BucketProvider {
                     StatefulRedisConnection<String, byte[]> conn =
                             c.connect(RedisCodec.of(StringCodec.UTF8, ByteArrayCodec.INSTANCE));
 
-                    // TTL de la clave: equivalente al expireAfterAccess de Caffeine
+                    // TTL de la clave = tiempo que tarda en recargarse el bucket + 2 min.
+                    // Se adapta solo al periodo de cada tipo (1 min, 1 hora...).
                     LettuceBasedProxyManager<String> built = LettuceBasedProxyManager.builderFor(conn)
                             .withExpirationStrategy(
                                     ExpirationAfterWriteStrategy.basedOnTimeForRefillingBucketUpToMax(Duration.ofMinutes(2)))

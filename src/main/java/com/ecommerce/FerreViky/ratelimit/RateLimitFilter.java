@@ -113,6 +113,8 @@ public class RateLimitFilter extends OncePerRequestFilter {
     private RateLimitType typeFor(HttpServletRequest request) {
         String path = request.getServletPath();
         //El orden importa por que admin y admin/image llevan admin // Order matters because admin and admin/image both contain admin
+        // resend-verification va antes que /auth porque tiene su propio límite, más estricto
+        if (path.equals("/auth/resend-verification")) return RateLimitType.RESEND_IP;
         if (path.startsWith("/auth")) return RateLimitType.AUTH;
         if (path.equals("/customer/photo") || path.equals("/admin/products/image")) return RateLimitType.UPLOAD;
         if (path.startsWith("/admin")) return RateLimitType.ADMIN;
@@ -122,7 +124,7 @@ public class RateLimitFilter extends OncePerRequestFilter {
 
     private String clientKey(HttpServletRequest request, RateLimitType type) {
 
-        if (type == RateLimitType.AUTH) {
+        if (type == RateLimitType.AUTH || type == RateLimitType.RESEND_IP) {
             return "ip:" + clientIp(request); //No hay sesion entonces IP // There is no session, so use the IP
         }
 

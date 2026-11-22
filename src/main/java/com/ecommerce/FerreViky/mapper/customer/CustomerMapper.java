@@ -34,9 +34,7 @@ public class CustomerMapper {
      * @return response DTO with the minimum details needed for confirmation
      */
     public CustomerCreatedResponse toCustomerCreatedResponse(Customer customer) {
-        return new CustomerCreatedResponse(
-                customer.getId(), customer.getEmail()
-        );
+        return new CustomerCreatedResponse(customer.getEmail());
     }
 
     public PublicCustomerResponse toPublicCustomerResponse(Customer customer, String photoUrl) {

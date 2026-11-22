@@ -107,6 +107,7 @@ public class JwtService {
                 && uid != null && uid.equals(customer.getId())
                 && tv != null && tv == customer.getTokenVersion()
                 && !isTokenExpired(token)
+                && customer.isEmailVerified()
                 && userDetails.isEnabled();
     }
 
